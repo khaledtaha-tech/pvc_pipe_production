@@ -1,0 +1,355 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+}
+
+/* Custom scrollbars (Dark mode default) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ========================================================
+   WARM INDUSTRIAL LUXURY LIGHT THEME (Inspired by Blown Film Pro)
+   Warm sand canvas (#f4efe6) + Warm ivory cards (#ffffff / #fcfaf7)
+   + Crisp charcoal typography + Refined teal/cyan accents
+   ======================================================== */
+
+html.light {
+  color-scheme: light;
+}
+
+html.light body {
+  background-color: #f2eee7 !important;
+  color: #1e293b !important;
+}
+
+/* Page canvas / main wrappers */
+html.light .bg-slate-950,
+html.light main {
+  background-color: #f2eee7 !important;
+}
+
+/* Card containers, tables, modals, dropdowns */
+html.light .bg-slate-900,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/70,
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/50 {
+  background-color: #ffffff !important;
+}
+
+/* Neutralize ALL dark linear gradients in light mode */
+html.light [class*="bg-gradient-to-r from-slate-"],
+html.light [class*="bg-gradient-to-r from-zinc-"],
+html.light [class*="from-slate-900"],
+html.light [class*="via-slate-900"],
+html.light [class*="to-slate-950"],
+html.light [class*="to-indigo-950"] {
+  background-image: none !important;
+  background-color: #ffffff !important;
+}
+
+/* Secondary toolbars, sub-views, button backgrounds, inner chips and widgets */
+html.light .bg-slate-800,
+html.light .bg-slate-800\/90,
+html.light .bg-slate-800\/80,
+html.light .bg-slate-800\/70,
+html.light .bg-slate-800\/60,
+html.light .bg-slate-800\/50,
+html.light .bg-slate-800\/40,
+html.light .bg-slate-800\/30,
+html.light .bg-slate-800\/20,
+html.light .bg-slate-900 .bg-slate-950,
+html.light div.bg-slate-950 {
+  background-color: #faf7f2 !important;
+}
+
+/* Hover surfaces */
+html.light .hover\:bg-slate-900:hover,
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-slate-800\/80:hover,
+html.light .hover\:bg-slate-800\/40:hover,
+html.light .hover\:bg-slate-800\/30:hover,
+html.light .hover\:bg-slate-700:hover {
+  background-color: #eee7da !important;
+}
+
+/* Warm Borders */
+html.light .border-slate-800,
+html.light .border-slate-800\/90,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/70,
+html.light .border-slate-800\/60,
+html.light .border-slate-700,
+html.light .border-slate-700\/80,
+html.light .border-slate-700\/60 {
+  border-color: #dfd7ca !important;
+}
+
+html.light .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-slate-800\/70 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #eee7da !important;
+}
+
+/* Sticky Header in Light Mode */
+html.light header {
+  background-color: rgba(236, 230, 219, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid #d8d0c2 !important;
+  box-shadow: 0 2px 10px -2px rgba(120, 113, 108, 0.06) !important;
+}
+
+/* Header Gradient Text in Light Mode (fixes invisible white title) */
+html.light h1.bg-clip-text,
+html.light .bg-clip-text {
+  background-image: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0891b2 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Typography Overrides */
+html.light .text-white,
+html.light .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-200,
+html.light .text-slate-300 {
+  color: #1e293b !important;
+}
+
+html.light .text-slate-400 {
+  color: #57534e !important;
+}
+
+html.light .text-slate-500 {
+  color: #78716c !important;
+}
+
+/* Table container, headers and rows */
+html.light thead {
+  background-color: #ece6db !important;
+  color: #1e293b !important;
+  border-bottom: 2px solid #d8d0c2 !important;
+}
+
+html.light thead th {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+html.light thead th[class*="bg-teal-950"] {
+  background-color: #e2f0ee !important;
+  color: #0f766e !important;
+}
+
+html.light thead th[class*="bg-blue-950"] {
+  background-color: #e6f0fa !important;
+  color: #1d4ed8 !important;
+}
+
+html.light thead th[class*="bg-slate-800"] {
+  background-color: #ece6db !important;
+  color: #374151 !important;
+}
+
+html.light tbody tr {
+  background-color: #ffffff !important;
+}
+
+html.light tbody tr:hover {
+  background-color: #faf7f2 !important;
+}
+
+html.light td {
+  border-color: #eee7da !important;
+}
+
+/* Form Inputs, Selects, and Dropdowns */
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #dfd7ca !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+html.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #a8a29e !important;
+}
+
+/* ========================================================
+   REFINED PASTEL PILL BADGES & ACCENTS FOR LIGHT MODE
+   ======================================================== */
+
+/* Actual Log & Emerald Badges */
+html.light [class*="bg-emerald-950"] {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+html.light [class*="text-emerald-300"],
+html.light [class*="text-emerald-400"] {
+  color: #065f46 !important;
+}
+html.light [class*="border-emerald-800"] {
+  border-color: #a7f3d0 !important;
+}
+
+/* ERP Log & Purple Badges */
+html.light [class*="bg-purple-950"] {
+  background-color: #f5f3ff !important;
+  border-color: #ddd6fe !important;
+}
+html.light [class*="text-purple-300"],
+html.light [class*="text-purple-400"] {
+  color: #6b21a8 !important;
+}
+html.light [class*="border-purple-800"] {
+  border-color: #ddd6fe !important;
+}
+
+/* Diameter & Teal Badges */
+html.light [class*="bg-teal-950"] {
+  background-color: #f0fdfa !important;
+  border-color: #99f6e4 !important;
+}
+html.light [class*="text-teal-300"],
+html.light [class*="text-teal-400"] {
+  color: #0f766e !important;
+}
+html.light [class*="border-teal-800"] {
+  border-color: #99f6e4 !important;
+}
+
+/* Primary Proposal & Cyan Badges */
+html.light [class*="bg-cyan-950"] {
+  background-color: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+}
+html.light [class*="text-cyan-200"],
+html.light [class*="text-cyan-300"],
+html.light [class*="text-cyan-400"] {
+  color: #0369a1 !important;
+}
+html.light [class*="border-cyan-800"] {
+  border-color: #7dd3fc !important;
+}
+
+/* Alt Proposal 1 & Indigo Badges */
+html.light [class*="bg-indigo-950"] {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+html.light [class*="text-indigo-200"],
+html.light [class*="text-indigo-300"],
+html.light [class*="text-indigo-400"] {
+  color: #4338ca !important;
+}
+html.light [class*="border-indigo-800"] {
+  border-color: #c7d2fe !important;
+}
+
+/* Wall Thickness / SDR & Blue Badges */
+html.light [class*="bg-blue-950"] {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+html.light [class*="text-blue-300"],
+html.light [class*="text-blue-400"] {
+  color: #1d4ed8 !important;
+}
+html.light [class*="border-blue-800"] {
+  border-color: #bfdbfe !important;
+}
+
+/* Scrap, Tonnage & Amber Warnings */
+html.light [class*="bg-amber-950"],
+html.light [class*="bg-amber-500\/"] {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+html.light [class*="text-amber-300"],
+html.light [class*="text-amber-400"] {
+  color: #b45309 !important;
+}
+html.light [class*="border-amber-800"],
+html.light [class*="border-amber-500\/"] {
+  border-color: #fde68a !important;
+}
+
+/* Range Violations & Rose Destructive Badges */
+html.light [class*="bg-rose-950"],
+html.light [class*="bg-rose-500\/"] {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+html.light [class*="text-rose-300"],
+html.light [class*="text-rose-400"] {
+  color: #be123c !important;
+}
+html.light [class*="border-rose-800"],
+html.light [class*="border-rose-900\/"],
+html.light [class*="border-rose-500\/"] {
+  border-color: #fecdd3 !important;
+}
+
+/* Material Pills */
+html.light td span[class*="bg-slate-800"] {
+  background-color: #f4efe6 !important;
+  color: #475569 !important;
+  border-color: #dfd7ca !important;
+}
+
+/* Pagination Footer in Light Mode */
+html.light .p-4.bg-slate-950\/90 {
+  background-color: #faf7f2 !important;
+  border-color: #dfd7ca !important;
+  color: #57534e !important;
+}
+
+/* Shadows */
+html.light .shadow-2xl,
+html.light .shadow-xl,
+html.light .shadow-lg {
+  box-shadow: 0 10px 25px -5px rgba(120, 113, 108, 0.07), 0 8px 10px -6px rgba(120, 113, 108, 0.04) !important;
+}
+
+/* Scrollbars in Light Mode */
+html.light ::-webkit-scrollbar-track {
+  background: #f4efe6;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #d6cdbf;
+  border-radius: 4px;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #b8ad9c;
+}

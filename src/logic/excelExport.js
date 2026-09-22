@@ -157,7 +157,7 @@ export function buildMachineReportSheet(report, derived) {
     // 3. Product & Reference Specs
     [
       'Reference 1 Spec:',
-      ref1.pipeSpec || 'PVC Pipe',
+      ref1.itemCode ? `[${ref1.itemCode}] ${ref1.pipeSpec || 'PVC Pipe'}` : (ref1.pipeSpec || 'PVC Pipe'),
       `Class / PN: ${ref1.cls || '-'}`,
       `Speed: ${ref1.speed || '-'} m/min`,
       `Cut Time: ${ref1.cutTime || '-'} s`,
@@ -168,7 +168,7 @@ export function buildMachineReportSheet(report, derived) {
       ? [
           [
             'Reference 2 Spec:',
-            ref2.pipeSpec || 'PVC Pipe',
+            ref2.itemCode ? `[${ref2.itemCode}] ${ref2.pipeSpec || 'PVC Pipe'}` : (ref2.pipeSpec || 'PVC Pipe'),
             `Class / PN: ${ref2.cls || '-'}`,
             `Speed: ${ref2.speed || '-'} m/min`,
             `Cut Time: ${ref2.cutTime || '-'} s`,
@@ -562,7 +562,7 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     // Row 4 (index 3): Item Description
     [
       '', '', '',
-      model.productDescription,
+      model.displayProduct || (model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription),
       '', '', '', '', ''
     ],
     // Row 5 (index 4): Reference specs & Date

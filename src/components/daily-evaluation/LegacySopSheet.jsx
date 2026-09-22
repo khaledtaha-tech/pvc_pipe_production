@@ -87,7 +87,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
               className="sop-cell sop-val-bold text-center"
               style={{ whiteSpace: 'nowrap', fontSize: '10.5px' }}
             >
-              {model.fullMachineName || model.lineId || (isBlankMode ? <span className="sop-blank-underline" /> : '')}
+              {model.fullMachineName || model.lineId || (isBlankMode && !model.isMorningSop ? <span className="sop-blank-underline" /> : '')}
             </td>
             <td colSpan={3} className="sop-cell sop-prod-pieces">
               PRODUCTION PIECES
@@ -99,15 +99,17 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td colSpan={3} className="sop-cell sop-item-desc">
-              {model.productDescription ? (
-                model.productDescription
-              ) : isBlankMode ? (
+              {model.displayProduct ? (
+                model.displayProduct
+              ) : model.productDescription ? (
+                model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription
+              ) : isBlankMode && !model.isMorningSop ? (
                 <div className="sop-blank-product-box">
                   <span className="sop-blank-lbl">Product: </span>
                   <span className="sop-blank-underline long" />
                 </div>
               ) : (
-                model.productDescription
+                model.itemCode ? `[${model.itemCode}] - ${model.productDescription || ''}` : (model.productDescription || '')
               )}
             </td>
             <td colSpan={3} className="sop-cell sop-empty"></td>
@@ -126,7 +128,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
               DATE
             </td>
             <td colSpan={2} className="sop-cell sop-val text-center">
-              {model.dateDots ? model.dateDots : (isBlankMode ? <span className="sop-blank-underline" /> : '')}
+              {model.dateDots ? model.dateDots : (isBlankMode && !model.isMorningSop ? <span className="sop-blank-underline" /> : '')}
             </td>
           </tr>
 
@@ -134,10 +136,10 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td className="sop-cell sop-speed text-center">
-              {model.speed1 ? `${model.speed1} M/Min` : (isBlankMode ? 'Speed: ______ M/Min' : '')}
+              {model.speed1 ? `${model.speed1} M/Min` : (isBlankMode && !model.isMorningSop ? 'Speed: ______ M/Min' : '')}
             </td>
             <td colSpan={2} className="sop-cell sop-speed text-center">
-              {model.speed2 ? `${model.speed2} M/Min` : (isBlankMode ? 'Speed: ______ M/Min' : '')}
+              {model.speed2 ? `${model.speed2} M/Min` : (isBlankMode && !model.isMorningSop ? 'Speed: ______ M/Min' : '')}
             </td>
             <td colSpan={3} className="sop-cell sop-empty"></td>
           </tr>

@@ -9,6 +9,7 @@ import {
   formatFullMachineName,
   computeStandardHourlyPieces,
   computeStandardHourlyMeters,
+  extractEmbeddedItemCode,
   findPreviousRunForMachine,
   extractMachineSpecsFromRun,
   getAvailableProductsCatalog,
@@ -268,6 +269,29 @@ assert.equal(morningModel.s1TotalScrapKg, '');
 assert.equal(morningModel.s2TotalGoodPcs, '');
 assert.equal(morningModel.s2TotalScrapKg, '');
 console.log('Intelligent Morning Blank SOP model generation: OK');
+
+// 13. Product Code Integrity & Dual Auto-Resolution
+assert.equal(extractEmbeddedItemCode('HDPE 20 MM Code 930'), '930');
+assert.equal(extractEmbeddedItemCode('PVC PIPE Item: 249'), '249');
+assert.equal(extractEmbeddedItemCode('PVC Pipe 110x5.3mm'), '');
+
+// Explicit Product Code in Morning SOP Model
+const codeBoundModel = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '249',
+  productDescription: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2',
+  date: '2026-09-20',
+  speed: 15.0,
+  pipeLength: 6.0
+});
+
+assert.equal(codeBoundModel.itemCode, '249');
+assert.equal(codeBoundModel.productDescription, 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2');
+assert.equal(codeBoundModel.displayProduct, '[249] - uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2');
+assert.equal(codeBoundModel.lineId, 'L-01 - KTS 550');
+assert.equal(codeBoundModel.hourlyStdRate, 150); // (15 * 60) / 6.0 = 150
+assert.equal(codeBoundModel.shift1Rows[0].stdPcs, 150);
+console.log('Product Code binding & [Code] - [Description] header formatting: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

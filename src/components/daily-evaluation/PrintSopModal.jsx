@@ -38,6 +38,15 @@ export default function PrintSopModal({
     return getAvailableProductsCatalog(records, machineMaster);
   }, [records, machineMaster]);
 
+  // Distinct unique list of product codes for dropdown
+  const distinctCodes = useMemo(() => {
+    const set = new Set();
+    productCatalog.forEach((p) => {
+      if (p.itemCode) set.add(p.itemCode);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [productCatalog]);
+
   // Synchronize target date when modal opens or selectedDate changes
   useEffect(() => {
     if (isOpen) {
@@ -107,15 +116,17 @@ export default function PrintSopModal({
     );
   };
 
-  // Change product description and auto-recalculate benchmark speed & pcs/h
-  const handleProductChange = (machineId, newDesc) => {
+  // Change product code and auto-resolve description, benchmark speed & standard pcs/h
+  const handleProductCodeChange = (machineId, newCode) => {
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
 
         const matchedProduct = productCatalog.find(
-          (p) => p.description.toUpperCase() === newDesc.toUpperCase()
+          (p) => String(p.itemCode).trim().toUpperCase() === String(newCode).trim().toUpperCase()
         );
+
+        const newDesc = matchedProduct?.description || item.productDescription;
         const unitWeight = matchedProduct?.unitWeight || item.unitWeight || 1.0;
 
         const benchmark = calculateBenchmarkSpeedForProduct(
@@ -127,6 +138,38 @@ export default function PrintSopModal({
 
         return {
           ...item,
+          itemCode: newCode,
+          productDescription: newDesc,
+          unitWeight,
+          speed: benchmark.speed,
+          calculatedRate: benchmark.calculatedRate
+        };
+      })
+    );
+  };
+
+  // Change product description and auto-synchronize item code, benchmark speed & pcs/h
+  const handleProductChange = (machineId, newDesc) => {
+    setLinesState((prev) =>
+      prev.map((item) => {
+        if (item.machineId !== machineId) return item;
+
+        const matchedProduct = productCatalog.find(
+          (p) => p.description.toUpperCase() === newDesc.toUpperCase()
+        );
+        const itemCode = matchedProduct?.itemCode || item.itemCode || '';
+        const unitWeight = matchedProduct?.unitWeight || item.unitWeight || 1.0;
+
+        const benchmark = calculateBenchmarkSpeedForProduct(
+          { unitWeight },
+          machineId,
+          machineMaster,
+          item.pipeLength
+        );
+
+        return {
+          ...item,
+          itemCode,
           productDescription: newDesc,
           unitWeight,
           speed: benchmark.speed,
@@ -179,6 +222,7 @@ export default function PrintSopModal({
         lineId: item.machineId,
         fullMachineName: item.fullMachineName,
         date: targetDate,
+        itemCode: item.itemCode,
         productDescription: item.productDescription,
         speed: item.speed,
         pipeLength: item.pipeLength,
@@ -346,29 +390,59 @@ export default function PrintSopModal({
                   </div>
 
                   <div className="print-sop-line-body">
-                    {/* Product Selection */}
-                    <div className="print-sop-form-group print-sop-product-group">
-                      <label className="print-sop-label">
-                        Product Specification (Mold / Size):
-                      </label>
-                      <select
-                        className="print-sop-select"
-                        value={line.productDescription}
-                        onChange={(e) => handleProductChange(line.machineId, e.target.value)}
-                        disabled={isGenerating || (scope === 'all' && !line.isSelected)}
-                      >
-                        {/* Ensure currently selected product is represented */}
-                        {!productCatalog.some((p) => p.description === line.productDescription) && (
-                          <option value={line.productDescription}>
-                            {line.productDescription} (Recorded)
-                          </option>
-                        )}
-                        {productCatalog.map((prod) => (
-                          <option key={prod.description} value={prod.description}>
-                            {prod.description}
-                          </option>
-                        ))}
-                      </select>
+                    {/* Dual Product Selection: Product Code & Product Description */}
+                    <div className="print-sop-products-row">
+                      {/* 1. Product Code Dropdown */}
+                      <div className="print-sop-form-group print-sop-code-group">
+                        <label className="print-sop-label">
+                          Product Code (كود المنتج):
+                        </label>
+                        <select
+                          className="print-sop-select print-sop-code-select"
+                          value={line.itemCode}
+                          onChange={(e) => handleProductCodeChange(line.machineId, e.target.value)}
+                          disabled={isGenerating || (scope === 'all' && !line.isSelected)}
+                        >
+                          {line.itemCode && !distinctCodes.some((c) => c === line.itemCode) && (
+                            <option value={line.itemCode}>
+                              {line.itemCode} (Current)
+                            </option>
+                          )}
+                          {distinctCodes.map((code) => {
+                            const p = productCatalog.find((x) => x.itemCode === code);
+                            return (
+                              <option key={code} value={code}>
+                                {code} {p?.description ? `— ${p.description.slice(0, 26)}` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* 2. Product Specification Dropdown */}
+                      <div className="print-sop-form-group print-sop-desc-group">
+                        <label className="print-sop-label">
+                          Product Specification (Mold / Size):
+                        </label>
+                        <select
+                          className="print-sop-select"
+                          value={line.productDescription}
+                          onChange={(e) => handleProductChange(line.machineId, e.target.value)}
+                          disabled={isGenerating || (scope === 'all' && !line.isSelected)}
+                        >
+                          {/* Ensure currently selected product is represented */}
+                          {!productCatalog.some((p) => p.description === line.productDescription) && (
+                            <option value={line.productDescription}>
+                              {line.itemCode ? `[${line.itemCode}] ` : ''}{line.productDescription} (Recorded)
+                            </option>
+                          )}
+                          {productCatalog.map((prod) => (
+                            <option key={`${prod.itemCode}_${prod.description}`} value={prod.description}>
+                              {prod.itemCode ? `[${prod.itemCode}] ` : ''}{prod.description}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Speed & Cut Length Controls */}

@@ -287,10 +287,18 @@ export function buildSopModel(report, derived, options = {}) {
     ? ''
     : formatFullMachineName(header.lineId, header.lineCustom);
 
+  const itemCode1 = ref1.itemCode || '';
+  const itemCode2 = ref2.itemCode || '';
+  const combinedItemCodes = [itemCode1, itemCode2].filter(Boolean).join(' / ');
+
   let productDescription = isBlank ? '' : (ref1.pipeSpec || 'HDPE 20 MM Code 930');
   if (!isBlank && ref2.pipeSpec && ref2.pipeSpec !== ref1.pipeSpec) {
     productDescription = `${ref1.pipeSpec} / ${ref2.pipeSpec}`;
   }
+
+  const displayProduct = combinedItemCodes
+    ? `[${combinedItemCodes}] - ${productDescription}`
+    : productDescription;
 
   const s1TotalGoodPcs = isBlank ? '' : (Number.isInteger(s1GoodPcsTotal) ? s1GoodPcsTotal : Math.round(s1GoodPcsTotal * 10) / 10);
   const s1TotalScrapKg = isBlank ? '' : s1ScrapKgTotal;
@@ -308,7 +316,9 @@ export function buildSopModel(report, derived, options = {}) {
     lineCode: isBlank ? '' : (header.lineId || 'WIND1'),
     lineCustom: isBlank ? '' : (header.lineCustom || ''),
     fullMachineName,
+    itemCode: combinedItemCodes,
     productDescription,
+    displayProduct,
     speed1: isBlank ? '' : speed1,
     speed2: isBlank ? '' : speed2,
     shift1Rows,
@@ -380,6 +390,16 @@ export function findPreviousRunForMachine(records, lineId, targetDate = '') {
 }
 
 /**
+ * Extract embedded item code from product description string if available.
+ * E.g., 'HDPE 20 MM Code 930' -> '930'
+ */
+export function extractEmbeddedItemCode(description) {
+  if (!description || typeof description !== 'string') return '';
+  const match = description.match(/(?:code\s*[:#-]?\s*|\bitem\s*[:#-]?\s*)([A-Za-z0-9_-]+)/i);
+  return match ? match[1].trim() : '';
+}
+
+/**
  * Extract operational pipe specs, speed, and cut length from a run record or fall back to machine master defaults.
  */
 export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHINES) {
@@ -390,6 +410,8 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
   if (record) {
     const item = (Array.isArray(record.items) && record.items.length > 0) ? record.items[0] : record;
     const desc = (item.description || item.itemCode || 'HDPE 20 MM Code 930').trim();
+    const rawCode = item.itemCode ? String(item.itemCode).trim() : '';
+    const itemCode = rawCode || extractEmbeddedItemCode(desc) || '';
     const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(record.unitWeight) || 1.0);
     const specs = parseProductSpecs(desc, unitWeight);
     const pipeLength = Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0;
@@ -412,7 +434,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       machineId: cleanId,
       fullMachineName,
       productDescription: desc,
-      itemCode: item.itemCode || '',
+      itemCode,
       od: specs.od || '',
       wt: specs.wt || '',
       pipeLength,
@@ -426,6 +448,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
 
   // Fallback defaults when no previous record exists
   const defaultDesc = 'HDPE 20 MM Code 930';
+  const defaultCode = '930';
   const defaultLen = 6.0;
   const defaultSpeed = 10.0;
   const defaultRate = Math.round((defaultSpeed * 60) / defaultLen);
@@ -434,12 +457,12 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     machineId: cleanId,
     fullMachineName,
     productDescription: defaultDesc,
-    itemCode: '',
+    itemCode: defaultCode,
     od: '20',
     wt: '',
     pipeLength: defaultLen,
     speed: defaultSpeed,
-    unitWeight: 1.0,
+    unitWeight: 0.15,
     targetRate: defaultRate,
     calculatedRate: defaultRate,
     previousRunDate: null
@@ -447,28 +470,38 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
 }
 
 /**
- * Collect distinct available products from historical records and factory presets
+ * Collect distinct available products from historical records and factory presets.
+ * Returns catalog items containing: { itemCode, description, unitWeight, pipeLength, label }.
  */
 export function getAvailableProductsCatalog(records = [], machineMaster = MACHINES) {
   const map = new Map();
 
-  // 1. Factory Standard Presets
+  // 1. Factory Standard Presets with official item codes
   const factoryPresets = [
-    { description: 'HDPE 20 MM Code 930', unitWeight: 0.15, pipeLength: 6.0 },
-    { description: 'PVC Pipe 110x5.3mm Class 4', unitWeight: 2.65, pipeLength: 6.0 },
-    { description: 'PVC Pipe 160x7.7mm Class 4', unitWeight: 5.60, pipeLength: 6.0 },
-    { description: 'PVC Pipe 50x2.4mm Class 4', unitWeight: 0.58, pipeLength: 6.0 },
-    { description: 'PVC Pipe 75x3.6mm Class 4', unitWeight: 1.25, pipeLength: 6.0 },
-    { description: 'PVC Pipe 200x9.6mm Class 4', unitWeight: 8.75, pipeLength: 6.0 },
-    { description: 'PVC Pipe 250x11.9mm Class 4', unitWeight: 13.65, pipeLength: 6.0 },
-    { description: 'PVC Pipe 315x15.0mm Class 4', unitWeight: 21.60, pipeLength: 6.0 },
-    { description: 'HDPE 32 MM PN 16', unitWeight: 0.35, pipeLength: 6.0 },
-    { description: 'HDPE 63 MM PN 10', unitWeight: 0.95, pipeLength: 6.0 }
+    { itemCode: '930', description: 'HDPE 20 MM Code 930', unitWeight: 0.15, pipeLength: 6.0 },
+    { itemCode: '249', description: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2', unitWeight: 2.65, pipeLength: 6.0 },
+    { itemCode: '247 R', description: 'uPVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R', unitWeight: 5.60, pipeLength: 6.0 },
+    { itemCode: '255', description: 'uPVC PIPE 50x2.4 PN-10 SASO-ISO 1452-2', unitWeight: 0.58, pipeLength: 6.0 },
+    { itemCode: '253', description: 'uPVC PIPE 75MM PN10X3.6MM SASO-ISO-1452-2', unitWeight: 1.25, pipeLength: 6.0 },
+    { itemCode: '246', description: 'MANARCO PVC-U PIPE 200X9.6mm PN-12.5 SASO-ISO-1452-2 W/P', unitWeight: 8.75, pipeLength: 6.0 },
+    { itemCode: '258', description: 'PVC PIPE 25MM SASO-ISO 1452-2 PN12.5 1.5MM', unitWeight: 0.25, pipeLength: 6.0 },
+    { itemCode: '257', description: 'PVC PIPE 32MM SASO-ISO 1452-2 PN10 1.6MM', unitWeight: 0.35, pipeLength: 6.0 },
+    { itemCode: '991', description: 'PVC 4" PIPE SDR 26 ASTMD 2241', unitWeight: 2.10, pipeLength: 6.0 },
+    { itemCode: '198', description: 'PVC PIPE 3/4"SCH40', unitWeight: 0.35, pipeLength: 6.0 },
+    { itemCode: '1291', description: 'MANARCO PVC PIPE 3" SCH 40 ASTMD 1785', unitWeight: 1.85, pipeLength: 6.0 },
+    { itemCode: '195', description: 'uPVC PIPE 75MM 2.2MM GRAY PN-6 EN 1452', unitWeight: 0.95, pipeLength: 6.0 },
+    { itemCode: '197', description: 'PVC 1" PIPE SCH40 ASTMD 2241', unitWeight: 0.50, pipeLength: 6.0 },
+    { itemCode: '230', description: 'PVC PIPE 160MM EN1452 PN7.5 4.7MM GRAY R/R', unitWeight: 3.80, pipeLength: 6.0 },
+    { itemCode: '500', description: 'BLACK MANARCO ELECTRICAL UPVC PIPE CONDUIT 20X1.6mm', unitWeight: 0.55, pipeLength: 6.0 },
+    { itemCode: '549', description: 'MANARCO ELECTRICAL UPVC PIPE CONDUIT 25X1.9mm', unitWeight: 0.65, pipeLength: 6.0 }
   ];
 
   for (const preset of factoryPresets) {
     const key = preset.description.toUpperCase();
-    map.set(key, { ...preset });
+    map.set(key, {
+      ...preset,
+      label: preset.itemCode ? `[${preset.itemCode}] ${preset.description}` : preset.description
+    });
   }
 
   // 2. Discover products from uploaded historical records
@@ -479,21 +512,36 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
       for (const item of rows) {
         const desc = (item.description || '').trim();
         if (!desc) continue;
+        const rawCode = item.itemCode ? String(item.itemCode).trim() : '';
+        const itemCode = rawCode || extractEmbeddedItemCode(desc) || '';
         const key = desc.toUpperCase();
+
         if (!map.has(key)) {
           const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
           map.set(key, {
+            itemCode,
             description: desc,
-            itemCode: item.itemCode || '',
             unitWeight,
-            pipeLength: 6.0
+            pipeLength: 6.0,
+            label: itemCode ? `[${itemCode}] ${desc}` : desc
           });
+        } else if (itemCode && !map.get(key).itemCode) {
+          // Augment existing preset with discovered code if missing
+          const existing = map.get(key);
+          existing.itemCode = itemCode;
+          existing.label = `[${itemCode}] ${existing.description}`;
         }
       }
     }
   }
 
-  return Array.from(map.values()).sort((a, b) => a.description.localeCompare(b.description));
+  return Array.from(map.values()).sort((a, b) => {
+    // Sort by item code if available, else by description
+    if (a.itemCode && b.itemCode) {
+      return a.itemCode.localeCompare(b.itemCode, undefined, { numeric: true });
+    }
+    return a.description.localeCompare(b.description);
+  });
 }
 
 /**
@@ -504,9 +552,12 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
   const nominalCap = Number(machine?.capacityKgH) > 0 ? Number(machine.capacityKgH) : 250;
   const len = Number(pipeLength) > 0 ? Number(pipeLength) : 6.0;
 
-  const unitWeight = typeof product === 'object' && Number(product?.unitWeight) > 0
-    ? Number(product.unitWeight)
-    : 1.0;
+  let unitWeight = 1.0;
+  if (typeof product === 'object' && product !== null) {
+    if (Number(product.unitWeight) > 0) {
+      unitWeight = Number(product.unitWeight);
+    }
+  }
 
   const targetPcsH = nominalCap > 0 && unitWeight > 0 ? Math.round(nominalCap / unitWeight) : 100;
   const cutTime = targetPcsH > 0 ? 3600 / targetPcsH : 30;
@@ -523,7 +574,7 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
 
 /**
  * Build an intelligent morning blank SOP (DOC-Ext.-03) follow sheet model.
- * Pre-populates: Header Line No, Product Description, Speed, Date.
+ * Pre-populates: Header Line No, Item Code & Product Description, Speed, Date.
  * Pre-fills: Standard Production (Pcs) across all 24 slots.
  * Clears: Good pieces, causes, downtime, reject kg, and summary cards for on-floor recording.
  */
@@ -534,6 +585,11 @@ export function buildMorningSopModel(config = {}) {
   const fullMachineName = config.fullMachineName || formatFullMachineName(lineId, lineCustom, machineMaster);
   const targetDate = config.date || config.targetDate || '';
   const dates = formatSopDates(targetDate);
+
+  const rawItemCode = (config.itemCode || config.productCode || '').trim();
+  const desc = (config.productDescription || '').trim();
+  const itemCode = rawItemCode || extractEmbeddedItemCode(desc) || '';
+  const displayProduct = itemCode ? `[${itemCode}] - ${desc}` : desc;
 
   const speed = Number(config.speed) > 0 ? Number(config.speed) : 10;
   const pipeLength = Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0;
@@ -571,8 +627,10 @@ export function buildMorningSopModel(config = {}) {
     lineId: fullMachineName || lineId,
     lineCode: lineId,
     lineCustom,
-    fullMachineName,
-    productDescription: config.productDescription || '',
+    fullMachineName: fullMachineName || lineId,
+    itemCode,
+    productDescription: desc,
+    displayProduct,
     speed1: speed,
     speed2: speed,
     pipeLength,

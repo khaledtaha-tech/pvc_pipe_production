@@ -5254,6 +5254,18 @@
   gap: 10px;
 }
 
+.print-sop-products-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .print-sop-products-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .print-sop-form-group {
   display: flex;
   flex-direction: column;

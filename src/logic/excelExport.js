@@ -521,8 +521,8 @@ export function exportAllMachinesToExcel(records, selectedDate, machineMaster, o
 /**
  * Build a formatted worksheet for Legacy Plant SOP (DOC-Ext.-03: PRODUCTION PIECES / Production follow)
  */
-export function buildLegacySopExcelSheet(report, derived) {
-  const model = buildSopModel(report, derived);
+export function buildLegacySopExcelSheet(report, derived, options = {}) {
+  const model = buildSopModel(report, derived, options);
 
   const aoa = [
     // Row 1 (index 0): Doc Header
@@ -537,14 +537,7 @@ export function buildLegacySopExcelSheet(report, derived) {
       model.version,
       ''
     ],
-    // Row 2 (index 1): Creation Date
-    [
-      '', '', '', '', '', '',
-      'Date of creation',
-      model.creationDate,
-      ''
-    ],
-    // Row 3 (index 2): Plant & Title & Date
+    // Row 2 (index 1): Brand & Title & Date
     [
       model.plantName,
       '',
@@ -556,7 +549,7 @@ export function buildLegacySopExcelSheet(report, derived) {
       model.dateSpaces,
       ''
     ],
-    // Row 4 (index 3): Line No. & Title
+    // Row 3 (index 2): Line No. & Title
     [
       '',
       'Line No.',
@@ -566,13 +559,13 @@ export function buildLegacySopExcelSheet(report, derived) {
       '',
       '', '', ''
     ],
-    // Row 5 (index 4): Item Description
+    // Row 4 (index 3): Item Description
     [
       '', '', '',
       model.productDescription,
       '', '', '', '', ''
     ],
-    // Row 6 (index 5): Reference specs & Date
+    // Row 5 (index 4): Reference specs & Date
     [
       '', '', '',
       '1st reference',
@@ -582,18 +575,18 @@ export function buildLegacySopExcelSheet(report, derived) {
       model.dateDots,
       ''
     ],
-    // Row 7 (index 6): Reference Speed Values
+    // Row 6 (index 5): Reference Speed Values
     [
       '', '', '',
       `${model.speed1} M/Min`,
       `${model.speed2} M/Min`,
       '', '', '', ''
     ],
-    // Row 8 (index 7): Table Column Headers
+    // Row 7 (index 6): Table Column Headers
     [
       'Hour',
-      'Standard Prod. (M)',
-      'Good Prod. (M)',
+      'Standard Prod. (Pcs)',
+      'Good Prod. (Pcs)',
       'Cause of Stop / Remarks',
       'Stop Time (Min)',
       'Reject Production (KG)',
@@ -612,10 +605,10 @@ export function buildLegacySopExcelSheet(report, derived) {
     let sideExtra = '';
 
     if (i === 0) {
-      sideLbl = 'Total Good Production';
+      sideLbl = 'Total Good Production (Pcs)';
     } else if (i === 2) {
       sideLbl = 'Ref 1:';
-      sideVal = model.s1TotalGoodM > 0 ? model.s1TotalGoodM : '';
+      sideVal = model.s1TotalGoodPcs > 0 ? model.s1TotalGoodPcs : (model.s1TotalGoodM > 0 ? model.s1TotalGoodM : '');
     } else if (i === 3) {
       sideLbl = 'Ref 2:';
     } else if (i === 5) {
@@ -632,10 +625,10 @@ export function buildLegacySopExcelSheet(report, derived) {
 
     aoa.push([
       r.hour,
-      r.stdM,
-      r.goodM !== '' ? r.goodM : '',
+      r.stdPcs !== undefined ? r.stdPcs : r.stdM,
+      r.goodPcs !== '' && r.goodPcs !== undefined ? r.goodPcs : (r.goodM !== '' ? r.goodM : ''),
       r.cause || '',
-      r.downtime || 0,
+      r.downtime !== '' && r.downtime !== undefined ? r.downtime : 0,
       r.rejectKg !== '' ? r.rejectKg : '',
       sideLbl,
       sideVal,
@@ -644,13 +637,13 @@ export function buildLegacySopExcelSheet(report, derived) {
   });
 
   const s1Downtime = model.shift1Rows.reduce((acc, r) => acc + (Number(r.downtime) || 0), 0);
-  const s1StdTotal = model.shift1Rows.reduce((acc, r) => acc + (Number(r.stdM) || 0), 0);
+  const s1StdTotal = model.shift1Rows.reduce((acc, r) => acc + (Number(r.stdPcs !== undefined ? r.stdPcs : r.stdM) || 0), 0);
 
   // Shift 1 Subtotal Row
   aoa.push([
     'Shift 1 Subtotal',
-    s1StdTotal || model.shift1Rows[11]?.stdM || '',
-    model.s1TotalGoodM,
+    s1StdTotal || model.shift1Rows[11]?.stdPcs || model.shift1Rows[11]?.stdM || '',
+    model.s1TotalGoodPcs !== '' && model.s1TotalGoodPcs !== undefined ? model.s1TotalGoodPcs : model.s1TotalGoodM,
     '',
     s1Downtime,
     model.s1TotalScrapKg,
@@ -666,10 +659,10 @@ export function buildLegacySopExcelSheet(report, derived) {
     let sideExtra = '';
 
     if (idx === 0) {
-      sideLbl = 'Total Good Production';
+      sideLbl = 'Total Good Production (Pcs)';
     } else if (idx === 1) {
       sideLbl = 'Ref 1:';
-      sideVal = model.s2TotalGoodM > 0 ? model.s2TotalGoodM : '';
+      sideVal = model.s2TotalGoodPcs > 0 ? model.s2TotalGoodPcs : (model.s2TotalGoodM > 0 ? model.s2TotalGoodM : '');
     } else if (idx === 2) {
       sideLbl = 'Ref 2:';
     } else if (idx === 4) {
@@ -685,10 +678,10 @@ export function buildLegacySopExcelSheet(report, derived) {
 
     aoa.push([
       r.hour,
-      r.stdM,
-      r.goodM !== '' ? r.goodM : '',
+      r.stdPcs !== undefined ? r.stdPcs : r.stdM,
+      r.goodPcs !== '' && r.goodPcs !== undefined ? r.goodPcs : (r.goodM !== '' ? r.goodM : ''),
       r.cause || '',
-      r.downtime || 0,
+      r.downtime !== '' && r.downtime !== undefined ? r.downtime : 0,
       r.rejectKg !== '' ? r.rejectKg : '',
       sideLbl,
       sideVal,
@@ -697,13 +690,13 @@ export function buildLegacySopExcelSheet(report, derived) {
   });
 
   const s2Downtime = model.shift2Rows.reduce((acc, r) => acc + (Number(r.downtime) || 0), 0);
-  const s2StdTotal = model.shift2Rows.reduce((acc, r) => acc + (Number(r.stdM) || 0), 0);
+  const s2StdTotal = model.shift2Rows.reduce((acc, r) => acc + (Number(r.stdPcs !== undefined ? r.stdPcs : r.stdM) || 0), 0);
 
   // Shift 2 Subtotal Row
   aoa.push([
     'Shift 2 Subtotal',
-    s2StdTotal || model.shift2Rows[11]?.stdM || '',
-    model.s2TotalGoodM,
+    s2StdTotal || model.shift2Rows[11]?.stdPcs || model.shift2Rows[11]?.stdM || '',
+    model.s2TotalGoodPcs !== '' && model.s2TotalGoodPcs !== undefined ? model.s2TotalGoodPcs : model.s2TotalGoodM,
     '',
     s2Downtime,
     model.s2TotalScrapKg,
@@ -714,7 +707,9 @@ export function buildLegacySopExcelSheet(report, derived) {
   aoa.push([
     'GRAND TOTAL (24 HOURS)',
     s1StdTotal + s2StdTotal,
-    model.s1TotalGoodM + model.s2TotalGoodM,
+    ((model.s1TotalGoodPcs !== '' && model.s1TotalGoodPcs !== undefined) || (model.s2TotalGoodPcs !== '' && model.s2TotalGoodPcs !== undefined))
+      ? (Number(model.s1TotalGoodPcs || model.s1TotalGoodM) || 0) + (Number(model.s2TotalGoodPcs || model.s2TotalGoodM) || 0)
+      : '',
     '',
     s1Downtime + s2Downtime,
     model.s1TotalScrapKg + model.s2TotalScrapKg,
@@ -742,8 +737,8 @@ export function buildLegacySopExcelSheet(report, derived) {
   // Configure column widths
   ws['!cols'] = [
     { wch: 8 },  // Hour
-    { wch: 18 }, // Standard Prod. (M)
-    { wch: 18 }, // Good Prod. (M)
+    { wch: 18 }, // Standard Prod. (Pcs)
+    { wch: 18 }, // Good Prod. (Pcs)
     { wch: 28 }, // Cause of Stop / Remarks
     { wch: 16 }, // Stop Time (Min)
     { wch: 20 }, // Reject Production (KG)
@@ -801,7 +796,7 @@ export function exportSingleMachineSopToExcel(report, derived, options = {}) {
   }
 
   const wb = XLSX.utils.book_new();
-  const ws = buildLegacySopExcelSheet(report, derived);
+  const ws = buildLegacySopExcelSheet(report, derived, options);
   const sheetName = sanitizeSheetName(report.header?.lineId || 'SOP_Report');
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 

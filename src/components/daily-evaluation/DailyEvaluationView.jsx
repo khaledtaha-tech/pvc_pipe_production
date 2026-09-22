@@ -28,6 +28,7 @@ import HistoryDrawer from './HistoryDrawer.jsx';
 import KpiStrip from './KpiStrip.jsx';
 import ExcelUploader from './ExcelUploader.jsx';
 import ExportModal from './ExportModal.jsx';
+import PrintSopModal from './PrintSopModal.jsx';
 import JSZip from 'jszip';
 import {
   exportSingleMachineToExcel,
@@ -126,15 +127,21 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
   const [batchItem, setBatchItem] = useState(null);
   const sheetRef = useRef(null);
   const sopExportRef = useRef(null);
-  const blankSopExportRef = useRef(null);
+   const blankSopExportRef = useRef(null);
   const batchSheetRef = useRef(null);
   const batchSopRef = useRef(null);
+  const morningPdfExportRef = useRef(null);
   const [isBlankSopPrint, setIsBlankSopPrint] = useState(false);
+  const [isPrintSopModalOpen, setIsPrintSopModalOpen] = useState(false);
+  const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
+  const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
 
-  // Reset blank SOP print state after browser print dialog closes
+  // Reset blank and batch SOP print state after browser print dialog closes
   useEffect(() => {
     const handleAfterPrint = () => {
       setIsBlankSopPrint(false);
+      document.body.classList.remove('print-sop-batch');
+      setSopBatchPrintModels([]);
     };
     window.addEventListener('afterprint', handleAfterPrint);
     return () => window.removeEventListener('afterprint', handleAfterPrint);
@@ -569,6 +576,71 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
     }
   };
 
+  const handleTriggerMorningSopPrint = (models) => {
+    if (!models || models.length === 0) return;
+    setSopBatchPrintModels(models);
+    document.body.classList.add('print-sop-batch');
+    setIsPrintSopModalOpen(false);
+    notify(`Opening print dialog for ${models.length} Morning SOP ${models.length === 1 ? 'Sheet' : 'Sheets'}...`);
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
+
+  const handleTriggerMorningSopPdf = async (models) => {
+    if (!models || models.length === 0) return;
+    setIsGeneratingMorningPdf(true);
+    setSopBatchPrintModels(models);
+    notify(`Generating Morning SOP PDF for ${models.length} ${models.length === 1 ? 'line' : 'lines'}...`);
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const el = morningPdfExportRef.current;
+    if (!el) {
+      notify('Export staging container not ready.');
+      setIsGeneratingMorningPdf(false);
+      return;
+    }
+
+    const targetDate = models[0]?.dateDots ? models[0].dateDots.replace(/\./g, '-') : selectedDate;
+    const filename = models.length === 1
+      ? `Morning_SOP_${(models[0].lineCode || 'Line').replace(/[^a-zA-Z0-9_-]/g, '_')}_${targetDate}.pdf`
+      : `Morning_SOP_All_Operating_Lines_${targetDate}.pdf`;
+
+    const opt = {
+      margin: [4, 4, 4, 4],
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2.5,
+        useCORS: true,
+        letterRendering: true,
+        logging: false,
+        backgroundColor: '#FFFFFF',
+        windowWidth: 1080,
+        scrollY: 0,
+        scrollX: 0
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    try {
+      await html2pdf().set(opt).from(el).save();
+      notify(`Morning SOP PDF downloaded successfully (${filename})`);
+      setIsPrintSopModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      notify('PDF generation error - falling back to print dialog');
+      handleTriggerMorningSopPrint(models);
+    } finally {
+      setIsGeneratingMorningPdf(false);
+      if (!document.body.classList.contains('print-sop-batch')) {
+        setSopBatchPrintModels([]);
+      }
+    }
+  };
+
   const handleExportExcelSingle = () => {
     if (records.length > 0 && activeLinesForDate.length === 0) {
       notify(`No active operating lines on ${selectedDate} to export.`);
@@ -841,11 +913,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
   const handleConfirmExport = async ({ template, format, scope, fromDate, toDate }) => {
     if (template === 'blank_sop') {
       setIsExportModalOpen(false);
-      if (format === 'pdf') {
-        await handleExportBlankSopPdf();
-      } else {
-        handlePrintBlankSop();
-      }
+      setIsPrintSopModalOpen(true);
       return;
     }
 
@@ -1263,22 +1331,20 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
                   </svg>
                   Print
                 </button>
-                {viewMode === 'sop' ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-print-blank-sop"
-                    onClick={handlePrintBlankSop}
-                    title="Print clean blank SOP follow sheet template (DOC-Ext.-03) for manual on-floor recording and photocopier printing"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 5 }}>
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                    </svg>
-                    Print Blank SOP
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-print-blank-sop"
+                  onClick={() => setIsPrintSopModalOpen(true)}
+                  title="Open Intelligent Morning Blank SOP (DOC-Ext.-03) Generator & Print Module"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 5 }}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                  Print Blank SOP
+                </button>
               </div>
             </div>
 
@@ -1457,6 +1523,61 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
         isExporting={isExporting || isExportingSop}
         exportProgressText={exportProgressText}
         onConfirmExport={handleConfirmExport}
+      />
+
+      {/* Batch Print Container for Morning SOP Sheets (Multi-Page Print) */}
+      {sopBatchPrintModels && sopBatchPrintModels.length > 0 ? (
+        <div className="sop-batch-container">
+          {sopBatchPrintModels.map((m, idx) => (
+            <div className="sop-batch-page" key={`print_batch_${m.lineCode || idx}`}>
+              <LegacySopSheet model={m} isBlank={true} isExporting={true} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Dedicated Off-Screen Staging Area for Morning SOP PDF Export */}
+      {sopBatchPrintModels && sopBatchPrintModels.length > 0 ? (
+        <div
+          ref={morningPdfExportRef}
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            width: '1080px',
+            overflow: 'hidden',
+            opacity: 0,
+            pointerEvents: 'none',
+            zIndex: -1
+          }}
+        >
+          {sopBatchPrintModels.map((m, idx) => (
+            <div
+              key={`morning_pdf_stage_${m.lineCode || idx}`}
+              className="sop-batch-page"
+              style={{
+                pageBreakAfter: idx < sopBatchPrintModels.length - 1 ? 'always' : 'auto',
+                breakAfter: idx < sopBatchPrintModels.length - 1 ? 'page' : 'auto',
+                marginBottom: '10px'
+              }}
+            >
+              <LegacySopSheet model={m} isBlank={true} isExporting={true} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Intelligent Morning Blank SOP Generator Modal */}
+      <PrintSopModal
+        isOpen={isPrintSopModalOpen}
+        onClose={() => setIsPrintSopModalOpen(false)}
+        records={records}
+        selectedDate={selectedDate}
+        currentMachineId={report?.header?.lineId || 'L-01'}
+        machineMaster={machineMaster}
+        onConfirmPrint={handleTriggerMorningSopPrint}
+        onConfirmPdf={handleTriggerMorningSopPdf}
+        isGenerating={isGeneratingMorningPdf}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

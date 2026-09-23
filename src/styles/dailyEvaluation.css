@@ -301,8 +301,7 @@
 /* ============ FORM VIEW ============ */
 .app-main {
   padding: 18px 24px 60px;
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
   width: 100%;
 }
 
@@ -516,8 +515,7 @@
 /* ============ SHEET PREVIEW ============ */
 .sheet-stage {
   padding: 14px 24px 50px;
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
   width: 100%;
 }
 
@@ -3703,7 +3701,7 @@
    ========================================================= */
 
 .analytics-root {
-  max-width: 1420px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 16px 24px 40px;
   display: flex;
@@ -5620,5 +5618,220 @@ html.light .daily-eval-root .kpi-card {
 html.light .daily-eval-root .kpi-val {
   color: #0f172a;
 }
+
+/* =========================================================
+   SUPERVISOR HERO ACTION CARD & DAILY SOP MODULE
+   ========================================================= */
+
+.supervisor-hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  border-radius: 12px;
+  padding: 18px 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), 0 0 16px rgba(59, 130, 246, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.supervisor-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #38bdf8 0%, #2563eb 100%);
+}
+
+.supervisor-hero-info {
+  flex: 1;
+  min-width: 280px;
+}
+
+.supervisor-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 9999px;
+  padding: 4px 12px;
+  margin-bottom: 8px;
+}
+
+.supervisor-hero-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: supervisor-pulse 2s infinite;
+}
+
+@keyframes supervisor-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.supervisor-hero-title {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.3;
+}
+
+.supervisor-hero-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+  max-width: 850px;
+}
+
+.supervisor-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.btn-supervisor-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 1.5px solid #60a5fa;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.btn-supervisor-hero:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-color: #93c5fd;
+}
+
+.btn-supervisor-hero:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+.btn-supervisor-header-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-supervisor-header-quick:hover {
+  background: rgba(37, 99, 235, 0.35);
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+/* Responsive adjustments for supervisor card */
+@media (max-width: 900px) {
+  .supervisor-hero-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
+  }
+  .supervisor-hero-actions {
+    justify-content: stretch;
+  }
+  .btn-supervisor-hero {
+    width: 100%;
+  }
+}
+
+/* Light Theme overrides for Supervisor Hero Card */
+html.light .daily-eval-root .supervisor-hero-card {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e0effe 100%);
+  border: 1.5px solid #93c5fd;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.08);
+}
+
+html.light .daily-eval-root .supervisor-hero-card::before {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+html.light .daily-eval-root .supervisor-hero-badge {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+html.light .daily-eval-root .supervisor-hero-title {
+  color: #1e3a8a;
+}
+
+html.light .daily-eval-root .supervisor-hero-desc {
+  color: #334155;
+}
+
+html.light .daily-eval-root .btn-supervisor-hero {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  border: 1.5px solid #1e3a8a;
+  box-shadow: 0 6px 18px rgba(29, 78, 216, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+html.light .daily-eval-root .btn-supervisor-hero:hover {
+  background: linear-gradient(135deg, #1e40af 0%, #172554 100%);
+  box-shadow: 0 8px 24px rgba(29, 78, 216, 0.4);
+}
+
+html.light .daily-eval-root .btn-supervisor-header-quick {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  color: #1e40af;
+}
+
+html.light .daily-eval-root .btn-supervisor-header-quick:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1d4ed8;
+}
+
 
 

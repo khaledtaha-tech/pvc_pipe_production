@@ -198,8 +198,8 @@ export default function App() {
         onOpenVerification={() => setActiveTab('verification')}
       />
 
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Main Container: Expanded to utilize lateral widescreen space */}
+      <main className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 py-4">
         {currentModule === 'data-analysis' ? (
           <DataAnalysisView
             lang={lang}
@@ -229,7 +229,7 @@ export default function App() {
             handleExportUniqueCatalog={handleExportUniqueCatalog}
           />
         ) : (
-          <div className="daily-eval-root rounded-xl overflow-hidden shadow-2xl border border-slate-800">
+          <div className="daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800">
             <DailyEvaluationView sharedTheme={theme} />
           </div>
         )}

@@ -47,7 +47,7 @@ export default function Navbar({
         ? 'bg-[#ece6db]/95 border-b border-[#d8d0c2] text-stone-900 shadow-xs' 
         : 'bg-slate-900/90 border-b border-slate-800 text-white shadow-xl'
     }`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6">
         {/* Top Tier: Brand, Global Module Switcher, System Actions */}
         <div className="flex items-center justify-between h-16 border-b border-slate-800/40">
           

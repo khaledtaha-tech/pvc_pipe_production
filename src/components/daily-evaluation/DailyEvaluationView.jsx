@@ -1115,6 +1115,20 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
           </div>
         </div>
         <div className="app-actions">
+          <button
+            type="button"
+            className="btn btn-supervisor-header-quick"
+            onClick={() => setIsPrintSopModalOpen(true)}
+            title="مشرف الإنتاج: طباعة وتوليد شيت الصباح الفارغ لخطوط المصنع (DOC-Ext.-03)"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ marginInlineEnd: 4 }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            شيت الصباح الفارغ (مشرف الإنتاج)
+          </button>
           <a
             href="./Master_Upload.xlsx"
             download="Master_Upload.xlsx"
@@ -1189,6 +1203,39 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
       <div className={`sheet-stage ${tab === 'sheet' ? 'sheet-active' : 'no-print'}`} style={{ display: tab === 'sheet' ? undefined : 'none' }}>
         {derived ? (
           <>
+            {/* Dedicated Hero Card for Production Supervisor Daily Blank SOP */}
+            <div className="supervisor-hero-card no-print">
+              <div className="supervisor-hero-info">
+                <div className="supervisor-hero-badge">
+                  <span className="supervisor-hero-pulse" />
+                  بوابة مشرف الإنتاج اليومية | Production Supervisor Daily SOP
+                </div>
+                <h2 className="supervisor-hero-title">
+                  طباعة وتوليد شيت الصباح الفارغ لخطوط الإنتاج (DOC-Ext.-03)
+                </h2>
+                <p className="supervisor-hero-desc">
+                  إعداد وتجهيز نماذج المتابعة الميدانية ودفاتر تشغيل الورديات اليومية فارغة مع ربط أكواد المنتجات (Product Code) ومواصفات كل ماكينة قبل بدء دورة العمل.
+                </p>
+              </div>
+              <div className="supervisor-hero-actions">
+                <button
+                  type="button"
+                  className="btn btn-supervisor-hero"
+                  onClick={() => setIsPrintSopModalOpen(true)}
+                  title="فتح وحدة إعداد وتجهيز شيت الصباح الفارغ لجميع خطوط الإنتاج"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" style={{ marginInlineEnd: 8 }}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                  <span>طباعة شيت الصباح الفارغ (DOC-Ext.-03)</span>
+                </button>
+              </div>
+            </div>
+
             <div className="sheet-toolbar no-print">
               <div className="sheet-toolbar-left">
                 <div className="sheet-selectors-row">
@@ -1330,20 +1377,6 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
                     <rect x="6" y="14" width="12" height="8" />
                   </svg>
                   Print
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-print-blank-sop"
-                  onClick={() => setIsPrintSopModalOpen(true)}
-                  title="Open Intelligent Morning Blank SOP (DOC-Ext.-03) Generator & Print Module"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 5 }}>
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                  Print Blank SOP
                 </button>
               </div>
             </div>

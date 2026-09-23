@@ -19,7 +19,8 @@ import {
   User,
   LogOut,
   Save,
-  Loader2
+  Loader2,
+  Database
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -46,7 +47,8 @@ export default function Navbar({
   onExportMasterPlan,
   onOpenMasterTable,
   onOpenPlanning,
-  onOpenVerification
+  onOpenVerification,
+  onOpenBlankSopPrint
 }) {
   const isAr = lang === 'ar';
 
@@ -117,6 +119,17 @@ export default function Navbar({
             >
               <ClipboardList className="w-3.5 h-3.5" />
               <span>{isAr ? 'سجل الوردية والتقييم اليومي' : 'Daily OEE Evaluation'}</span>
+            </button>
+            <button
+              onClick={() => setCurrentModule('data-hub')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                currentModule === 'data-hub'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>Import / Export Hub</span>
             </button>
           </div>
 
@@ -347,6 +360,34 @@ export default function Navbar({
                 <span>{isAr ? 'إضافة سطر' : 'Add Row'}</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Lower Tier: Data Hub Center Banner & Quick Print */}
+        {currentModule === 'data-hub' && (
+          <div className="flex items-center justify-between py-2 text-xs overflow-x-auto">
+            <div className="flex items-center gap-2">
+              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5" />
+                <span>Data Hub &amp; File Operations</span>
+              </span>
+              <span className="text-slate-400 text-[11px] hidden sm:inline">
+                | Standard Excel Templates, Shift SOP Printing, Multi-Line Exports &amp; Backup
+              </span>
+            </div>
+
+            {onOpenBlankSopPrint && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenBlankSopPrint}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold cursor-pointer text-xs transition"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Morning SOP (DOC-Ext.-03)</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

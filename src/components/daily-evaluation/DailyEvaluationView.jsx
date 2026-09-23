@@ -393,8 +393,15 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
 
   useImperativeHandle(ref, () => ({
     handleSave,
-    save: handleSave
-  }), [handleSave]);
+    save: handleSave,
+    openBlankSopPrint: () => setIsPrintChoiceModalOpen(true),
+    exportSingleExcel: () => handleExportExcelSingle(),
+    exportAllExcel: () => handleExportExcelAll(),
+    exportDateRange: (from, to) => exportDateRangeToExcel(records, from, to, machineMaster),
+    getRecords: () => records,
+    getMachineMaster: () => machineMaster,
+    getCurrentReport: () => report
+  }), [handleSave, handleExportExcelSingle, handleExportExcelAll, records, machineMaster, report]);
 
   const handleLoad = async (saved) => {
     if (saved && saved.isRemote && !saved.slots) {

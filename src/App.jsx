@@ -5,6 +5,7 @@ import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import Navbar from './components/common/Navbar';
 import DataAnalysisView from './components/data-analysis/DataAnalysisView';
 import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationView';
+import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
 
 import { SAMPLE_PRODUCTION_DATA } from './data/sampleData';
 import { SAMPLE_HISTORICAL_ERP_DATA } from './data/sampleHistoricalErpData';
@@ -264,11 +265,16 @@ function AppContent() {
         onOpenMasterTable={() => setActiveTab('master')}
         onOpenPlanning={() => setActiveTab('planning')}
         onOpenVerification={() => setActiveTab('verification')}
+        onOpenBlankSopPrint={() => {
+          if (dailyEvalRef.current?.openBlankSopPrint) {
+            dailyEvalRef.current.openBlankSopPrint();
+          }
+        }}
       />
 
       {/* Main Container: Expanded to utilize lateral widescreen space */}
       <main className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 py-4">
-        {currentModule === 'data-analysis' ? (
+        {currentModule === 'data-analysis' && (
           <DataAnalysisView
             lang={lang}
             activeTab={activeTab}
@@ -296,11 +302,39 @@ function AppContent() {
             handleExportMasterPlan={handleExportMasterPlanExcel}
             handleExportUniqueCatalog={handleExportUniqueCatalog}
           />
-        ) : (
-          <div className="daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800">
-            <DailyEvaluationView ref={dailyEvalRef} sharedTheme={theme} lang={lang} />
-          </div>
         )}
+
+        {currentModule === 'data-hub' && (
+          <DataExchangeCenter
+            lang={lang}
+            theme={theme}
+            rawRows={rawRows}
+            setRawRows={setRawRows}
+            historicalRawRows={historicalRawRows}
+            setHistoricalRawRows={setHistoricalRawRows}
+            currentSheetName={currentSheetName}
+            setCurrentSheetName={setCurrentSheetName}
+            cleanedRows={cleanedRows}
+            masterRuns={unifiedMasterRuns}
+            uniquePlanningMatrix={uniquePlanningMatrix}
+            analytics={analytics}
+            dailyEvalRef={dailyEvalRef}
+            onOpenBlankSopPrint={() => {
+              if (dailyEvalRef.current?.openBlankSopPrint) {
+                dailyEvalRef.current.openBlankSopPrint();
+              }
+            }}
+            onExportMasterPlan={handleExportMasterPlanExcel}
+            onExportUniqueCatalog={handleExportUniqueCatalog}
+            onExportCleanLog={handleExportCleanExcel}
+            onClearAllData={() => setIsClearDialogOpen(true)}
+            onNotify={showToast}
+          />
+        )}
+
+        <div className={`daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
+          <DailyEvaluationView ref={dailyEvalRef} sharedTheme={theme} lang={lang} />
+        </div>
       </main>
 
       {/* Admin User Management Modal */}

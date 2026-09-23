@@ -31,6 +31,7 @@ export default function Navbar({
   toggleTheme,
   user = null,
   onLogout,
+  onOpenAdminModal,
   recordCount,
   historicalCount = 0,
   masterCount = 0,
@@ -187,6 +188,23 @@ export default function Navbar({
                 <Sun className="w-4 h-4 text-amber-400" />
               )}
             </button>
+
+            {/* Admin User Management Button */}
+            {user?.role === 'admin' && onOpenAdminModal && (
+              <button
+                type="button"
+                onClick={onOpenAdminModal}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  theme === 'light'
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 shadow-xs'
+                    : 'bg-amber-950/70 text-amber-300 border border-amber-800/80 hover:bg-amber-900/60 shadow-md'
+                }`}
+                title="User Management (Admin)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">User Management</span>
+              </button>
+            )}
 
             {/* User Profile & Logout */}
             {user && (

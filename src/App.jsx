@@ -26,9 +26,11 @@ import {
 import { t } from './utils/translations';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './components/auth/LoginPage';
+import AdminUserManagementModal from './components/admin/AdminUserManagementModal';
 
 function AppContent() {
   const { isAuthenticated, user, logout } = useAuth();
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [currentModule, setCurrentModule] = useState('data-analysis'); // 'data-analysis' | 'daily-evaluation'
   const [activeTab, setActiveTab] = useState('master'); // 'master' | 'dashboard' | 'audit' | 'planning' | 'verification'
   const [lang, setLang] = useState('en');
@@ -194,6 +196,7 @@ function AppContent() {
       <Navbar
         user={user}
         onLogout={logout}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
         activeTab={activeTab}
@@ -250,6 +253,16 @@ function AppContent() {
           </div>
         )}
       </main>
+
+      {/* Admin User Management Modal */}
+      {isAdminModalOpen && (
+        <AdminUserManagementModal
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+          currentUser={user}
+          theme={theme}
+        />
+      )}
     </div>
   );
 }

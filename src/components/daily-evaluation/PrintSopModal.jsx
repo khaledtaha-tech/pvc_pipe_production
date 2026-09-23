@@ -27,8 +27,10 @@ export default function PrintSopModal({
   machineMaster = MACHINES,
   onConfirmPrint,
   onConfirmPdf,
-  isGenerating = false
+  isGenerating = false,
+  lang = 'en'
 }) {
+  const isAr = lang === 'ar';
   const [scope, setScope] = useState('current'); // 'current' | 'all'
   const [targetDate, setTargetDate] = useState(() => selectedDate || new Date().toISOString().slice(0, 10));
   const [linesState, setLinesState] = useState([]);
@@ -395,7 +397,7 @@ export default function PrintSopModal({
                       {/* 1. Product Code Dropdown */}
                       <div className="print-sop-form-group print-sop-code-group">
                         <label className="print-sop-label">
-                          Product Code (كود المنتج):
+                          {isAr ? 'كود المنتج (Product Code):' : 'Product Code:'}
                         </label>
                         <select
                           className="print-sop-select print-sop-code-select"

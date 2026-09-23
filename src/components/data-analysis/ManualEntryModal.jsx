@@ -134,7 +134,7 @@ export default function ManualEntryModal({ isOpen, onClose, onAddRow, lang }) {
                 <option value="KTS-350 TDH">KTS-350 TDH</option>
                 <option value="KTS-170">KTS-170</option>
                 <option value="KTS-200">KTS-200</option>
-                <option value="OTHER">خط آخر (Other)</option>
+                <option value="OTHER">{isAr ? 'خط آخر (Other)' : 'Other Line'}</option>
               </select>
             </div>
 

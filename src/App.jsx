@@ -230,7 +230,7 @@ export default function App() {
           />
         ) : (
           <div className="daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800">
-            <DailyEvaluationView sharedTheme={theme} />
+            <DailyEvaluationView sharedTheme={theme} lang={lang} />
           </div>
         )}
       </main>

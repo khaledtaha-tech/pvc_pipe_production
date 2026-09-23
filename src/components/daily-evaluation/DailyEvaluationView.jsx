@@ -89,7 +89,8 @@ function blankReport() {
   };
 }
 
-export default function DailyEvaluationView({ onNotify, sharedRecords, sharedTheme }) {
+export default function DailyEvaluationView({ onNotify, sharedRecords, sharedTheme, lang = 'en' }) {
+  const isAr = lang === 'ar';
   const [records, setRecords] = useState(() => {
     const persisted = loadPersistedRecords();
     return persisted.status === 'loaded' ? consolidateDailyMachineRecords(persisted.records) : [];
@@ -1119,7 +1120,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
             type="button"
             className="btn btn-supervisor-header-quick"
             onClick={() => setIsPrintSopModalOpen(true)}
-            title="مشرف الإنتاج: طباعة وتوليد شيت الصباح الفارغ لخطوط المصنع (DOC-Ext.-03)"
+            title={isAr ? "مشرف الإنتاج: طباعة وتوليد شيت الصباح الفارغ لخطوط المصنع (DOC-Ext.-03)" : "Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ marginInlineEnd: 4 }}>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1127,7 +1128,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
               <line x1="16" y1="13" x2="8" y2="13" />
               <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
-            شيت الصباح الفارغ (مشرف الإنتاج)
+            {isAr ? 'شيت الصباح الفارغ (مشرف الإنتاج)' : 'Morning Blank SOP (Supervisor)'}
           </button>
           <a
             href="./Master_Upload.xlsx"
@@ -1208,13 +1209,17 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
               <div className="supervisor-hero-info">
                 <div className="supervisor-hero-badge">
                   <span className="supervisor-hero-pulse" />
-                  بوابة مشرف الإنتاج اليومية | Production Supervisor Daily SOP
+                  {isAr ? 'بوابة مشرف الإنتاج اليومية | Production Supervisor Daily SOP' : 'Production Supervisor Daily SOP'}
                 </div>
                 <h2 className="supervisor-hero-title">
-                  طباعة وتوليد شيت الصباح الفارغ لخطوط الإنتاج (DOC-Ext.-03)
+                  {isAr
+                    ? 'طباعة وتوليد شيت الصباح الفارغ لخطوط الإنتاج (DOC-Ext.-03)'
+                    : 'Generate & Print Morning Blank SOP (DOC-Ext.-03)'}
                 </h2>
                 <p className="supervisor-hero-desc">
-                  إعداد وتجهيز نماذج المتابعة الميدانية ودفاتر تشغيل الورديات اليومية فارغة مع ربط أكواد المنتجات (Product Code) ومواصفات كل ماكينة قبل بدء دورة العمل.
+                  {isAr
+                    ? 'إعداد وتجهيز نماذج المتابعة الميدانية ودفاتر تشغيل الورديات اليومية فارغة مع ربط أكواد المنتجات (Product Code) ومواصفات كل ماكينة قبل بدء دورة العمل.'
+                    : 'Prepare empty daily shift log sheets with automated Product Code binding and machine nominal specs prior to shift operational start.'}
                 </p>
               </div>
               <div className="supervisor-hero-actions">
@@ -1222,7 +1227,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
                   type="button"
                   className="btn btn-supervisor-hero"
                   onClick={() => setIsPrintSopModalOpen(true)}
-                  title="فتح وحدة إعداد وتجهيز شيت الصباح الفارغ لجميع خطوط الإنتاج"
+                  title={isAr ? "فتح وحدة إعداد وتجهيز شيت الصباح الفارغ لجميع خطوط الإنتاج" : "Open Morning Blank SOP Generator & Batch Print Module"}
                 >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" style={{ marginInlineEnd: 8 }}>
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1231,7 +1236,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
                     <line x1="16" y1="17" x2="8" y2="17" />
                     <polyline points="10 9 9 9 8 9" />
                   </svg>
-                  <span>طباعة شيت الصباح الفارغ (DOC-Ext.-03)</span>
+                  <span>{isAr ? 'طباعة شيت الصباح الفارغ (DOC-Ext.-03)' : 'Print Blank Morning SOP (DOC-Ext.-03)'}</span>
                 </button>
               </div>
             </div>
@@ -1611,6 +1616,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
         onConfirmPrint={handleTriggerMorningSopPrint}
         onConfirmPdf={handleTriggerMorningSopPdf}
         isGenerating={isGeneratingMorningPdf}
+        lang={lang}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

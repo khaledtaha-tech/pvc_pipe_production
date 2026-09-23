@@ -15,7 +15,8 @@ import {
   Activity
 } from 'lucide-react';
 
-export default function CleaningAuditTable({ cleanedRows = [], auditReport = {}, onExportClean }) {
+export default function CleaningAuditTable({ cleanedRows = [], auditReport = {}, onExportClean, lang = 'en', theme = 'dark' }) {
+  const isAr = lang === 'ar';
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMachine, setSelectedMachine] = useState('ALL');
   const [selectedDiameter, setSelectedDiameter] = useState('ALL');
@@ -235,9 +236,9 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
                 onChange={(e) => setSelectedDataSource(e.target.value)}
                 className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
               >
-                <option value="ALL">All Data Sources</option>
-                <option value="ACTUAL">Actual Production (إنتاج حقيقي)</option>
-                <option value="INFERRED">Inferred by Model (مستنتج بالحسابات)</option>
+                <option value="ALL">{isAr ? 'جميع مصادر البيانات (All Sources)' : 'All Data Sources'}</option>
+                <option value="ACTUAL">{isAr ? 'إنتاج حقيقي (Actual Production)' : 'Actual Production'}</option>
+                <option value="INFERRED">{isAr ? 'مستنتج بالحسابات (Inferred)' : 'Inferred by Model'}</option>
               </select>
             </div>
 
@@ -353,8 +354,8 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
                           {row.machine}
                         </span>
                         {(row.isPelletizing || row.machine === 'KTS 550' || row.machine === 'KTS-550' || row.machine === 'BAUSANO' || row.profileName === 'Bausano') && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-900/60 text-purple-300 border border-purple-700/60" title="Pelletizing Line / ماكينة تحبيب - Exempt from pipe diameter sizing evaluations">
-                            Pelletizing Line / ماكينة تحبيب
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-900/60 text-purple-300 border border-purple-700/60" title={isAr ? "ماكينة تحبيب (Pelletizing Line) - استثناء من تقييم أقطار المواسير" : "Pelletizing Line - Exempt from pipe diameter sizing evaluations"}>
+                            {isAr ? 'ماكينة تحبيب (Pelletizing Line)' : 'Pelletizing Line'}
                           </span>
                         )}
                       </div>

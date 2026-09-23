@@ -494,9 +494,12 @@ export default function PrintSopModal({
 
         {/* Footer Actions */}
         <div className="export-modal-footer print-sop-footer">
-          <div className="print-sop-summary-text">
+          <div className="print-sop-summary-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span>
               Target: <strong>{selectedCount}</strong> {selectedCount === 1 ? 'Sheet' : 'Sheets'} ({targetDate})
+            </span>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontWeight: 600 }}>
+              {isAr ? '📐 A4 أفقي (Landscape)' : '📐 A4 Landscape'}
             </span>
           </div>
 

@@ -582,7 +582,11 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
     setSopBatchPrintModels(models);
     document.body.classList.add('print-sop-batch');
     setIsPrintSopModalOpen(false);
-    notify(`Opening print dialog for ${models.length} Morning SOP ${models.length === 1 ? 'Sheet' : 'Sheets'}...`);
+    notify(
+      isAr
+        ? `جاري فتح الطباعة لـ ${models.length} شيت صباح... (تأكد من اختيار الاتجاه الأفقي Landscape)`
+        : `Opening print dialog for ${models.length} Morning SOP ${models.length === 1 ? 'Sheet' : 'Sheets'}... (Select Landscape layout)`
+    );
     setTimeout(() => {
       window.print();
     }, 250);
@@ -1372,7 +1376,10 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
                 <button
                   type="button"
                   className="btn btn-ghost btn-print"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    notify(isAr ? 'تأكد من اختيار الاتجاه الأفقي (Landscape) وحجم A4 للحصول على أفضل طباعة' : 'Ensure Landscape orientation and A4 size in the print dialog for best fit.');
+                    setTimeout(() => window.print(), 150);
+                  }}
                   disabled={activeLinesForDate.length === 0}
                   title="Print active production sheet via browser print dialog"
                 >

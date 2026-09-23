@@ -15,7 +15,9 @@ import {
   Calendar,
   Sun, 
   Moon,
-  ChevronDown
+  ChevronDown,
+  User,
+  LogOut
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -27,6 +29,8 @@ export default function Navbar({
   setLang, 
   theme = 'dark',
   toggleTheme,
+  user = null,
+  onLogout,
   recordCount,
   historicalCount = 0,
   masterCount = 0,
@@ -183,6 +187,47 @@ export default function Navbar({
                 <Sun className="w-4 h-4 text-amber-400" />
               )}
             </button>
+
+            {/* User Profile & Logout */}
+            {user && (
+              <div className="flex items-center gap-2 pl-2 rtl:pl-0 rtl:pr-2 border-l rtl:border-l-0 rtl:border-r border-slate-700/60">
+                <div
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                    theme === 'light'
+                      ? 'bg-white text-stone-800 border-stone-300 shadow-xs'
+                      : 'bg-slate-800/90 text-slate-200 border-slate-700'
+                  }`}
+                  title={`Logged in as ${user.username} (${user.role || 'operator'})`}
+                >
+                  <User className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="font-semibold max-w-[100px] truncate">{user.username}</span>
+                  <span
+                    className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
+                      user.role === 'admin'
+                        ? 'bg-rose-950/80 text-rose-300 border border-rose-800/50'
+                        : 'bg-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {user.role || 'op'}
+                  </span>
+                </div>
+
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className={`p-1.5 rounded-lg transition cursor-pointer text-slate-400 hover:text-rose-400 ${
+                      theme === 'light'
+                        ? 'hover:bg-rose-50 border border-stone-300'
+                        : 'hover:bg-rose-950/40 border border-slate-700'
+                    }`}
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

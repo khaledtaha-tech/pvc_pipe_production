@@ -24,8 +24,11 @@ import {
   clearAppState 
 } from './utils/indexedDbStorage';
 import { t } from './utils/translations';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginPage from './components/auth/LoginPage';
 
-export default function App() {
+function AppContent() {
+  const { isAuthenticated, user, logout } = useAuth();
   const [currentModule, setCurrentModule] = useState('data-analysis'); // 'data-analysis' | 'daily-evaluation'
   const [activeTab, setActiveTab] = useState('master'); // 'master' | 'dashboard' | 'audit' | 'planning' | 'verification'
   const [lang, setLang] = useState('en');
@@ -174,10 +177,23 @@ export default function App() {
     XLSX.writeFile(wb, `Cleaned_Production_Log_${dateStr}.xlsx`);
   };
 
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        lang={lang}
+        setLang={setLang}
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />
+    );
+  }
+
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f2eee7] text-stone-900' : 'bg-slate-950 text-slate-100'}`}>
       {/* Unified Suite Navbar */}
       <Navbar
+        user={user}
+        onLogout={logout}
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
         activeTab={activeTab}
@@ -237,3 +253,12 @@ export default function App() {
     </div>
   );
 }
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+

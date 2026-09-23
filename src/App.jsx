@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 import Navbar from './components/common/Navbar';
 import DataAnalysisView from './components/data-analysis/DataAnalysisView';
@@ -40,6 +41,52 @@ function AppContent() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Global save and toast feedback state
+  const dailyEvalRef = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [globalToast, setGlobalToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setGlobalToast({ message, type });
+    setTimeout(() => {
+      setGlobalToast(prev => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
+
+  const handleGlobalSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      if (currentModule === 'daily-evaluation') {
+        if (dailyEvalRef.current?.save) {
+          const res = await dailyEvalRef.current.save();
+          if (res && res.success) {
+            showToast('Saved to Database and Local Storage', 'success');
+          } else if (res && res.message) {
+            showToast(`Saved locally: ${res.message}`, 'info');
+          } else {
+            showToast('Saved to Database and Local Storage', 'success');
+          }
+        } else {
+          showToast('Daily evaluation module not ready', 'error');
+        }
+      } else {
+        // data-analysis module: force flush active datasets directly into IndexedDB
+        await saveAppState({
+          rawRows,
+          historicalRawRows,
+          currentSheetName
+        });
+        showToast('All changes saved successfully', 'success');
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      showToast('Error saving data: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Theme state with localStorage persistence
   const [theme, setTheme] = useState(() => {
@@ -197,6 +244,8 @@ function AppContent() {
         user={user}
         onLogout={logout}
         onOpenAdminModal={() => setIsAdminModalOpen(true)}
+        onGlobalSave={handleGlobalSave}
+        isSaving={isSaving}
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
         activeTab={activeTab}
@@ -249,7 +298,7 @@ function AppContent() {
           />
         ) : (
           <div className="daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800">
-            <DailyEvaluationView sharedTheme={theme} lang={lang} />
+            <DailyEvaluationView ref={dailyEvalRef} sharedTheme={theme} lang={lang} />
           </div>
         )}
       </main>
@@ -262,6 +311,35 @@ function AppContent() {
           currentUser={user}
           theme={theme}
         />
+      )}
+
+      {/* Non-blocking Global Toast Feedback */}
+      {globalToast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md pointer-events-auto">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border ${
+            globalToast.type === 'error'
+              ? 'bg-rose-900/95 text-rose-100 border-rose-700/80 backdrop-blur-md'
+              : globalToast.type === 'info'
+              ? 'bg-sky-900/95 text-sky-100 border-sky-700/80 backdrop-blur-md'
+              : 'bg-emerald-900/95 text-emerald-100 border-emerald-700/80 backdrop-blur-md'
+          }`}>
+            {globalToast.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-300 shrink-0" />
+            ) : globalToast.type === 'info' ? (
+              <Info className="w-5 h-5 text-sky-300 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
+            )}
+            <p className="text-xs font-semibold">{globalToast.message}</p>
+            <button
+              type="button"
+              onClick={() => setGlobalToast(null)}
+              className="ml-auto p-1 rounded hover:bg-white/10 text-white/70 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

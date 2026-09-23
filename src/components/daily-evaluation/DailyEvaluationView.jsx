@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { useMemo, useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import html2pdf from 'html2pdf.js';
 import { MACHINES, machineLabel, PLANT_NAME, SOP_REF, DOC_VERSION } from '../../config/machines.js';
 import { makeRefSpec, generateReport, buildAll } from '../../logic/engine.js';
@@ -89,7 +89,7 @@ function blankReport() {
   };
 }
 
-export default function DailyEvaluationView({ onNotify, sharedRecords, sharedTheme, lang = 'en' }) {
+const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, sharedRecords, sharedTheme, lang = 'en' }, ref) {
   const isAr = lang === 'ar';
   const [records, setRecords] = useState(() => {
     const persisted = loadPersistedRecords();
@@ -359,7 +359,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
     refreshHistoryList();
   }, [refreshHistoryList]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     // 1. Immediately persist locally (zero data loss guarantee)
     saveReport(report);
 
@@ -375,11 +375,19 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
       } else {
         notify(`Saved locally (${res.message || 'Central sync error'})`);
       }
+      return res;
     } catch (err) {
       notify('Report saved to local browser history');
+      return { success: false, error: err };
+    } finally {
+      refreshHistoryList();
     }
-    refreshHistoryList();
-  };
+  }, [report, derived, notify, refreshHistoryList]);
+
+  useImperativeHandle(ref, () => ({
+    handleSave,
+    save: handleSave
+  }), [handleSave]);
 
   const handleLoad = async (saved) => {
     if (saved && saved.isRemote && !saved.slots) {
@@ -1641,4 +1649,7 @@ export default function DailyEvaluationView({ onNotify, sharedRecords, sharedThe
 
     </div>
   );
-}
+});
+
+export default DailyEvaluationView;
+

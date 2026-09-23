@@ -17,7 +17,9 @@ import {
   Moon,
   ChevronDown,
   User,
-  LogOut
+  LogOut,
+  Save,
+  Loader2
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -32,6 +34,8 @@ export default function Navbar({
   user = null,
   onLogout,
   onOpenAdminModal,
+  onGlobalSave,
+  isSaving = false,
   recordCount,
   historicalCount = 0,
   masterCount = 0,
@@ -116,8 +120,35 @@ export default function Navbar({
             </button>
           </div>
 
-          {/* Global Controls (Theme, Language, Templates) */}
+          {/* Global Controls (Save, Theme, Language, Templates) */}
           <div className="flex items-center gap-2">
+            {/* Global Save Action */}
+            {onGlobalSave && (
+              <button
+                type="button"
+                onClick={onGlobalSave}
+                disabled={isSaving}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                  theme === 'light'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-800/20 ring-1 ring-emerald-500/50'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/40'
+                }`}
+                title="Save All Changes (Local & Remote)"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Download Templates Menu */}
             <div className="relative group">
               <button

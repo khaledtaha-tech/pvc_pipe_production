@@ -29,6 +29,8 @@ import KpiStrip from './KpiStrip.jsx';
 import ExcelUploader from './ExcelUploader.jsx';
 import ExportModal from './ExportModal.jsx';
 import PrintSopModal from './PrintSopModal.jsx';
+import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
+import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
 import JSZip from 'jszip';
 import {
   exportSingleMachineToExcel,
@@ -133,6 +135,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
   const batchSopRef = useRef(null);
   const morningPdfExportRef = useRef(null);
   const [isBlankSopPrint, setIsBlankSopPrint] = useState(false);
+  const [isPrintChoiceModalOpen, setIsPrintChoiceModalOpen] = useState(false);
   const [isPrintSopModalOpen, setIsPrintSopModalOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
@@ -600,13 +603,33 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
       pageStyle.id = 'sop-print-page-style';
       document.head.appendChild(pageStyle);
     }
-    pageStyle.innerHTML = '@page { size: A4 portrait; margin: 4mm 4mm 4mm 4mm; }';
+    pageStyle.innerHTML = '@page { size: A4 portrait; margin: 5mm; }';
 
+    setIsPrintChoiceModalOpen(false);
     setIsPrintSopModalOpen(false);
     notify(`Opening print dialog for ${models.length} Morning SOP ${models.length === 1 ? 'Sheet' : 'Sheets'}...`);
     setTimeout(() => {
       window.print();
     }, 250);
+  };
+
+  const handleTriggerUniversalBlankPrint = () => {
+    setIsPrintChoiceModalOpen(false);
+    setIsPrintSopModalOpen(false);
+    const universalModel = buildUniversalBlankSopModel();
+    handleTriggerMorningSopPrint([universalModel]);
+  };
+
+  const handleTriggerUniversalBlankPdf = () => {
+    setIsPrintChoiceModalOpen(false);
+    setIsPrintSopModalOpen(false);
+    const universalModel = buildUniversalBlankSopModel();
+    handleTriggerMorningSopPdf([universalModel]);
+  };
+
+  const handleOpenConfiguredBatchModal = () => {
+    setIsPrintChoiceModalOpen(false);
+    setIsPrintSopModalOpen(true);
   };
 
   const handleTriggerMorningSopPdf = async (models) => {
@@ -624,13 +647,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
       return;
     }
 
+    const isUniversal = Boolean(models[0]?.isUniversalBlank);
     const targetDate = models[0]?.dateDots ? models[0].dateDots.replace(/\./g, '-') : selectedDate;
-    const filename = models.length === 1
+    const filename = isUniversal
+      ? 'Universal_Blank_SOP_Template_DOC_Ext_03.pdf'
+      : models.length === 1
       ? `Morning_SOP_${(models[0].lineCode || 'Line').replace(/[^a-zA-Z0-9_-]/g, '_')}_${targetDate}.pdf`
       : `Morning_SOP_All_Operating_Lines_${targetDate}.pdf`;
 
     const opt = {
-      margin: [4, 4, 4, 4],
+      margin: [5, 5, 5, 5],
       filename: filename,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
@@ -643,7 +669,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
         scrollY: 0,
         scrollX: 0
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
@@ -1140,7 +1166,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
           <button
             type="button"
             className="btn btn-supervisor-header-quick"
-            onClick={() => setIsPrintSopModalOpen(true)}
+            onClick={() => setIsPrintChoiceModalOpen(true)}
             title={isAr ? "مشرف الإنتاج: طباعة وتوليد شيت الصباح الفارغ لخطوط المصنع (DOC-Ext.-03)" : "Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ marginInlineEnd: 4 }}>
@@ -1247,7 +1273,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
                 <button
                   type="button"
                   className="btn btn-supervisor-hero"
-                  onClick={() => setIsPrintSopModalOpen(true)}
+                  onClick={() => setIsPrintChoiceModalOpen(true)}
                   title={isAr ? "فتح وحدة إعداد وتجهيز شيت الصباح الفارغ لجميع خطوط الإنتاج" : "Open Morning Blank SOP Generator & Batch Print Module"}
                 >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" style={{ marginInlineEnd: 8 }}>
@@ -1629,7 +1655,17 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
         </div>
       ) : null}
 
-      {/* Intelligent Morning Blank SOP Generator Modal */}
+      {/* Morning SOP Print Mode Choice Modal (Option A vs Option B) */}
+      <PrintSopChoiceModal
+        isOpen={isPrintChoiceModalOpen}
+        onClose={() => setIsPrintChoiceModalOpen(false)}
+        onSelectUniversalBlankPrint={handleTriggerUniversalBlankPrint}
+        onSelectUniversalBlankPdf={handleTriggerUniversalBlankPdf}
+        onSelectConfiguredBatch={handleOpenConfiguredBatchModal}
+        isGenerating={isGeneratingMorningPdf}
+      />
+
+      {/* Option B: Intelligent Morning Blank SOP Generator Modal */}
       <PrintSopModal
         isOpen={isPrintSopModalOpen}
         onClose={() => setIsPrintSopModalOpen(false)}
@@ -1639,6 +1675,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
         machineMaster={machineMaster}
         onConfirmPrint={handleTriggerMorningSopPrint}
         onConfirmPdf={handleTriggerMorningSopPdf}
+        onOpenUniversalBlank={handleTriggerUniversalBlankPrint}
         isGenerating={isGeneratingMorningPdf}
         lang={lang}
       />

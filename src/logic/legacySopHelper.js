@@ -649,3 +649,64 @@ export function buildMorningSopModel(config = {}) {
     isMorningSop: true
   };
 }
+
+/**
+ * Build a universal clean blank SOP (DOC-Ext.-03) follow sheet model.
+ * Generates exactly 1 clean page with all operational values left blank/empty
+ * with writing lines for manual pen entry by supervisors.
+ */
+export function buildUniversalBlankSopModel(config = {}) {
+  const shift1Rows = SOP_SHIFT1_HOURS.map((hour) => ({
+    hour,
+    stdPcs: '',
+    stdM: '',
+    goodPcs: '',
+    goodM: '',
+    cause: '',
+    downtime: '',
+    rejectKg: ''
+  }));
+
+  const shift2Rows = SOP_SHIFT2_HOURS.map((hour) => ({
+    hour,
+    stdPcs: '',
+    stdM: '',
+    goodPcs: '',
+    goodM: '',
+    cause: '',
+    downtime: '',
+    rejectKg: ''
+  }));
+
+  return {
+    docCode: 'DOC-Ext.-03',
+    version: '3',
+    creationDate: '18-01-18',
+    plantName: config.plantName || 'AL Manar',
+    dateDots: '',
+    dateSpaces: '',
+    lineId: '',
+    lineCode: 'BLANK',
+    fullMachineName: '',
+    itemCode: '',
+    productDescription: '',
+    displayProduct: '',
+    speed1: '',
+    speed2: '',
+    pipeLength: 6.0,
+    hourlyStdRate: '',
+    shift1Rows,
+    shift2Rows,
+    s1TotalGoodPcs: '',
+    s1TotalGoodM: '',
+    s1TotalScrapKg: '',
+    s2TotalGoodPcs: '',
+    s2TotalGoodM: '',
+    s2TotalScrapKg: '',
+    shift1Lead: '',
+    shift2Lead: '',
+    isBlank: true,
+    isMorningSop: false,
+    isUniversalBlank: true
+  };
+}

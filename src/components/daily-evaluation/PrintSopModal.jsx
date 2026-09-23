@@ -27,6 +27,7 @@ export default function PrintSopModal({
   machineMaster = MACHINES,
   onConfirmPrint,
   onConfirmPdf,
+  onOpenUniversalBlank,
   isGenerating = false,
   lang = 'en'
 }) {
@@ -270,12 +271,25 @@ export default function PrintSopModal({
             <div className="print-sop-title-wrap">
               <span className="print-sop-badge-sop">DOC-Ext.-03</span>
               <h3 id="print-sop-modal-title" className="export-modal-title">
-                Morning Blank SOP Generator
+                Configured Machine Lines (Batch Mode)
               </h3>
             </div>
             <p className="export-modal-subtitle">
               Pre-populate operational specifications, inherit previous runs, and calculate standard pieces per hour.
             </p>
+            {onOpenUniversalBlank && (
+              <div className="print-sop-switch-banner">
+                <span className="switch-hint">Prefer a single blank sheet?</span>
+                <button
+                  type="button"
+                  className="btn-link-action"
+                  onClick={onOpenUniversalBlank}
+                  disabled={isGenerating}
+                >
+                  Switch to Option A: Universal Blank (1 Page) &rarr;
+                </button>
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -499,7 +513,7 @@ export default function PrintSopModal({
               Target: <strong>{selectedCount}</strong> {selectedCount === 1 ? 'Sheet' : 'Sheets'} ({targetDate})
             </span>
             <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontWeight: 600 }}>
-              {isAr ? '📐 A4 أفقي (Landscape)' : '📐 A4 Landscape'}
+              A4 Portrait &bull; 5mm Margin
             </span>
           </div>
 

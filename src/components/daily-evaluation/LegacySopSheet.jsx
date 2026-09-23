@@ -10,6 +10,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
 
   const model = propModel || buildSopModel(report, derived, { isBlank: Boolean(isBlank || report?.isBlank), standardRate });
   const isBlankMode = Boolean(isBlank || report?.isBlank || model?.isBlank);
+  const isUniversal = Boolean(model?.isUniversalBlank || (!model?.isMorningSop && isBlankMode));
 
   return (
     <div
@@ -72,7 +73,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
               Date
             </td>
             <td colSpan={2} className="sop-cell sop-val text-center">
-              {model.dateSpaces ? model.dateSpaces : (isBlankMode ? <span className="sop-blank-underline" /> : '')}
+              {model.dateSpaces ? model.dateSpaces : (isUniversal || isBlankMode ? <span className="sop-blank-underline" /> : '')}
             </td>
           </tr>
 
@@ -86,7 +87,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
               className="sop-cell sop-val-bold text-center"
               style={{ whiteSpace: 'nowrap', fontSize: '10.5px' }}
             >
-              {model.fullMachineName || model.lineId || (isBlankMode && !model.isMorningSop ? <span className="sop-blank-underline" /> : '')}
+              {isUniversal ? <span className="sop-blank-underline" /> : (model.fullMachineName || model.lineId || (isBlankMode ? <span className="sop-blank-underline" /> : ''))}
             </td>
             <td colSpan={3} className="sop-cell sop-prod-pieces">
               PRODUCTION PIECES
@@ -98,11 +99,16 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td colSpan={3} className="sop-cell sop-item-desc">
-              {model.displayProduct ? (
+              {isUniversal ? (
+                <div className="sop-blank-product-box">
+                  <span className="sop-blank-lbl">Product: </span>
+                  <span className="sop-blank-underline long" />
+                </div>
+              ) : model.displayProduct ? (
                 model.displayProduct
               ) : model.productDescription ? (
                 model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription
-              ) : isBlankMode && !model.isMorningSop ? (
+              ) : isBlankMode ? (
                 <div className="sop-blank-product-box">
                   <span className="sop-blank-lbl">Product: </span>
                   <span className="sop-blank-underline long" />
@@ -118,16 +124,16 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td className="sop-cell sop-ref-hdr text-center">
-              {isBlankMode && !model.isMorningSop ? 'Ref 1: ____________' : '1st reference'}
+              {isUniversal ? 'Ref 1: ____________' : (isBlankMode && !model.isMorningSop ? 'Ref 1: ____________' : '1st reference')}
             </td>
             <td colSpan={2} className="sop-cell sop-ref-hdr text-center">
-              {isBlankMode && !model.isMorningSop ? 'Ref 2: ____________' : '2nd reference'}
+              {isUniversal ? 'Ref 2: ____________' : (isBlankMode && !model.isMorningSop ? 'Ref 2: ____________' : '2nd reference')}
             </td>
             <td className="sop-cell sop-lbl text-center">
               DATE
             </td>
             <td colSpan={2} className="sop-cell sop-val text-center">
-              {model.dateDots ? model.dateDots : (isBlankMode && !model.isMorningSop ? <span className="sop-blank-underline" /> : '')}
+              {model.dateDots ? model.dateDots : (isUniversal || isBlankMode ? <span className="sop-blank-underline" /> : '')}
             </td>
           </tr>
 
@@ -135,10 +141,10 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td className="sop-cell sop-speed text-center">
-              {model.speed1 ? `${model.speed1} M/Min` : (isBlankMode && !model.isMorningSop ? 'Speed: ______ M/Min' : '')}
+              {isUniversal ? 'Speed: ______ M/Min' : (model.speed1 ? `${model.speed1} M/Min` : (isBlankMode ? 'Speed: ______ M/Min' : ''))}
             </td>
             <td colSpan={2} className="sop-cell sop-speed text-center">
-              {model.speed2 ? `${model.speed2} M/Min` : (isBlankMode && !model.isMorningSop ? 'Speed: ______ M/Min' : '')}
+              {isUniversal ? 'Speed: ______ M/Min' : (model.speed2 ? `${model.speed2} M/Min` : (isBlankMode ? 'Speed: ______ M/Min' : ''))}
             </td>
             <td colSpan={3} className="sop-cell sop-empty"></td>
           </tr>
@@ -170,7 +176,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
             return (
               <tr key={`s1_${r.hour}`} className={`sop-row${isLast ? ' sop-shift-divider' : ''}`}>
                 <td className="sop-cell-hour">{r.hour}</td>
-                <td className="sop-cell-std">{r.stdPcs !== undefined && r.stdPcs !== '' ? (typeof r.stdPcs === 'number' ? r.stdPcs.toLocaleString() : r.stdPcs) : (r.stdM != null && r.stdM !== '' ? r.stdM.toLocaleString() : '')}</td>
+                <td className="sop-cell-std">{isUniversal ? '' : (r.stdPcs !== undefined && r.stdPcs !== '' ? (typeof r.stdPcs === 'number' ? r.stdPcs.toLocaleString() : r.stdPcs) : (r.stdM != null && r.stdM !== '' ? r.stdM.toLocaleString() : ''))}</td>
                 <td className="sop-cell-good">
                   {r.goodPcs !== '' && r.goodPcs !== undefined ? (typeof r.goodPcs === 'number' ? (Number.isInteger(r.goodPcs) ? r.goodPcs.toLocaleString() : r.goodPcs.toFixed(1)) : r.goodPcs) : (r.goodM !== '' && r.goodM !== undefined ? (typeof r.goodM === 'number' ? (Number.isInteger(r.goodM) ? r.goodM.toLocaleString() : r.goodM.toFixed(1)) : r.goodM) : '')}
                 </td>
@@ -268,7 +274,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
             return (
               <tr key={`s2_${r.hour}`} className={`sop-row${isLast ? ' sop-shift-divider' : ''}`}>
                 <td className="sop-cell-hour">{r.hour}</td>
-                <td className="sop-cell-std">{r.stdPcs !== undefined && r.stdPcs !== '' ? (typeof r.stdPcs === 'number' ? r.stdPcs.toLocaleString() : r.stdPcs) : (r.stdM != null && r.stdM !== '' ? r.stdM.toLocaleString() : '')}</td>
+                <td className="sop-cell-std">{isUniversal ? '' : (r.stdPcs !== undefined && r.stdPcs !== '' ? (typeof r.stdPcs === 'number' ? r.stdPcs.toLocaleString() : r.stdPcs) : (r.stdM != null && r.stdM !== '' ? r.stdM.toLocaleString() : ''))}</td>
                 <td className="sop-cell-good">
                   {r.goodPcs !== '' && r.goodPcs !== undefined ? (typeof r.goodPcs === 'number' ? (Number.isInteger(r.goodPcs) ? r.goodPcs.toLocaleString() : r.goodPcs.toFixed(1)) : r.goodPcs) : (r.goodM !== '' && r.goodM !== undefined ? (typeof r.goodM === 'number' ? (Number.isInteger(r.goodM) ? r.goodM.toLocaleString() : r.goodM.toFixed(1)) : r.goodM) : '')}
                 </td>

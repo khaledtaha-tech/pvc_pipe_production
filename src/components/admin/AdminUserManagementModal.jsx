@@ -24,6 +24,18 @@ function getApiUrl(endpoint = 'users.php') {
   return `/api/${endpoint}`;
 }
 
+function getAuthHeaders(extraHeaders = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('pvc_auth_token') : null;
+  const headers = {
+    Accept: 'application/json',
+    ...extraHeaders
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function formatDateDisplay(dtString) {
   if (!dtString) return 'Unlimited';
   const d = new Date(dtString);
@@ -78,13 +90,26 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'GET',
-        headers: { Accept: 'application/json' }
+        headers: getAuthHeaders()
       });
       const data = await resp.json().catch(() => null);
-      if (resp.ok && data && data.success) {
-        setUsers(data.users || []);
+
+      let userList = [];
+      if (Array.isArray(data)) {
+        userList = data;
+      } else if (data && Array.isArray(data.users)) {
+        userList = data.users;
+      } else if (data && data.data && Array.isArray(data.data.users)) {
+        userList = data.data.users;
+      } else if (data && Array.isArray(data.data)) {
+        userList = data.data;
+      }
+
+      if (resp.ok && data && data.success !== false) {
+        setUsers(userList);
       } else {
-        showToast(data?.message || 'Failed to load user list', 'error');
+        const errorMsg = data?.message || (data?.code ? `Database Error: ${data.code}` : `Failed to load user list (HTTP ${resp.status})`);
+        showToast(errorMsg, 'error');
       }
     } catch (err) {
       showToast(err.message || 'Network error fetching users', 'error');
@@ -131,7 +156,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: user.id,
           is_active: nextStatus
@@ -155,7 +180,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: user.id,
           role: newRoleValue
@@ -184,7 +209,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: user.id,
           access_expires_at: formattedDate
@@ -213,7 +238,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: userId,
           access_expires_at: formatted
@@ -243,7 +268,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: userId,
           password: newResetPassword.trim()
@@ -272,7 +297,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl(`users.php?id=${user.id}`), {
         method: 'DELETE',
-        headers: { Accept: 'application/json' }
+        headers: getAuthHeaders()
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
@@ -312,7 +337,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           username: cleanUsername,
           password: newPassword,

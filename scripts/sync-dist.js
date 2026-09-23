@@ -53,8 +53,8 @@ if (fs.existsSync(distAssets)) {
   console.log('✅ Synchronized public_html/ assets and index.html');
 }
 
-// 4. Synchronize api/ backend into dist/api and public_html/api preserving live config.php
-function copyApiDirPreservingConfig(srcDir, destDir) {
+// 4. Synchronize api/ backend into dist/api and public_html/api (strictly excluding config.php)
+function copyApiDirExcludingConfig(srcDir, destDir) {
   if (!fs.existsSync(destDir)) {
     fs.mkdirSync(destDir, { recursive: true });
   }
@@ -65,25 +65,12 @@ function copyApiDirPreservingConfig(srcDir, destDir) {
     const destPath = path.join(destDir, entry.name);
 
     if (entry.isDirectory()) {
-      copyApiDirPreservingConfig(srcPath, destPath);
+      copyApiDirExcludingConfig(srcPath, destPath);
     } else {
+      // Completely EXCLUDE config.php from being copied or overwritten anywhere
       if (entry.name === 'config.php') {
-        // Do NOT overwrite config.php if destination already exists
-        if (fs.existsSync(destPath)) {
-          console.log(`🔒 Preserved existing ${path.relative(projectRoot, destPath)} (database credentials protected)`);
-          continue;
-        }
-
-        // If destination does not exist yet, check if live credentials exist in public_html/api/config.php
-        const liveConfigPath = path.join(publicHtmlDir, 'api', 'config.php');
-        if (destPath !== liveConfigPath && fs.existsSync(liveConfigPath)) {
-          const liveContent = fs.readFileSync(liveConfigPath, 'utf8');
-          if (!liveContent.includes('DB_PASSWORD_HERE')) {
-            fs.copyFileSync(liveConfigPath, destPath);
-            console.log(`🔒 Propagated live credentials from public_html to ${path.relative(projectRoot, destPath)}`);
-            continue;
-          }
-        }
+        console.log(`🔒 Excluded ${entry.name}: never copied or overwritten in ${path.relative(projectRoot, destPath)}`);
+        continue;
       }
       fs.copyFileSync(srcPath, destPath);
     }
@@ -94,9 +81,9 @@ const sourceApiDir = path.join(projectRoot, 'api');
 if (fs.existsSync(sourceApiDir)) {
   const distApi = path.join(distDir, 'api');
   const pubApi = path.join(publicHtmlDir, 'api');
-  copyApiDirPreservingConfig(sourceApiDir, distApi);
-  copyApiDirPreservingConfig(sourceApiDir, pubApi);
-  console.log('✅ Synchronized api/ backend into dist/api and public_html/api (live config preserved)');
+  copyApiDirExcludingConfig(sourceApiDir, distApi);
+  copyApiDirExcludingConfig(sourceApiDir, pubApi);
+  console.log('✅ Synchronized api/ backend into dist/api and public_html/api (config.php strictly excluded)');
 }
 
 // 5. Ensure Apache / LiteSpeed .htaccess for Single Page Applications
@@ -125,7 +112,7 @@ const publicDir = path.join(projectRoot, 'public');
 if (fs.existsSync(publicDir)) {
   const files = fs.readdirSync(publicDir);
   for (const file of files) {
-    if (file.startsWith('~$') || file === '.htaccess') continue;
+    if (file.startsWith('~$') || file === '.htaccess' || file === 'config.php') continue;
     const srcFile = path.join(publicDir, file);
     if (fs.statSync(srcFile).isFile()) {
       fs.copyFileSync(srcFile, path.join(projectRoot, file));

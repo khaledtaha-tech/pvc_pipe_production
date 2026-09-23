@@ -18,8 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Database Credentials
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u976858450_Daily_Records');
-define('DB_USER', 'u976858450_Daily_Records');
+define('DB_NAME', 'u976858450_pvc_pipe');
+define('DB_USER', 'u976858450_pvc_pipe');
 define('DB_PASS', 'DB_PASSWORD_HERE'); // Replace with live database password
 
 /**

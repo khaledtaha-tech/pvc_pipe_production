@@ -391,18 +391,6 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
     }
   }, [report, derived, notify, refreshHistoryList]);
 
-  useImperativeHandle(ref, () => ({
-    handleSave,
-    save: handleSave,
-    openBlankSopPrint: () => setIsPrintChoiceModalOpen(true),
-    exportSingleExcel: () => handleExportExcelSingle(),
-    exportAllExcel: () => handleExportExcelAll(),
-    exportDateRange: (from, to) => exportDateRangeToExcel(records, from, to, machineMaster),
-    getRecords: () => records,
-    getMachineMaster: () => machineMaster,
-    getCurrentReport: () => report
-  }), [handleSave, handleExportExcelSingle, handleExportExcelAll, records, machineMaster, report]);
-
   const handleLoad = async (saved) => {
     if (saved && saved.isRemote && !saved.slots) {
       notify('Fetching complete 24h follow sheet from MySQL database...');
@@ -1159,6 +1147,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
       notify(`Machine updated to ${targetItem.lineId}`);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    handleSave,
+    save: handleSave,
+    openBlankSopPrint: () => setIsPrintChoiceModalOpen(true),
+    exportSingleExcel: () => handleExportExcelSingle(),
+    exportAllExcel: () => handleExportExcelAll(),
+    exportDateRange: (from, to) => exportDateRangeToExcel(records, from, to, machineMaster),
+    getRecords: () => records,
+    getMachineMaster: () => machineMaster,
+    getCurrentReport: () => report
+  }), [handleSave, handleExportExcelSingle, handleExportExcelAll, records, machineMaster, report]);
 
   return (
     <div className={`app-root tab-${tab} ${tab === 'analytics' ? 'print-analytics-active' : ''} ${isLaserMonochrome ? 'theme-laser-monochrome' : ''}`}>

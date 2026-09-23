@@ -6,6 +6,7 @@ import Navbar from './components/common/Navbar';
 import DataAnalysisView from './components/data-analysis/DataAnalysisView';
 import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationView';
 import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 import { SAMPLE_PRODUCTION_DATA } from './data/sampleData';
 import { SAMPLE_HISTORICAL_ERP_DATA } from './data/sampleHistoricalErpData';
@@ -275,65 +276,71 @@ function AppContent() {
       {/* Main Container: Expanded to utilize lateral widescreen space */}
       <main className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 py-4">
         {currentModule === 'data-analysis' && (
-          <DataAnalysisView
-            lang={lang}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            theme={theme}
-            rawRows={rawRows}
-            setRawRows={setRawRows}
-            historicalRawRows={historicalRawRows}
-            setHistoricalRawRows={setHistoricalRawRows}
-            currentSheetName={currentSheetName}
-            setCurrentSheetName={setCurrentSheetName}
-            cleanedRows={cleanedRows}
-            auditReport={auditReport}
-            analytics={analytics}
-            planningMatrix={uniquePlanningMatrix}
-            masterRuns={unifiedMasterRuns}
-            isManualModalOpen={isManualModalOpen}
-            setIsManualModalOpen={setIsManualModalOpen}
-            isClearDialogOpen={isClearDialogOpen}
-            setIsClearDialogOpen={setIsClearDialogOpen}
-            handleClearAllData={handleConfirmClearAll}
-            handleSaveManualRow={handleAddManualRow}
-            handleExportCleanLog={handleExportCleanExcel}
-            handleExportConsolidated={handleExportConsolidatedExcel}
-            handleExportMasterPlan={handleExportMasterPlanExcel}
-            handleExportUniqueCatalog={handleExportUniqueCatalog}
-          />
+          <ErrorBoundary>
+            <DataAnalysisView
+              lang={lang}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              theme={theme}
+              rawRows={rawRows}
+              setRawRows={setRawRows}
+              historicalRawRows={historicalRawRows}
+              setHistoricalRawRows={setHistoricalRawRows}
+              currentSheetName={currentSheetName}
+              setCurrentSheetName={setCurrentSheetName}
+              cleanedRows={cleanedRows}
+              auditReport={auditReport}
+              analytics={analytics}
+              planningMatrix={uniquePlanningMatrix}
+              masterRuns={unifiedMasterRuns}
+              isManualModalOpen={isManualModalOpen}
+              setIsManualModalOpen={setIsManualModalOpen}
+              isClearDialogOpen={isClearDialogOpen}
+              setIsClearDialogOpen={setIsClearDialogOpen}
+              handleClearAllData={handleConfirmClearAll}
+              handleSaveManualRow={handleAddManualRow}
+              handleExportCleanLog={handleExportCleanExcel}
+              handleExportConsolidated={handleExportConsolidatedExcel}
+              handleExportMasterPlan={handleExportMasterPlanExcel}
+              handleExportUniqueCatalog={handleExportUniqueCatalog}
+            />
+          </ErrorBoundary>
         )}
 
         {currentModule === 'data-hub' && (
-          <DataExchangeCenter
-            lang={lang}
-            theme={theme}
-            rawRows={rawRows}
-            setRawRows={setRawRows}
-            historicalRawRows={historicalRawRows}
-            setHistoricalRawRows={setHistoricalRawRows}
-            currentSheetName={currentSheetName}
-            setCurrentSheetName={setCurrentSheetName}
-            cleanedRows={cleanedRows}
-            masterRuns={unifiedMasterRuns}
-            uniquePlanningMatrix={uniquePlanningMatrix}
-            analytics={analytics}
-            dailyEvalRef={dailyEvalRef}
-            onOpenBlankSopPrint={() => {
-              if (dailyEvalRef.current?.openBlankSopPrint) {
-                dailyEvalRef.current.openBlankSopPrint();
-              }
-            }}
-            onExportMasterPlan={handleExportMasterPlanExcel}
-            onExportUniqueCatalog={handleExportUniqueCatalog}
-            onExportCleanLog={handleExportCleanExcel}
-            onClearAllData={() => setIsClearDialogOpen(true)}
-            onNotify={showToast}
-          />
+          <ErrorBoundary>
+            <DataExchangeCenter
+              lang={lang}
+              theme={theme}
+              rawRows={rawRows}
+              setRawRows={setRawRows}
+              historicalRawRows={historicalRawRows}
+              setHistoricalRawRows={setHistoricalRawRows}
+              currentSheetName={currentSheetName}
+              setCurrentSheetName={setCurrentSheetName}
+              cleanedRows={cleanedRows}
+              masterRuns={unifiedMasterRuns}
+              uniquePlanningMatrix={uniquePlanningMatrix}
+              analytics={analytics}
+              dailyEvalRef={dailyEvalRef}
+              onOpenBlankSopPrint={() => {
+                if (dailyEvalRef.current?.openBlankSopPrint) {
+                  dailyEvalRef.current.openBlankSopPrint();
+                }
+              }}
+              onExportMasterPlan={handleExportMasterPlanExcel}
+              onExportUniqueCatalog={handleExportUniqueCatalog}
+              onExportCleanLog={handleExportCleanExcel}
+              onClearAllData={() => setIsClearDialogOpen(true)}
+              onNotify={showToast}
+            />
+          </ErrorBoundary>
         )}
 
         <div className={`daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
-          <DailyEvaluationView ref={dailyEvalRef} sharedTheme={theme} lang={lang} />
+          <ErrorBoundary>
+            <DailyEvaluationView ref={dailyEvalRef} sharedTheme={theme} lang={lang} />
+          </ErrorBoundary>
         </div>
       </main>
 
@@ -382,7 +389,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ErrorBoundary>
+        <AppContent />
+      </ErrorBoundary>
     </AuthProvider>
   );
 }

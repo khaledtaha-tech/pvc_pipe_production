@@ -142,6 +142,10 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
     const handleAfterPrint = () => {
       setIsBlankSopPrint(false);
       document.body.classList.remove('print-sop-batch');
+      const pageStyle = document.getElementById('sop-print-page-style');
+      if (pageStyle) {
+        pageStyle.remove();
+      }
       setSopBatchPrintModels([]);
     };
     window.addEventListener('afterprint', handleAfterPrint);
@@ -589,12 +593,17 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
     if (!models || models.length === 0) return;
     setSopBatchPrintModels(models);
     document.body.classList.add('print-sop-batch');
+
+    let pageStyle = document.getElementById('sop-print-page-style');
+    if (!pageStyle) {
+      pageStyle = document.createElement('style');
+      pageStyle.id = 'sop-print-page-style';
+      document.head.appendChild(pageStyle);
+    }
+    pageStyle.innerHTML = '@page { size: A4 portrait; margin: 4mm 4mm 4mm 4mm; }';
+
     setIsPrintSopModalOpen(false);
-    notify(
-      isAr
-        ? `جاري فتح الطباعة لـ ${models.length} شيت صباح... (تأكد من اختيار الاتجاه الأفقي Landscape)`
-        : `Opening print dialog for ${models.length} Morning SOP ${models.length === 1 ? 'Sheet' : 'Sheets'}... (Select Landscape layout)`
-    );
+    notify(`Opening print dialog for ${models.length} Morning SOP ${models.length === 1 ? 'Sheet' : 'Sheets'}...`);
     setTimeout(() => {
       window.print();
     }, 250);

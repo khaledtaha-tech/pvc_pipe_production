@@ -3104,8 +3104,35 @@
     border: 2px solid #000000 !important;
     background: #ffffff !important;
     color: #000000 !important;
+    height: 98vh !important;
+    min-height: 98vh !important;
+    max-height: 285mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  .sop-sheet-container.sop-blank-template .sop-sheet-table {
+    height: 100% !important;
+    flex: 1 1 auto !important;
+  }
+
+  .sop-sheet-container.sop-blank-template .sop-row {
+    height: 8.2mm !important;
+  }
+
+  .sop-sheet-container.sop-blank-template .sop-row td {
+    padding: 2.4mm 1.5mm !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+  }
+
+  .sop-sheet-container.sop-blank-template .sop-sig-box {
+    height: 16mm !important;
+    min-height: 16mm !important;
+    padding: 3mm 4mm !important;
   }
 
   .sop-sheet-container.sop-blank-template td,
@@ -5421,6 +5448,11 @@
 
 /* Batch Print Media Queries */
 @media print {
+  @page sop_portrait {
+    size: A4 portrait;
+    margin: 4mm 4mm 4mm 4mm;
+  }
+
   body.print-sop-batch {
     background: #ffffff !important;
     margin: 0 !important;
@@ -5469,8 +5501,10 @@
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
-    max-height: 198mm !important;
+    height: 98vh !important;
+    min-height: 98vh !important;
+    max-height: 285mm !important;
+    page: sop_portrait !important;
     page-break-before: auto !important;
     break-before: auto !important;
     page-break-after: always !important;
@@ -5492,8 +5526,12 @@
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    height: auto !important;
-    max-height: 198mm !important;
+    height: 100% !important;
+    min-height: 98vh !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     border: 2px solid #000000 !important;
     box-shadow: none !important;
     overflow: hidden !important;
@@ -5501,7 +5539,186 @@
     break-inside: avoid !important;
     box-sizing: border-box !important;
     margin: 0 auto !important;
-    padding: 1.5mm 2.5mm !important;
+    padding: 2mm 2.5mm !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-sheet-table {
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-sheet-table td,
+  body.print-sop-batch .sop-batch-page .sop-sheet-table th {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    padding: 1.8mm 2mm !important;
+    vertical-align: middle !important;
+    box-sizing: border-box !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-doc-code {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-doc-title {
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-brand {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    font-style: italic !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-pfollow {
+    font-size: 11px !important;
+    font-style: italic !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-prod-pieces {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-item-desc {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    padding: 2.2mm 3mm !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-ref-hdr,
+  body.print-sop-batch .sop-batch-page .sop-speed {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-lbl {
+    font-size: 9.5px !important;
+    font-weight: 700 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-val-bold,
+  body.print-sop-batch .sop-batch-page .sop-val {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-th {
+    font-size: 8.5px !important;
+    font-weight: 800 !important;
+    padding: 2.2mm 1.5mm !important;
+    text-align: center !important;
+    background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-general-th {
+    background: #e2e8f0 !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-row {
+    height: 8.2mm !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-row td {
+    padding: 2.4mm 1.5mm !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+    vertical-align: middle !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-cell-hour {
+    font-size: 9.5px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-cell-std,
+  body.print-sop-batch .sop-batch-page .sop-cell-good {
+    font-size: 9.5px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-cell-cause {
+    font-size: 9px !important;
+    font-style: italic !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-cell-dt {
+    font-size: 9px !important;
+    text-align: center !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-cell-reject {
+    font-size: 9.5px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-side-header {
+    font-size: 8.5px !important;
+    font-weight: 800 !important;
+    text-align: center !important;
+    background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-side-lbl {
+    font-size: 8.5px !important;
+    font-weight: 600 !important;
+    padding-left: 3px !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-side-val {
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-shift-divider td {
+    border-bottom: 2px solid #000000 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-sig-title {
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    text-align: center !important;
+    padding: 1.8mm 2mm !important;
+    background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-sig-box {
+    height: 16mm !important;
+    min-height: 16mm !important;
+    padding: 3mm 4mm !important;
+    vertical-align: top !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-sig-name {
+    font-size: 9.5px !important;
+    font-weight: 600 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-sig-line {
+    margin-top: 6mm !important;
+    border-bottom: 1px dotted #475569 !important;
   }
 }
 
@@ -5509,7 +5726,7 @@
 @media print and (orientation: portrait) {
   @page {
     size: A4 portrait;
-    margin: 3mm 4mm;
+    margin: 4mm 4mm 4mm 4mm;
   }
 
   .dmr-sheet {
@@ -5522,17 +5739,27 @@
     font-size: 6px !important;
   }
 
-  .sop-sheet-container {
-    padding: 1mm 1.5mm !important;
+  .sop-sheet-container:not(.sop-compact-export) {
+    height: 98vh !important;
+    min-height: 98vh !important;
+    max-height: 285mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding: 2mm 2.5mm !important;
   }
 
-  .sop-sheet-table {
-    font-size: 8px !important;
+  .sop-sheet-container:not(.sop-compact-export) .sop-sheet-table {
+    height: 100% !important;
   }
 
-  .sop-sheet-table td,
-  .sop-sheet-table th {
-    padding: 1px 2px !important;
+  .sop-sheet-container:not(.sop-compact-export) .sop-row {
+    height: 8.2mm !important;
+  }
+
+  .sop-sheet-container:not(.sop-compact-export) .sop-row td {
+    padding: 2.4mm 1.5mm !important;
+    font-size: 9px !important;
   }
 }
 

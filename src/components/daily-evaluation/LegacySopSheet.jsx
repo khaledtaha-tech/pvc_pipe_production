@@ -19,7 +19,6 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
         isExporting
           ? {
               height: '100%',
-              maxHeight: '200mm',
               overflow: 'hidden',
               pageBreakInside: 'avoid',
               pageBreakBefore: 'avoid',

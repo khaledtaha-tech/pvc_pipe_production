@@ -293,5 +293,78 @@ assert.equal(codeBoundModel.hourlyStdRate, 150); // (15 * 60) / 6.0 = 150
 assert.equal(codeBoundModel.shift1Rows[0].stdPcs, 150);
 console.log('Product Code binding & [Code] - [Description] header formatting: OK');
 
+// 14. Output Rate (kg/h), Nominal Capacity & Capacity Utilization Logic (DOC-Ext.-03)
+assert.equal(extracted.nominalCapacity, 400); // L-01 KTS 550 nominal capacity
+assert.equal(extracted.calculatedRateKgH, Math.round(extracted.calculatedRate * extracted.unitWeight));
+
+const sopModelKgh = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '249',
+  productDescription: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2',
+  date: '2026-09-20',
+  speed: 15.0,
+  pipeLength: 6.0,
+  unitWeight: 2.65,
+  nominalCapacity: 400
+});
+
+// Hourly Std Rate: (15 * 60) / 6.0 = 150 pcs/h
+assert.equal(sopModelKgh.hourlyStdRate, 150);
+// Calculated Output Rate (kg/h): 150 pcs/h * 2.65 kg/pc = 398 kg/h
+assert.equal(sopModelKgh.calculatedRateKgH, 398);
+assert.equal(sopModelKgh.nominalCapacity, 400);
+// Utilization: Math.round((398 / 400) * 100) = 100%
+assert.equal(sopModelKgh.utilizationPct, 100);
+
+// Live recomputation test: speed change
+const speedChangedModel = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '249',
+  productDescription: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2',
+  date: '2026-09-20',
+  speed: 12.0,
+  pipeLength: 6.0,
+  unitWeight: 2.65,
+  nominalCapacity: 400
+});
+// (12 * 60) / 6.0 = 120 pcs/h -> 120 * 2.65 = 318 kg/h -> 318 / 400 = 80%
+assert.equal(speedChangedModel.hourlyStdRate, 120);
+assert.equal(speedChangedModel.calculatedRateKgH, 318);
+assert.equal(speedChangedModel.utilizationPct, 80);
+
+// Live recomputation test: cut length change
+const lengthChangedModel = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '249',
+  productDescription: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2',
+  date: '2026-09-20',
+  speed: 15.0,
+  pipeLength: 5.0,
+  unitWeight: 2.65,
+  nominalCapacity: 400
+});
+// (15 * 60) / 5.0 = 180 pcs/h -> 180 * 2.65 = 477 kg/h -> 477 / 400 = 119%
+assert.equal(lengthChangedModel.hourlyStdRate, 180);
+assert.equal(lengthChangedModel.calculatedRateKgH, 477);
+assert.equal(lengthChangedModel.utilizationPct, 119);
+
+// Live recomputation test: product spec change (unitWeight change)
+const specChangedModel = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '930',
+  productDescription: 'HDPE 20 MM Code 930',
+  date: '2026-09-20',
+  speed: 10.0,
+  pipeLength: 6.0,
+  unitWeight: 0.15,
+  nominalCapacity: 400
+});
+// (10 * 60) / 6.0 = 100 pcs/h -> 100 * 0.15 = 15 kg/h -> 15 / 400 = 4%
+assert.equal(specChangedModel.hourlyStdRate, 100);
+assert.equal(specChangedModel.calculatedRateKgH, 15);
+assert.equal(specChangedModel.utilizationPct, 4);
+console.log('Output rate (kg/h), nominal capacity, and live utilization recomputation: OK');
+
 console.log('All Legacy SOP Helper unit tests passed successfully!');
+
 

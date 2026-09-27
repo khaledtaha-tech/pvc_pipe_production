@@ -416,7 +416,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     const specs = parseProductSpecs(desc, unitWeight);
     const pipeLength = Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0;
 
-    const nominalCap = Number(record.nominalCapacityKgH) || Number(machine.capacityKgH) || 200;
+    const nominalCap = Number(record.nominalCapacityKgH) || Number(machine.nominalCapacity) || Number(machine.capacityKgH) || 200;
     let targetRate = 0;
     if (nominalCap > 0 && unitWeight > 0) {
       targetRate = Math.round(nominalCap / unitWeight);
@@ -429,6 +429,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     const cutTime = targetRate > 0 ? 3600 / targetRate : 30;
     const speed = cutTime > 0 ? Math.round(((pipeLength / cutTime) * 60) * 10) / 10 : 10;
     const calculatedRate = Math.round((speed * 60) / pipeLength);
+    const calculatedRateKgH = Math.round(calculatedRate * unitWeight);
 
     return {
       machineId: cleanId,
@@ -440,8 +441,10 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       pipeLength,
       speed: Math.max(0.1, speed),
       unitWeight,
+      nominalCapacity: nominalCap,
       targetRate: calculatedRate,
       calculatedRate,
+      calculatedRateKgH,
       previousRunDate: record.date || null
     };
   }
@@ -452,6 +455,8 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
   const defaultLen = 6.0;
   const defaultSpeed = 10.0;
   const defaultRate = Math.round((defaultSpeed * 60) / defaultLen);
+  const nominalCap = Number(machine.nominalCapacity) || Number(machine.capacityKgH) || 200;
+  const defaultRateKgH = Math.round(defaultRate * 0.15);
 
   return {
     machineId: cleanId,
@@ -463,8 +468,10 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     pipeLength: defaultLen,
     speed: defaultSpeed,
     unitWeight: 0.15,
+    nominalCapacity: nominalCap,
     targetRate: defaultRate,
     calculatedRate: defaultRate,
+    calculatedRateKgH: defaultRateKgH,
     previousRunDate: null
   };
 }
@@ -593,7 +600,11 @@ export function buildMorningSopModel(config = {}) {
 
   const speed = Number(config.speed) > 0 ? Number(config.speed) : 10;
   const pipeLength = Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0;
+  const unitWeight = Number(config.unitWeight) > 0 ? Number(config.unitWeight) : 1.0;
   const hourlyStdRate = Math.round((speed * 60) / pipeLength);
+  const calculatedRateKgH = Math.round(hourlyStdRate * unitWeight);
+  const nominalCapacity = Number(config.nominalCapacity) || 200;
+  const utilizationPct = nominalCapacity > 0 ? Math.round((calculatedRateKgH / nominalCapacity) * 100) : 0;
 
   const shift1Rows = SOP_SHIFT1_HOURS.map((hour) => ({
     hour,
@@ -634,7 +645,11 @@ export function buildMorningSopModel(config = {}) {
     speed1: speed,
     speed2: speed,
     pipeLength,
+    unitWeight,
+    nominalCapacity,
     hourlyStdRate,
+    calculatedRateKgH,
+    utilizationPct,
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs: '',

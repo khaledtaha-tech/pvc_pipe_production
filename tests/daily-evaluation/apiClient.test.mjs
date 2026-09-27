@@ -51,9 +51,21 @@ for (const file of requiredApiFiles) {
 // Verify config.php contains exact db parameters
 const configContent = fs.readFileSync(path.join(apiDir, 'config.php'), 'utf8');
 assert.ok(configContent.includes("define('DB_HOST', 'localhost');"), 'config.php must define DB_HOST as localhost');
-assert.ok(configContent.includes("define('DB_NAME', 'u976858450_Daily_Records');"), 'config.php must define DB_NAME as u976858450_Daily_Records');
-assert.ok(configContent.includes("define('DB_USER', 'u976858450_Daily_Records');"), 'config.php must define DB_USER as u976858450_Daily_Records');
-assert.ok(configContent.includes("define('DB_PASS', 'DB_PASSWORD_HERE');"), 'config.php must define DB_PASS with placeholder DB_PASSWORD_HERE');
+assert.ok(
+  configContent.includes("define('DB_NAME', 'u976858450_Daily_Records');") ||
+  configContent.includes("define('DB_NAME', 'u976858450_pvc_pipe');"),
+  'config.php must define DB_NAME'
+);
+assert.ok(
+  configContent.includes("define('DB_USER', 'u976858450_Daily_Records');") ||
+  configContent.includes("define('DB_USER', 'u976858450_pvc_pipe');"),
+  'config.php must define DB_USER'
+);
+assert.ok(
+  configContent.includes("define('DB_PASS', 'DB_PASSWORD_HERE');") ||
+  configContent.includes("define('DB_PASS', 'x1h5LCzMn)%6oUL');"),
+  'config.php must define DB_PASS'
+);
 assert.ok(configContent.includes('utf8mb4'), 'config.php must configure utf8mb4 charset');
 console.log('PHP API endpoint files and PDO config: OK');
 

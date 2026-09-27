@@ -68,6 +68,9 @@ export default function PrintSopModal({
       const specs = extractMachineSpecsFromRun(prevRun, m.id, machineMaster);
       const isCurrent = m.id === currentMachineId;
       const hadRun = Boolean(prevRun);
+      const nominalCapacity = Number(prevRun?.nominalCapacityKgH) || Number(m.nominalCapacity) || Number(m.capacityKgH) || Number(specs.nominalCapacity) || 200;
+      const unitWeight = Number(specs.unitWeight) > 0 ? Number(specs.unitWeight) : 1.0;
+      const calculatedRateKgH = Math.round(specs.calculatedRate * unitWeight);
 
       return {
         machineId: m.id,
@@ -82,7 +85,9 @@ export default function PrintSopModal({
         speed: specs.speed,
         pipeLength: specs.pipeLength,
         calculatedRate: specs.calculatedRate,
-        unitWeight: specs.unitWeight
+        unitWeight,
+        nominalCapacity,
+        calculatedRateKgH
       };
     });
 
@@ -145,7 +150,8 @@ export default function PrintSopModal({
           productDescription: newDesc,
           unitWeight,
           speed: benchmark.speed,
-          calculatedRate: benchmark.calculatedRate
+          calculatedRate: benchmark.calculatedRate,
+          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight)
         };
       })
     );
@@ -176,39 +182,44 @@ export default function PrintSopModal({
           productDescription: newDesc,
           unitWeight,
           speed: benchmark.speed,
-          calculatedRate: benchmark.calculatedRate
+          calculatedRate: benchmark.calculatedRate,
+          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight)
         };
       })
     );
   };
 
-  // Update linear speed (m/min) and recalculate standard pcs/h
+  // Update linear speed (m/min) and recalculate standard pcs/h and output rate (kg/h)
   const handleSpeedChange = (machineId, speedVal) => {
     const num = Math.max(0.1, Number(speedVal) || 0.1);
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
         const rate = Math.round((num * 60) / item.pipeLength);
+        const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
         return {
           ...item,
           speed: num,
-          calculatedRate: rate
+          calculatedRate: rate,
+          calculatedRateKgH: Math.round(rate * unitWeight)
         };
       })
     );
   };
 
-  // Update pipe cut length (m) and recalculate standard pcs/h
+  // Update pipe cut length (m) and recalculate standard pcs/h and output rate (kg/h)
   const handlePipeLengthChange = (machineId, lenVal) => {
     const num = Math.max(0.5, Number(lenVal) || 6.0);
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
         const rate = Math.round((item.speed * 60) / num);
+        const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
         return {
           ...item,
           pipeLength: num,
-          calculatedRate: rate
+          calculatedRate: rate,
+          calculatedRateKgH: Math.round(rate * unitWeight)
         };
       })
     );
@@ -229,6 +240,8 @@ export default function PrintSopModal({
         productDescription: item.productDescription,
         speed: item.speed,
         pipeLength: item.pipeLength,
+        unitWeight: item.unitWeight,
+        nominalCapacity: item.nominalCapacity,
         machineMaster
       })
     );
@@ -370,6 +383,15 @@ export default function PrintSopModal({
           {linesState
             .filter((l) => (scope === 'current' ? l.machineId === currentMachineId : true))
             .map((line) => {
+              const unitWeight = Number(line.unitWeight) > 0 ? Number(line.unitWeight) : 1.0;
+              const speed = Number(line.speed) || 0;
+              const pipeLength = Number(line.pipeLength) > 0 ? Number(line.pipeLength) : 6.0;
+              const pcsPerHour = Number(line.calculatedRate) > 0 ? Number(line.calculatedRate) : (speed > 0 && pipeLength > 0 ? Math.round((speed * 60) / pipeLength) : 0);
+              const calculatedKgH = Math.round(pcsPerHour * unitWeight);
+              const machineSetting = matchMachine(line.machineId, machineMaster) || machineMaster.find((m) => m.id === line.machineId);
+              const nominalKgH = Number(line.nominalCapacity) || Number(machineSetting?.nominalCapacity) || Number(machineSetting?.capacityKgH) || 200;
+              const utilizationPct = nominalKgH > 0 ? Math.round((calculatedKgH / nominalKgH) * 100) : 0;
+
               return (
                 <div
                   key={line.machineId}
@@ -401,6 +423,15 @@ export default function PrintSopModal({
                       )}
                       <span className="print-sop-badge-rate">
                         {line.calculatedRate.toLocaleString()} Pcs / hr
+                      </span>
+                      <span className="print-sop-badge-kgh">
+                        Calculated: {calculatedKgH.toLocaleString()} kg/h
+                      </span>
+                      <span className="print-sop-badge-nominal">
+                        Nominal Target: {nominalKgH.toLocaleString()} kg/h
+                      </span>
+                      <span className="print-sop-badge-util">
+                        Utilization: {utilizationPct}%
                       </span>
                     </div>
                   </div>
@@ -492,12 +523,28 @@ export default function PrintSopModal({
                       </div>
 
                       <div className="print-sop-param print-sop-calc-summary">
-                        <span className="print-sop-calc-formula">
-                          ({line.speed} &times; 60) / {line.pipeLength}m
-                        </span>
-                        <span className="print-sop-calc-val">
-                          = <strong>{line.calculatedRate}</strong> pcs/h
-                        </span>
+                        <div className="print-sop-calc-pcs-box">
+                          <span className="print-sop-calc-formula">
+                            ({line.speed} &times; 60) / {line.pipeLength}m
+                          </span>
+                          <span className="print-sop-calc-val">
+                            = <strong>{line.calculatedRate}</strong> pcs/h
+                          </span>
+                        </div>
+                        <span className="print-sop-calc-divider">|</span>
+                        <div className="print-sop-calc-kgh-box">
+                          <span className="print-sop-calc-item print-sop-calc-output">
+                            Calculated: <strong>{calculatedKgH.toLocaleString()} kg/h</strong>
+                          </span>
+                          <span className="print-sop-calc-bullet">&bull;</span>
+                          <span className="print-sop-calc-item print-sop-calc-nominal">
+                            Nominal Target: <strong>{nominalKgH.toLocaleString()} kg/h</strong>
+                          </span>
+                          <span className="print-sop-calc-bullet">&bull;</span>
+                          <span className="print-sop-calc-item print-sop-calc-util" title="Calculated / Nominal">
+                            Utilization: <strong>{utilizationPct}%</strong>
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

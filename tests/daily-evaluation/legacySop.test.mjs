@@ -11,6 +11,8 @@ import {
   computeStandardHourlyMeters,
   extractEmbeddedItemCode,
   findPreviousRunForMachine,
+  findExactDayRunForMachine,
+  getPreviousDay,
   extractMachineSpecsFromRun,
   getAvailableProductsCatalog,
   calculateBenchmarkSpeedForProduct,
@@ -452,6 +454,79 @@ idleMorningModel.shift2Rows.forEach((r) => {
   assert.equal(r.stdPcs, '', 'Idle shift 2 row must be empty string');
 });
 console.log('Idle/stopped machine line blank handling: OK');
+
+// 17. Immediate Previous Day Operating Lines Logic (getPreviousDay & findExactDayRunForMachine)
+// A. Date calculation tests
+assert.equal(getPreviousDay('2026-09-08'), '2026-09-07');
+assert.equal(getPreviousDay('2026-09-01'), '2026-08-31'); // Month boundary
+assert.equal(getPreviousDay('2026-01-01'), '2025-12-31'); // Year boundary
+assert.equal(getPreviousDay('2024-03-01'), '2024-02-29'); // Leap year
+assert.equal(getPreviousDay('2023-03-01'), '2023-02-28'); // Non-leap year
+assert.equal(getPreviousDay(''), '');
+assert.equal(getPreviousDay(null), '');
+
+// B. Strict Previous Day Machine Run Lookup
+const multiDayRecords = [
+  {
+    date: '2026-09-06',
+    machineId: 'L-01',
+    description: 'Day 6 Product',
+    operatingHours: 20,
+    productionQty: 1000
+  },
+  {
+    date: '2026-09-07',
+    machineId: 'L-01',
+    description: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2',
+    itemCode: '249',
+    operatingHours: 22,
+    productionQty: 850,
+    unitWeight: 2.65,
+    actualRateKgH: 210
+  },
+  {
+    date: '2026-09-07',
+    machineId: 'L-02',
+    description: 'Idle Line Test',
+    operatingHours: 0,
+    productionQty: 0,
+    actualRateKgH: 0
+  }
+];
+
+// Target date: 2026-09-08 -> Previous date: 2026-09-07
+const prevDateTarget = getPreviousDay('2026-09-08');
+assert.equal(prevDateTarget, '2026-09-07');
+
+// L-01 was active on 2026-09-07 -> must return operational record
+const exactRunL1 = findExactDayRunForMachine(multiDayRecords, 'L-01', prevDateTarget);
+assert.ok(exactRunL1, 'Active line on previous day must return record');
+assert.equal(exactRunL1.itemCode, '249');
+assert.equal(exactRunL1.productionQty, 850);
+
+// L-02 was stopped (0 hours, 0 qty) on 2026-09-07 -> must return null
+const exactRunL2 = findExactDayRunForMachine(multiDayRecords, 'L-02', prevDateTarget);
+assert.equal(exactRunL2, null, 'Idle/stopped machine on previous day must return null');
+
+// L-03 had no records on 2026-09-07 -> must return null (strict, no older fallback)
+const exactRunL3 = findExactDayRunForMachine(multiDayRecords, 'L-03', prevDateTarget);
+assert.equal(exactRunL3, null, 'Machine with no record on previous day must return null');
+
+// Specifications extraction from exact previous day run vs null
+const specsL1 = extractMachineSpecsFromRun(exactRunL1, 'L-01');
+assert.equal(specsL1.itemCode, '249');
+assert.equal(specsL1.isIdle, undefined);
+assert.ok(specsL1.speed > 0);
+assert.ok(specsL1.calculatedRate > 0);
+
+const specsL2 = extractMachineSpecsFromRun(exactRunL2, 'L-02');
+assert.equal(specsL2.isIdle, true);
+assert.equal(specsL2.itemCode, '');
+assert.equal(specsL2.productDescription, '');
+assert.equal(specsL2.speed, '');
+assert.equal(specsL2.calculatedRate, '');
+
+console.log('Immediate Previous Day operational filter & strict inheritance: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

@@ -408,6 +408,71 @@ export function findPreviousRunForMachine(records, lineId, targetDate = '') {
 }
 
 /**
+ * Calculate previous calendar date string (YYYY-MM-DD) from a given date string.
+ * Uses UTC date calculations to avoid timezone shifts across midnight boundaries.
+ */
+export function getPreviousDay(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const formatted = formatSopDates(dateStr);
+  const iso = formatted.iso;
+  if (!iso || typeof iso !== 'string') return '';
+  const match = iso.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1; // 0-based month
+  const day = parseInt(match[3], 10);
+  const d = new Date(Date.UTC(year, month, day - 1));
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dayNum = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${dayNum}`;
+}
+
+/**
+ * Find operational production run for a specific machine strictly on exactDate (YYYY-MM-DD).
+ * Returns null if the machine was idle, stopped, or had zero production logs on that exact date.
+ */
+export function findExactDayRunForMachine(records, lineId, exactDate) {
+  if (!Array.isArray(records) || records.length === 0 || !lineId || !exactDate) {
+    return null;
+  }
+  const cleanId = String(lineId).trim().toUpperCase();
+  const targetFormatted = formatSopDates(exactDate);
+  const targetIso = targetFormatted.iso || String(exactDate).trim();
+
+  // 1. Filter records matching this machine and date
+  const dayRecords = records.filter((r) => {
+    if (!r || !r.date) return false;
+    const rIso = formatSopDates(r.date).iso || String(r.date).trim();
+    if (rIso !== targetIso) return false;
+    const rId = (r.machineId || r.matchedMachine?.id || r.machineRaw || '').trim().toUpperCase();
+    return rId === cleanId;
+  });
+
+  if (dayRecords.length === 0) {
+    return null;
+  }
+
+  // 2. Filter for operational records (strictly active production)
+  const opRecords = dayRecords.filter((r) => {
+    const opHours = Number(r.operatingHours) || 0;
+    const qty = Number(r.productionQty) || 0;
+    const rate = Number(r.actualRateKgH) || 0;
+    const weight = Number(r.productionWeightKg) || Number(r.totalWeightKg) || 0;
+    return opHours > 0 || qty > 0 || rate > 0 || weight > 0;
+  });
+
+  if (opRecords.length === 0) {
+    return null;
+  }
+
+  // If multiple operational records on the same day, prefer the one with highest production quantity
+  opRecords.sort((a, b) => (Number(b.productionQty) || 0) - (Number(a.productionQty) || 0));
+
+  return opRecords[0];
+}
+
+/**
  * Extract embedded item code from product description string if available.
  * E.g., 'HDPE 20 MM Code 930' -> '930'
  */

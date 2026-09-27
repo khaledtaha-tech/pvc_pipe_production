@@ -516,22 +516,55 @@ export function convertLogRowToReport(row, options = {}) {
   const item1 = isMulti ? row.items[0] : row;
   const item2 = isMulti ? row.items[1] : null;
 
-  const specs1 = parseProductSpecs(item1.description, item1.unitWeight);
-  specs1.itemCode = item1.itemCode || '';
+  const desc1 = item1.description || item1['Product Description & Specs'] || item1.desc || '';
+  const uw1 = item1.unitWeight ?? item1['Unit Weight (kg)'] ?? item1['Unit Weight'];
+  const specs1 = parseProductSpecs(desc1, uw1);
+  specs1.itemCode = item1.itemCode || item1['Item Code'] || '';
 
-  const specs2 = item2 ? parseProductSpecs(item2.description, item2.unitWeight) : makeRefSpec();
-  if (item2) specs2.itemCode = item2.itemCode || '';
+  const desc2 = item2 ? (item2.description || item2['Product Description & Specs'] || item2.desc || '') : '';
+  const uw2 = item2 ? (item2.unitWeight ?? item2['Unit Weight (kg)'] ?? item2['Unit Weight']) : 0;
+  const specs2 = item2 ? parseProductSpecs(desc2, uw2) : makeRefSpec();
+  if (item2) specs2.itemCode = item2.itemCode || item2['Item Code'] || '';
 
-  const matched = row.matchedMachine || matchMachine(row.machineId) || MACHINES[0];
-  const nominalCap = Number(row.nominalCapacityKgH || matched.capacityKgH || 0);
+  const matched = row.matchedMachine || matchMachine(row.machineId || row.machineRaw || row.Machine) || MACHINES[0];
+  const nominalCap = Number(row.nominalCapacityKgH || matched.capacityKgH || matched.nominalCapacity || 0);
+
+  // Flexible extraction of production quantities
+  const targetOutput = Number(
+    row.productionQty ??
+    row['Production Qty (FG)'] ??
+    row['Production Qty'] ??
+    row.qty ??
+    row.totalOutput ??
+    row.actual ??
+    0
+  ) || 0;
+
+  const q1 = Number(
+    item1.productionQty ??
+    item1['Production Qty (FG)'] ??
+    item1['Production Qty'] ??
+    item1.qty ??
+    item1.totalOutput ??
+    0
+  ) || 0;
+
+  const q2 = item2 ? (Number(
+    item2.productionQty ??
+    item2['Production Qty (FG)'] ??
+    item2['Production Qty'] ??
+    item2.qty ??
+    item2.totalOutput ??
+    0
+  ) || 0) : 0;
 
   // 1. Compute benchmark target pcs/h for Item 1
-  const unitWeight1 = Number(item1.unitWeight) || 0;
+  const unitWeight1 = Number(specs1.stdWeight || uw1) || 0;
   let targetRate1;
   if (nominalCap > 0 && unitWeight1 > 0) {
     targetRate1 = round1(nominalCap / unitWeight1);
-  } else if (Number(item1.productionQty) > 0 && Number(item1.operatingHours) > 0) {
-    targetRate1 = round1(Number(item1.productionQty) / Number(item1.operatingHours));
+  } else if (q1 > 0 && Number(item1.operatingHours) > 0) {
+    targetRate1 = round1(q1 / Number(item1.operatingHours));
   } else {
     targetRate1 = 120;
   }
@@ -544,13 +577,13 @@ export function convertLogRowToReport(row, options = {}) {
   specs1.targetRate = targetRate1;
 
   // 2. Compute benchmark target pcs/h for Item 2 (if present)
+  let targetRate2 = 120;
   if (item2) {
-    const unitWeight2 = Number(item2.unitWeight) || 0;
-    let targetRate2;
+    const unitWeight2 = Number(specs2.stdWeight || uw2) || 0;
     if (nominalCap > 0 && unitWeight2 > 0) {
       targetRate2 = round1(nominalCap / unitWeight2);
-    } else if (Number(item2.productionQty) > 0 && Number(item2.operatingHours) > 0) {
-      targetRate2 = round1(Number(item2.productionQty) / Number(item2.operatingHours));
+    } else if (q2 > 0 && Number(item2.operatingHours) > 0) {
+      targetRate2 = round1(q2 / Number(item2.operatingHours));
     } else {
       targetRate2 = 120;
     }
@@ -564,32 +597,75 @@ export function convertLogRowToReport(row, options = {}) {
   }
 
   // 3. Scrap calculations
-  const scrapPipes1 = unitWeight1 > 0 ? Math.round(Number(item1.scrapKg || 0) / unitWeight1) : 0;
+  const scrapKg1 = Number(item1.scrapKg ?? item1['Scrap / Rejection (kg)'] ?? item1.scrap ?? 0) || 0;
+  const scrapKg2 = item2 ? (Number(item2.scrapKg ?? item2['Scrap / Rejection (kg)'] ?? item2.scrap ?? 0) || 0) : 0;
+  const totalScrapKg = Number(row.scrapKg ?? row['Scrap / Rejection (kg)'] ?? row.scrap ?? (scrapKg1 + scrapKg2)) || 0;
+
+  const scrapPipes1 = unitWeight1 > 0 ? Math.round(scrapKg1 / unitWeight1) : 0;
   const scrapPipes2 =
-    item2 && Number(item2.unitWeight) > 0 ? Math.round(Number(item2.scrapKg || 0) / Number(item2.unitWeight)) : 0;
+    item2 && Number(specs2.stdWeight || uw2) > 0
+      ? Math.round(scrapKg2 / Number(specs2.stdWeight || uw2))
+      : 0;
   const totalScrapPipes = isMulti
     ? scrapPipes1 + scrapPipes2
     : unitWeight1 > 0
-    ? Math.round(Number(row.scrapKg || 0) / unitWeight1)
+    ? Math.round(totalScrapKg / unitWeight1)
     : 0;
 
-  const targetOutput = Number(row.productionQty) || 0;
   const bundles = Math.max(0, Math.round(targetOutput / 30));
 
   const startCounter = options.startCounter != null ? Number(options.startCounter) : 0;
   const endCounter = startCounter + targetOutput;
 
   // 4. Downtime and Operating Hours
-  const opH1 = Number(item1.operatingHours) || 0;
-  const opH2 = item2 ? Number(item2.operatingHours) || 0 : 0;
-  const totalOpHours = isMulti
-    ? Math.min(24, Math.max(0, round1(opH1 + opH2)))
-    : Number(row.operatingHours) > 0
-    ? Number(row.operatingHours)
-    : 24;
-  const downtimeHours = isMulti
-    ? round1(Math.max(0, 24 - totalOpHours))
-    : Number(row.downtimeHours || 0);
+  const rawOpH1 = item1.operatingHours ?? item1['Operating Hours'] ?? item1.opHours;
+  let opH1 = rawOpH1 != null && rawOpH1 !== '' && !Number.isNaN(Number(rawOpH1))
+    ? Number(rawOpH1)
+    : (q1 > 0 ? (targetRate1 > 0 ? Math.min(24, Math.max(1, round1(q1 / targetRate1))) : 24) : 0);
+  if (q1 > 0 && opH1 <= 0) {
+    opH1 = targetRate1 > 0 ? Math.min(24, Math.max(1, round1(q1 / targetRate1))) : 12;
+  }
+
+  let opH2 = 0;
+  if (item2) {
+    const rawOpH2 = item2.operatingHours ?? item2['Operating Hours'] ?? item2.opHours;
+    opH2 = rawOpH2 != null && rawOpH2 !== '' && !Number.isNaN(Number(rawOpH2))
+      ? Number(rawOpH2)
+      : (q2 > 0 ? (targetRate2 > 0 ? Math.min(24, Math.max(1, round1(q2 / targetRate2))) : 24) : 0);
+    if (q2 > 0 && opH2 <= 0) {
+      opH2 = targetRate2 > 0 ? Math.min(24, Math.max(1, round1(q2 / targetRate2))) : 12;
+    }
+  }
+
+  let totalOpHours;
+  let downtimeHours;
+
+  if (isMulti) {
+    totalOpHours = Math.min(24, Math.max(targetOutput > 0 ? 1 : 0, round1(opH1 + opH2)));
+    downtimeHours = round1(Math.max(0, 24 - totalOpHours));
+  } else {
+    const rawOpH = row.operatingHours ?? row['Operating Hours'] ?? row.opHours;
+    if (rawOpH != null && rawOpH !== '' && !Number.isNaN(Number(rawOpH)) && Number(rawOpH) > 0) {
+      totalOpHours = Math.min(24, Number(rawOpH));
+    } else if (targetOutput > 0) {
+      totalOpHours = targetRate1 > 0 ? Math.min(24, Math.max(1, round1(targetOutput / targetRate1))) : 24;
+    } else {
+      totalOpHours = 0;
+    }
+
+    if (targetOutput > 0) {
+      const rawDt = Number(row.downtimeHours ?? row['Downtime Hours'] ?? 0);
+      if (rawDt >= 24) {
+        downtimeHours = round1(Math.max(0, 24 - totalOpHours));
+      } else if (rawDt > 0) {
+        downtimeHours = Math.min(23, rawDt);
+      } else {
+        downtimeHours = round1(Math.max(0, 24 - totalOpHours));
+      }
+    } else {
+      downtimeHours = Number(row.downtimeHours ?? 24);
+    }
+  }
 
   const downtimeEvents = [];
   if (downtimeHours > 0) {
@@ -599,7 +675,7 @@ export function convertLogRowToReport(row, options = {}) {
       key: newId(),
       startHour,
       durationMin,
-      reason: row.reasonOfStop || (isMulti ? 'Die Change & Sizing Setup' : 'Maintenance & Setup')
+      reason: row.reasonOfStop || row['Reason of Stop'] || (isMulti ? 'Die Change & Sizing Setup' : 'Maintenance & Setup')
     });
   }
 
@@ -633,7 +709,7 @@ export function convertLogRowToReport(row, options = {}) {
 
     // Distribute Item 1 actual production & scrap to Item 1 slots
     const s1Run = rawSlots.filter((s) => s.ref === '1' && s.downtime < 60);
-    const q1 = Number(item1.productionQty) || 0;
+    const q1 = Number(item1.productionQty ?? item1['Production Qty (FG)'] ?? item1.qty ?? 0) || 0;
     if (s1Run.length > 0) {
       const runMins1 = s1Run.map((s) => 60 - s.downtime);
       const totalRun1 = runMins1.reduce((a, b) => a + b, 0);
@@ -652,7 +728,7 @@ export function convertLogRowToReport(row, options = {}) {
 
     // Distribute Item 2 actual production & scrap to Item 2 slots
     const s2Run = rawSlots.filter((s) => s.ref === '2' && s.downtime < 60);
-    const q2 = Number(item2.productionQty) || 0;
+    const q2 = Number(item2.productionQty ?? item2['Production Qty (FG)'] ?? item2.qty ?? 0) || 0;
     if (s2Run.length > 0) {
       const runMins2 = s2Run.map((s) => 60 - s.downtime);
       const totalRun2 = runMins2.reduce((a, b) => a + b, 0);
@@ -676,10 +752,19 @@ export function convertLogRowToReport(row, options = {}) {
     slots = distributeProduction(withDowntime, {
       totalOutput: String(targetOutput),
       totalScrapPipes: String(totalScrapPipes),
-      totalPurgeKg: String(row.scrapKg || 0),
+      totalPurgeKg: String(totalScrapKg),
       totalBundles: String(bundles)
     });
   }
+
+  const dateStr = normalizeExcelDate(row.date ?? row.Date) || (typeof row.date === 'string' ? row.date : new Date().toISOString().slice(0, 10));
+  const machineCustomName = matched.name || (row.machineRaw !== matched.id ? (row.machineRaw || row.Machine || '') : '');
+
+  const totalWeightKg = Number(row.totalWeight ?? row['Total Weight (kg)']) || Math.round(targetOutput * unitWeight1);
+  const actualRateKgH = totalOpHours > 0 ? round1(totalWeightKg / totalOpHours) : 0;
+  const capacityUtilizationPct = nominalCap > 0 ? round1((actualRateKgH / nominalCap) * 100) : 0;
+
+  const deratingFactor = options.deratingFactor || 100;
 
   const report = {
     id: newId(),
@@ -687,9 +772,9 @@ export function convertLogRowToReport(row, options = {}) {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     header: {
-      date: row.date || new Date().toISOString().slice(0, 10),
+      date: dateStr,
       lineId: matched.id,
-      lineCustom: matched.name || (row.machineRaw !== matched.id ? row.machineRaw : ''),
+      lineCustom: machineCustomName,
       plantName: PLANT_NAME
     },
     refs: {
@@ -702,9 +787,9 @@ export function convertLogRowToReport(row, options = {}) {
       totalOutput: String(targetOutput),
       totalBundles: String(bundles),
       totalScrapPipes: String(totalScrapPipes),
-      totalPurgeKg: String(row.scrapKg || 0),
-      haulOffMeter: String(Math.round(targetOutput * 6.0)),
-      resinLot: `PVC-BATCH-${(row.date || '').replace(/-/g, '').slice(2)}`,
+      totalPurgeKg: String(totalScrapKg),
+      haulOffMeter: String(Math.round(targetOutput * pipeLength1)),
+      resinLot: `PVC-BATCH-${(dateStr || '').replace(/-/g, '').slice(2)}`,
       shift1Lead: options.shift1Lead || 'Shift 1 Lead / Extrusion Tech',
       shift2Lead: options.shift2Lead || 'Shift 2 Lead / Extrusion Tech',
       plantManager: options.plantManager || 'Plant Production Manager'
@@ -712,11 +797,12 @@ export function convertLogRowToReport(row, options = {}) {
     downtimeEvents,
     slots,
     engineering: {
-      nominalCapacityKgH: row.nominalCapacityKgH || matched.capacityKgH || 0,
-      actualRateKgH: row.actualRateKgH || 0,
-      capacityUtilizationPct: row.capacityUtilizationPct || 0,
+      nominalCapacityKgH: row.nominalCapacityKgH || matched.capacityKgH || nominalCap,
+      actualRateKgH: row.actualRateKgH || actualRateKgH,
+      capacityUtilizationPct: row.capacityUtilizationPct || capacityUtilizationPct,
       operatingHours: totalOpHours,
-      totalWeightKg: row.totalWeight || 0
+      totalWeightKg: totalWeightKg,
+      deratingFactor
     }
   };
 

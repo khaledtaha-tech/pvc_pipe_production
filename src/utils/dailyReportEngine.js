@@ -128,29 +128,38 @@ export function distributeProduction(slots, summary) {
   const totalPurge = Math.max(0, Number(summary.totalPurgeKg) || 0);
   const totalBundles = Math.max(0, Math.round(Number(summary.totalBundles) || 0));
 
-  const running = slots.map((s) => Math.max(0, Math.min(60, 60 - (Number(s.downtime) || 0))));
-  const totalRun = running.reduce((a, b) => a + b, 0);
+  let workingSlots = slots;
+  let running = workingSlots.map((s) => Math.max(0, Math.min(60, 60 - (Number(s.downtime) || 0))));
+  let totalRun = running.reduce((a, b) => a + b, 0);
 
-  const actualRaw = totalRun > 0 ? slots.map((s, i) => (totalOutput * running[i]) / totalRun) : slots.map(() => 0);
+  // Safety fallback: If production output is recorded (> 0) but all slots have 100% downtime (totalRun <= 0),
+  // liberate operating slots by resetting downtime so output is not zeroed out.
+  if (totalOutput > 0 && totalRun <= 0) {
+    workingSlots = workingSlots.map((s) => ({ ...s, downtime: 0, reason: '' }));
+    running = workingSlots.map(() => 60);
+    totalRun = 24 * 60;
+  }
+
+  const actualRaw = totalRun > 0 ? workingSlots.map((s, i) => (totalOutput * running[i]) / totalRun) : workingSlots.map(() => 0);
   const actuals = roundToSum(actualRaw, totalOutput, 1);
 
   let scrapRaw;
-  if (totalOutput > 0) scrapRaw = slots.map((s, i) => (totalScrap * actuals[i]) / totalOutput);
-  else scrapRaw = totalRun > 0 ? slots.map((s, i) => (totalScrap * running[i]) / totalRun) : slots.map(() => 0);
+  if (totalOutput > 0) scrapRaw = workingSlots.map((s, i) => (totalScrap * actuals[i]) / totalOutput);
+  else scrapRaw = totalRun > 0 ? workingSlots.map((s, i) => (totalScrap * running[i]) / totalRun) : workingSlots.map(() => 0);
   const scraps = roundToSum(scrapRaw, totalScrap);
 
   let purgeRaw;
-  const downtimeTot = slots.reduce((a, s) => a + Math.max(0, s.downtime), 0);
-  if (downtimeTot > 0) purgeRaw = slots.map((s) => (totalPurge * Math.max(0, s.downtime)) / downtimeTot);
-  else purgeRaw = slots.map((_, i) => (i === 0 ? totalPurge : 0));
+  const downtimeTot = workingSlots.reduce((a, s) => a + Math.max(0, s.downtime), 0);
+  if (downtimeTot > 0) purgeRaw = workingSlots.map((s) => (totalPurge * Math.max(0, s.downtime)) / downtimeTot);
+  else purgeRaw = workingSlots.map((_, i) => (i === 0 ? totalPurge : 0));
   const purges = roundToSum(purgeRaw, totalPurge, 1);
 
   let bundleRaw;
-  if (totalOutput > 0) bundleRaw = slots.map((s, i) => (totalBundles * actuals[i]) / totalOutput);
-  else bundleRaw = totalRun > 0 ? slots.map((s, i) => (totalBundles * running[i]) / totalRun) : slots.map(() => 0);
+  if (totalOutput > 0) bundleRaw = workingSlots.map((s, i) => (totalBundles * actuals[i]) / totalOutput);
+  else bundleRaw = totalRun > 0 ? workingSlots.map((s, i) => (totalBundles * running[i]) / totalRun) : workingSlots.map(() => 0);
   const bundles = roundToSum(bundleRaw, totalBundles);
 
-  return slots.map((s, i) => ({
+  return workingSlots.map((s, i) => ({
     ...s,
     actual: actuals[i],
     scrap: scraps[i],

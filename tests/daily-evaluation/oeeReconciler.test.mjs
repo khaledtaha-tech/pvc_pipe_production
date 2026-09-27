@@ -14,8 +14,9 @@ import {
   blankReportForMachine,
   autoBindProductionLogToReport
 } from '../../src/logic/oeeReconciler.js';
-import { generateReport, buildAll, HOUR_WINDOWS } from '../../src/logic/engine.js';
+import { generateReport, buildAll, HOUR_WINDOWS, distributeProduction } from '../../src/logic/engine.js';
 import { getBenchmarkReport } from '../../src/data/store.js';
+import { convertLogRowToReport } from '../../src/logic/excelParser.js';
 
 console.log('--- Starting OEE Reconciler & Derating Unit Tests ---');
 
@@ -430,6 +431,70 @@ const idleL04Blank = blankReportForMachine('2026-09-26', 'L-04');
 assert.equal(idleL04Blank.header.lineId, 'L-04', 'Blank report header lineId must strictly match requested L-04');
 assert.equal(idleL04Blank.summary.totalOutput, '0', 'Blank report totalOutput must be 0');
 console.log('Active Machines Date Filtering & Machine Dropdown Selection Binding: OK');
+
+// 11. State Synchronization & Reactive 24h Slot Synthesis when Operating Hours is 0 or Missing
+// Case A: Record with flexible ERP field name and 0 operating hours / 24h downtime trap
+const rawErpStagnantRow = {
+  Date: '2026-09-26',
+  'Item Code': '1140',
+  'Product Description & Specs': 'UPVC PIPE 110x5.3 PN-12.5 SASO-ISO',
+  Machine: 'L-03 - KTS 700',
+  'Production Qty (FG)': 195,
+  'Unit Weight (kg)': 17.30,
+  'Total Weight (kg)': 3373.5,
+  'Scrap / Rejection (kg)': 10,
+  'Operating Hours': 0,
+  downtimeHours: 24
+};
+
+const reportFromErp = convertLogRowToReport(rawErpStagnantRow);
+assert.equal(reportFromErp.summary.totalOutput, '195', 'Summary total output must be extracted as 195 pieces');
+assert.ok(reportFromErp.engineering.operatingHours > 0, 'Operating hours must not be zero when positive output is produced');
+assert.ok(reportFromErp.downtimeEvents.length === 0 || reportFromErp.downtimeEvents[0].durationMin < 1440, 'Downtime must not block full 24h');
+
+const sumSlotActuals = reportFromErp.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0);
+assert.equal(Math.round(sumSlotActuals), 195, 'Slots must hold distributed 195 actual pieces');
+
+const derivedErp = buildAll(reportFromErp.slots, reportFromErp.refs, 0, reportFromErp.engineering);
+assert.ok(derivedErp.operatingHours > 0, 'Derived operating hours must be greater than 0');
+assert.ok(derivedErp.availability > 0, 'Derived availability must be greater than 0');
+assert.ok(derivedErp.oee > 0, 'Derived OEE must be greater than 0%');
+assert.equal(Math.round(derivedErp.grandTotals.actual), 195, 'Grand total actual pieces must equal 195');
+
+// Case B: Defensive fallback in distributeProduction when all slots have 100% downtime
+const fullyBlockedSlots = HOUR_WINDOWS.map((h) => ({
+  index: h.index,
+  window: h.label,
+  shift: h.shift,
+  startHour: h.startHour,
+  ref: '1',
+  downtime: 60,
+  reason: 'Breakdown',
+  actual: 0
+}));
+const liberated = distributeProduction(fullyBlockedSlots, {
+  totalOutput: '250',
+  totalScrapPipes: '5',
+  totalPurgeKg: '10',
+  totalBundles: '8'
+});
+const liberatedActualSum = liberated.reduce((sum, s) => sum + (Number(s.actual) || 0), 0);
+assert.equal(Math.round(liberatedActualSum), 250, 'distributeProduction must liberate operating time and distribute 250 pcs');
+
+// Case C: autoBindProductionLogToReport with raw ERP row yields positive slot pieces and live OEE
+const autoBoundResult = autoBindProductionLogToReport({
+  dataset: [rawErpStagnantRow],
+  date: '2026-09-26',
+  machine: 'L-03'
+});
+assert.equal(autoBoundResult.hasMatch, true, 'autoBindProductionLogToReport must find match');
+assert.equal(autoBoundResult.totalActualPieces, 195, 'Total actual pieces must equal 195');
+const autoBoundSlotSum = autoBoundResult.report.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0);
+assert.equal(Math.round(autoBoundSlotSum), 195, 'autoBound slots must have 195 actual pieces');
+const autoBoundDerived = buildAll(autoBoundResult.report.slots, autoBoundResult.report.refs, 0, autoBoundResult.report.engineering);
+assert.ok(autoBoundDerived.oee > 0, 'Live OEE must be greater than 0%');
+assert.ok(autoBoundDerived.operatingHours > 0, 'Live operating hours must be greater than 0.0h');
+console.log('State Synchronization & Reactive 24h Slot Synthesis: OK');
 
 console.log('All OEE Reconciler unit tests passed successfully!');
 

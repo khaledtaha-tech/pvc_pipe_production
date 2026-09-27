@@ -28,7 +28,9 @@ import {
   isDateMatch,
   isMachineMatch,
   blankReportForMachine,
-  autoBindProductionLogToReport
+  autoBindProductionLogToReport,
+  getDefaultDeratingFactor,
+  reconcileShiftRun
 } from '../../logic/oeeReconciler.js';
 import PlantAnalytics from './PlantAnalytics.jsx';
 import ReportSheet from './ReportSheet.jsx';
@@ -317,9 +319,25 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   };
 
   const handleSelectFromUploader = (newReport) => {
-    setReport(newReport);
+    let repToSet = newReport;
+    if (repToSet) {
+      const totalActual = Number(repToSet.summary?.totalOutput) || 0;
+      const slotSum = Array.isArray(repToSet.slots)
+        ? repToSet.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0)
+        : 0;
+      if (totalActual > 0 && (slotSum === 0 || !repToSet.slots || repToSet.slots.length !== 24)) {
+        const derating = repToSet.engineering?.deratingFactor || getDefaultDeratingFactor(repToSet.header?.lineId, machineMaster);
+        const reconciled = reconcileShiftRun(repToSet, {
+          totalActualPieces: totalActual,
+          deratingFactor: derating
+        });
+        repToSet = { ...repToSet, slots: reconciled.updatedSlots };
+      }
+      setReport(repToSet);
+      savePersistedActiveReport(repToSet);
+    }
     setTab('sheet');
-    notify(`Loaded 24-hour report for ${newReport.header.lineId || 'Line'}`);
+    notify(`Loaded 24-hour report for ${repToSet?.header?.lineId || 'Line'}`);
   };
 
   const refreshHistoryList = useCallback(async () => {
@@ -1171,13 +1189,107 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     return [...displayLines, fallbackItem];
   }, [displayLines, canonicalCurrentLineId, machineMaster]);
 
+  const loadAndBindReportForLineAndDate = useCallback((targetDate, targetLineId) => {
+    if (!targetDate || !targetLineId) return;
+
+    const matchedMachineObj = matchMachine(targetLineId, machineMaster);
+    const canonicalId = matchedMachineObj?.id || targetLineId;
+
+    // Step a: Find matching record in the ingested production log for targetDate + targetLineId
+    let activeRecord = null;
+
+    // 1. Check activeLinesForDate first if targetDate matches selectedDate
+    if (targetDate === selectedDate && activeLinesForDate.length > 0) {
+      const foundInActive = activeLinesForDate.find(
+        (item) => (item.lineId === canonicalId || item.lineId === targetLineId) && item.record
+      );
+      if (foundInActive) {
+        activeRecord = foundInActive.record;
+      }
+    }
+
+    // 2. Query production records across combined datasets
+    if (!activeRecord) {
+      const matchedRecords = queryProductionRecords({
+        dataset: combinedDatasets,
+        date: targetDate,
+        machine: canonicalId,
+        machineMaster
+      });
+      if (matchedRecords.length > 0) {
+        const consolidated = consolidateDailyMachineRecords(matchedRecords, machineMaster);
+        activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+      }
+    }
+
+    // 3. Fallback: Direct scan across combinedDatasets
+    if (!activeRecord && Array.isArray(combinedDatasets)) {
+      const directMatches = combinedDatasets.filter((r) => {
+        const rDate = r.Date ?? r.date ?? r['DATE'];
+        const rMachine = r.Machine ?? r.machine ?? r.machineRaw ?? r.machineName ?? r.machineId;
+        return isDateMatch(rDate, targetDate) && isMachineMatch(rMachine, canonicalId, machineMaster);
+      });
+      if (directMatches.length > 0) {
+        const normalizedList = directMatches.map((m) => normalizeProductionRow(m, machineMaster));
+        const consolidated = consolidateDailyMachineRecords(normalizedList, machineMaster);
+        activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+      }
+    }
+
+    // If no matching operating record found, generate clean blank report for that machine and date
+    if (!activeRecord) {
+      const blankRep = blankReportForMachine(targetDate, canonicalId, machineMaster);
+      setReport(blankRep);
+      savePersistedActiveReport(blankRep);
+      notify(`Selected ${canonicalId} (${targetDate}): No records found (Blank/Zero State)`);
+      return blankRep;
+    }
+
+    // Step b: Automatically populate the report header (specs, target output, line speed, nominal capacity)
+    const deratingFactor = report?.engineering?.deratingFactor || getDefaultDeratingFactor(canonicalId, machineMaster);
+    let newRep = convertLogRowToReport(activeRecord, { deratingFactor });
+
+    // Step c: Automatically populate or synthesize active 24-hour slots with imported pieces/run data
+    const totalActual = Number(newRep.summary?.totalOutput) || Number(activeRecord.productionQty) || 0;
+    const slotSum = Array.isArray(newRep.slots)
+      ? newRep.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0)
+      : 0;
+
+    if (totalActual > 0 && (slotSum === 0 || !newRep.slots || newRep.slots.length !== 24)) {
+      const reconciled = reconcileShiftRun(newRep, {
+        totalActualPieces: totalActual,
+        deratingFactor
+      });
+      newRep.slots = reconciled.updatedSlots;
+    }
+
+    // Step d: Ensure internal cached report for that line/date is updated reactively via setReport and forces clean UI re-render
+    newRep = {
+      ...newRep,
+      id: newId(),
+      updatedAt: Date.now()
+    };
+    setReport(newRep);
+    savePersistedActiveReport(newRep);
+
+    notify(`Auto-bound production log for ${canonicalId} (${targetDate}): ${newRep.summary.totalOutput} Pcs`);
+    return newRep;
+  }, [
+    machineMaster,
+    selectedDate,
+    activeLinesForDate,
+    combinedDatasets,
+    report?.engineering?.deratingFactor,
+    notify
+  ]);
+
   const handleToolbarDateChange = (newDate) => {
     if (!newDate || newDate === selectedDate) return;
 
     // Reset showAllLines back to false (default to active only for new date)
     setShowAllLines(false);
 
-    // Query operating records for newDate
+    // Query operating records for newDate across combined datasets
     const allForNewDate = queryProductionRecordsForDate({
       dataset: combinedDatasets,
       date: newDate,
@@ -1186,24 +1298,26 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
     if (allForNewDate.length > 0) {
       const consolidated = consolidateDailyMachineRecords(allForNewDate, machineMaster);
-      // Auto-select first active operating machine for new date
-      const firstActiveRecord = consolidated.find(isRecordOperating) || consolidated[0];
-      const targetMachineId = firstActiveRecord.machineId || firstActiveRecord.machineRaw;
+      const operatingRecords = consolidated.filter(isRecordOperating);
+      const candidateRecords = operatingRecords.length > 0 ? operatingRecords : consolidated;
+
+      // Prefer currently selected machine if it also operated on newDate
+      const currentLineMatch = candidateRecords.find((r) => {
+        const mid = matchMachine(r.machineId || r.machineRaw, machineMaster)?.id;
+        return mid === canonicalCurrentLineId;
+      });
+
+      const targetRecord = currentLineMatch || candidateRecords[0];
+      const targetMachineId = targetRecord.machineId || targetRecord.machineRaw;
       const canonicalTargetId = matchMachine(targetMachineId, machineMaster)?.id || targetMachineId || 'L-01';
 
-      const newRep = convertLogRowToReport(firstActiveRecord, {
-        deratingFactor: getDefaultDeratingFactor(canonicalTargetId, machineMaster)
-      });
-      setReport(newRep);
-      notify(`Loaded active line ${newRep.header.lineId} for ${newDate}: ${newRep.summary.totalOutput} Pcs`);
+      loadAndBindReportForLineAndDate(newDate, canonicalTargetId);
       return;
     }
 
     // No operating records for any machine on newDate -> Keep current machine or L-01 in blank state
     const targetLineId = canonicalCurrentLineId || 'L-01';
-    const blankRep = blankReportForMachine(newDate, targetLineId, machineMaster);
-    setReport(blankRep);
-    notify(`Selected date ${newDate}: No production records (Blank/Zero State)`);
+    loadAndBindReportForLineAndDate(newDate, targetLineId);
   };
 
   const handleToolbarLineChange = (targetLineId) => {
@@ -1214,31 +1328,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return;
     }
 
-    const matchedMachineObj = matchMachine(targetLineId, machineMaster);
-    const canonicalId = matchedMachineObj?.id || targetLineId;
-
-    // Query records for canonicalId on selectedDate
-    const matchedRecords = queryProductionRecords({
-      dataset: combinedDatasets,
-      date: selectedDate,
-      machine: canonicalId,
-      machineMaster
-    });
-
-    if (matchedRecords.length > 0) {
-      const consolidated = consolidateDailyMachineRecords(matchedRecords, machineMaster);
-      const activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
-      const newRep = convertLogRowToReport(activeRecord, {
-        deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(canonicalId, machineMaster)
-      });
-      setReport(newRep);
-      notify(`Auto-bound production log for ${canonicalId} (${selectedDate}): ${newRep.summary.totalOutput} Pcs`);
-    } else {
-      // If no records exist for that line on that date, create blank report for that machine
-      const blankRep = blankReportForMachine(selectedDate, canonicalId, machineMaster);
-      setReport(blankRep);
-      notify(`Selected ${canonicalId} (${selectedDate}): No records found (Blank/Zero State)`);
-    }
+    loadAndBindReportForLineAndDate(selectedDate, targetLineId);
   };
 
   const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces, deratingFactor }) => {

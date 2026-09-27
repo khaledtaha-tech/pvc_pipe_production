@@ -575,6 +575,19 @@ export function autoBindProductionLogToReport({
 
   const totalActualPieces = Number(report.summary.totalOutput) || primaryRow.productionQty || 0;
 
+  // Ensure active 24h slots are synthesized if totalActualPieces > 0 but slots have 0 output
+  const slotSum = Array.isArray(report.slots)
+    ? report.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0)
+    : 0;
+  if (totalActualPieces > 0 && slotSum === 0) {
+    const derating = report.engineering?.deratingFactor || getDefaultDeratingFactor(primaryRow.machineId, machineMaster);
+    const reconciled = reconcileShiftRun(report, {
+      totalActualPieces,
+      deratingFactor: derating
+    });
+    report.slots = reconciled.updatedSlots;
+  }
+
   return {
     hasMatch: true,
     report,

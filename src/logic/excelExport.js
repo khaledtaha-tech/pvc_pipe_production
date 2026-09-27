@@ -637,7 +637,10 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
   });
 
   const s1Downtime = model.shift1Rows.reduce((acc, r) => acc + (Number(r.downtime) || 0), 0);
-  const s1StdTotal = model.shift1Rows.reduce((acc, r) => acc + (Number(r.stdPcs !== undefined ? r.stdPcs : r.stdM) || 0), 0);
+  const isCumulative = Boolean(model.isCumulative);
+  const s1StdEnd = Number(model.shift1Rows[11]?.stdPcs !== undefined ? model.shift1Rows[11]?.stdPcs : model.shift1Rows[11]?.stdM) || 0;
+  const s2StdEnd = Number(model.shift2Rows[11]?.stdPcs !== undefined ? model.shift2Rows[11]?.stdPcs : model.shift2Rows[11]?.stdM) || 0;
+  const s1StdTotal = isCumulative ? s1StdEnd : model.shift1Rows.reduce((acc, r) => acc + (Number(r.stdPcs !== undefined ? r.stdPcs : r.stdM) || 0), 0);
 
   // Shift 1 Subtotal Row
   aoa.push([
@@ -690,7 +693,8 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
   });
 
   const s2Downtime = model.shift2Rows.reduce((acc, r) => acc + (Number(r.downtime) || 0), 0);
-  const s2StdTotal = model.shift2Rows.reduce((acc, r) => acc + (Number(r.stdPcs !== undefined ? r.stdPcs : r.stdM) || 0), 0);
+  const s2StdTotal = isCumulative ? (s2StdEnd - s1StdEnd) : model.shift2Rows.reduce((acc, r) => acc + (Number(r.stdPcs !== undefined ? r.stdPcs : r.stdM) || 0), 0);
+  const grandStdTotal = isCumulative ? s2StdEnd : (s1StdTotal + s2StdTotal);
 
   // Shift 2 Subtotal Row
   aoa.push([
@@ -706,7 +710,7 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
   // Grand Total (24 Hours)
   aoa.push([
     'GRAND TOTAL (24 HOURS)',
-    s1StdTotal + s2StdTotal,
+    grandStdTotal,
     ((model.s1TotalGoodPcs !== '' && model.s1TotalGoodPcs !== undefined) || (model.s2TotalGoodPcs !== '' && model.s2TotalGoodPcs !== undefined))
       ? (Number(model.s1TotalGoodPcs || model.s1TotalGoodM) || 0) + (Number(model.s2TotalGoodPcs || model.s2TotalGoodM) || 0)
       : '',

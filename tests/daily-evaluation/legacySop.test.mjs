@@ -82,7 +82,7 @@ assert.equal(formatFullMachineName('WIND1', ''), 'WIND1');
 assert.equal(formatFullMachineName('L-08', 'KTS 350 TDH'), 'L-08 - KTS 350 TDH');
 console.log('Full machine name formatting & catalog lookup: OK');
 
-// 5. Model Building with Benchmark Report (Non-cumulative Standard Production in Pieces)
+// 5. Model Building with Benchmark Report (Cumulative Standard Production in Pieces)
 const benchmark = getBenchmarkReport();
 const derived = buildAll(benchmark.slots, benchmark.refs, benchmark.summary.startCounter);
 const model = buildSopModel(benchmark, derived);
@@ -94,23 +94,32 @@ assert.equal(model.lineId, 'L-03 - KTS 700');
 assert.equal(model.shift1Rows.length, 12);
 assert.equal(model.shift2Rows.length, 12);
 
-// Non-cumulative constant hourly rate in pieces verification:
+// Cumulative progressive rate in pieces verification:
 // Shift 1: Speed 15 m/min, pipeLength 6.0m -> (15 * 60) / 6.0 = 150 pcs/h
+// Hour 1: 150, Hour 2: 300, Hour 12: 1800
 assert.equal(model.shift1Rows[0].stdPcs, 150);
-assert.equal(model.shift1Rows[1].stdPcs, 150);
-assert.equal(model.shift1Rows[11].stdPcs, 150);
+assert.equal(model.shift1Rows[1].stdPcs, 300);
+assert.equal(model.shift1Rows[11].stdPcs, 1800);
 assert.equal(model.shift1Rows[0].stdM, 150); // Backward compatibility alias
 
 // Shift 2: Speed 12 m/min, pipeLength 6.0m -> (12 * 60) / 6.0 = 120 pcs/h
-assert.equal(model.shift2Rows[0].stdPcs, 120);
-assert.equal(model.shift2Rows[11].stdPcs, 120);
-assert.equal(model.shift2Rows[0].stdM, 120);
+// Hour 13: 1800 + 120 = 1920, Hour 24: 1800 + 12 * 120 = 3240
+assert.equal(model.shift2Rows[0].stdPcs, 1920);
+assert.equal(model.shift2Rows[11].stdPcs, 3240);
+assert.equal(model.shift2Rows[0].stdM, 1920);
+
+// Explicit non-cumulative override verification
+const flatModel = buildSopModel(benchmark, derived, { cumulative: false });
+assert.equal(flatModel.shift1Rows[0].stdPcs, 150);
+assert.equal(flatModel.shift1Rows[11].stdPcs, 150);
+assert.equal(flatModel.shift2Rows[0].stdPcs, 120);
+assert.equal(flatModel.shift2Rows[11].stdPcs, 120);
 
 // Both Actual and Standard are present side-by-side in filled view
 assert.ok(model.shift1Rows[0].goodPcs !== undefined);
 assert.ok(model.s1TotalGoodPcs >= 0);
 assert.equal(model.s1TotalGoodM, model.s1TotalGoodPcs);
-console.log('Model generation with standard pieces rate (Filled View): OK');
+console.log('Model generation with cumulative standard pieces rate (Filled View): OK');
 
 // 6. Blank SOP Template Model Building (DOC-Ext.-03)
 const blankModel = buildBlankSopModel({ standardRate: 20 });
@@ -130,33 +139,33 @@ assert.equal(blankModel.s2TotalGoodPcs, '');
 assert.equal(blankModel.s2TotalGoodM, '');
 assert.equal(blankModel.s2TotalScrapKg, '');
 
-// Hourly columns cleared for manual recording in blank mode, while stdPcs is preserved
-for (const r of blankModel.shift1Rows) {
-  assert.equal(r.stdPcs, 20);
+// Hourly columns cleared for manual recording in blank mode, while stdPcs has progressive cumulative values
+blankModel.shift1Rows.forEach((r, idx) => {
+  assert.equal(r.stdPcs, 20 * (idx + 1));
   assert.equal(r.goodPcs, '');
   assert.equal(r.goodM, '');
   assert.equal(r.cause, '');
   assert.equal(r.downtime, '');
   assert.equal(r.rejectKg, '');
-}
-for (const r of blankModel.shift2Rows) {
-  assert.equal(r.stdPcs, 20);
+});
+blankModel.shift2Rows.forEach((r, idx) => {
+  assert.equal(r.stdPcs, 20 * (idx + 13));
   assert.equal(r.goodPcs, '');
   assert.equal(r.goodM, '');
   assert.equal(r.cause, '');
   assert.equal(r.downtime, '');
   assert.equal(r.rejectKg, '');
-}
+});
 console.log('Blank SOP Template (DOC-Ext.-03) model generation: OK');
 
-// 7. Pre-filled Calculated Hourly Standard Production in Pieces (Default 100 pcs/h)
+// 7. Pre-filled Calculated Hourly Standard Production in Pieces (Default 100 pcs/h, Cumulative)
 const blankDefault = buildBlankSopModel();
 assert.equal(blankDefault.shift1Rows.length, 12);
 assert.equal(blankDefault.shift2Rows.length, 12);
 assert.equal(blankDefault.shift1Rows[0].stdPcs, 100);
-assert.equal(blankDefault.shift1Rows[11].stdPcs, 100);
-assert.equal(blankDefault.shift2Rows[0].stdPcs, 100);
-assert.equal(blankDefault.shift2Rows[11].stdPcs, 100);
+assert.equal(blankDefault.shift1Rows[11].stdPcs, 1200);
+assert.equal(blankDefault.shift2Rows[0].stdPcs, 1300);
+assert.equal(blankDefault.shift2Rows[11].stdPcs, 2400);
 console.log('Pre-filled standard production rate in pieces (stdPcs): OK');
 
 // 8. Previous Operational Run Auto-Inheritance (findPreviousRunForMachine)
@@ -245,23 +254,23 @@ assert.equal(morningModel.speed1, 12.5);
 assert.equal(morningModel.speed2, 12.5);
 assert.equal(morningModel.hourlyStdRate, 125); // (12.5 * 60) / 6.0 = 125
 
-// Verify hourly rows: stdPcs is populated, all others are blank strings
+// Verify hourly rows: stdPcs is progressive cumulative, all others are blank strings
 assert.equal(morningModel.shift1Rows.length, 12);
 assert.equal(morningModel.shift2Rows.length, 12);
-for (const r of morningModel.shift1Rows) {
-  assert.equal(r.stdPcs, 125);
+morningModel.shift1Rows.forEach((r, idx) => {
+  assert.equal(r.stdPcs, 125 * (idx + 1));
   assert.equal(r.goodPcs, '');
   assert.equal(r.cause, '');
   assert.equal(r.downtime, '');
   assert.equal(r.rejectKg, '');
-}
-for (const r of morningModel.shift2Rows) {
-  assert.equal(r.stdPcs, 125);
+});
+morningModel.shift2Rows.forEach((r, idx) => {
+  assert.equal(r.stdPcs, 125 * (idx + 13));
   assert.equal(r.goodPcs, '');
   assert.equal(r.cause, '');
   assert.equal(r.downtime, '');
   assert.equal(r.rejectKg, '');
-}
+});
 
 // Verify summary cards are blank for on-floor recording
 assert.equal(morningModel.s1TotalGoodPcs, '');
@@ -364,6 +373,42 @@ assert.equal(specChangedModel.hourlyStdRate, 100);
 assert.equal(specChangedModel.calculatedRateKgH, 15);
 assert.equal(specChangedModel.utilizationPct, 4);
 console.log('Output rate (kg/h), nominal capacity, and live utilization recomputation: OK');
+
+// 15. Cumulative Progressive Target Formula across all 24 slots (DOC-Ext.-03)
+// Formula: Cumulative Target = Hourly Standard Target * i (i from 1 to 24)
+// (e.g. if hourly standard is 400 pcs/hr: Hour 1 = 400, Hour 2 = 800, Hour 3 = 1200, ..., Hour 24 = 9600)
+const sopCumulative400 = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '400',
+  productDescription: 'Standard 400 pcs/h Target Test',
+  date: '2026-09-27',
+  speed: 40.0,
+  pipeLength: 6.0, // (40 * 60) / 6.0 = 400 pcs/h
+  unitWeight: 1.0,
+  nominalCapacity: 500
+});
+
+assert.equal(sopCumulative400.hourlyStdRate, 400);
+assert.equal(sopCumulative400.isCumulative, true);
+assert.equal(sopCumulative400.shift1Rows.length, 12);
+assert.equal(sopCumulative400.shift2Rows.length, 12);
+
+// Shift 1: slots 1 to 12
+for (let i = 1; i <= 12; i++) {
+  assert.equal(sopCumulative400.shift1Rows[i - 1].stdPcs, 400 * i, `Slot ${i} must equal ${400 * i}`);
+}
+assert.equal(sopCumulative400.shift1Rows[0].stdPcs, 400);
+assert.equal(sopCumulative400.shift1Rows[1].stdPcs, 800);
+assert.equal(sopCumulative400.shift1Rows[2].stdPcs, 1200);
+assert.equal(sopCumulative400.shift1Rows[11].stdPcs, 4800);
+
+// Shift 2: slots 13 to 24
+for (let i = 13; i <= 24; i++) {
+  assert.equal(sopCumulative400.shift2Rows[i - 13].stdPcs, 400 * i, `Slot ${i} must equal ${400 * i}`);
+}
+assert.equal(sopCumulative400.shift2Rows[0].stdPcs, 5200);
+assert.equal(sopCumulative400.shift2Rows[11].stdPcs, 9600);
+console.log('Cumulative progressive target formula across hours 1 to 24: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

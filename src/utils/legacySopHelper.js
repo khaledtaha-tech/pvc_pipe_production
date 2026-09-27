@@ -143,7 +143,9 @@ export const computeStandardHourlyMeters = computeStandardHourlyPieces;
  */
 export function buildSopModel(report, derived, options = {}) {
   const isBlank = Boolean(options.isBlank || report?.isBlank);
-  const isCumulative = Boolean(options.cumulative);
+  const isCumulative = options.cumulative !== undefined
+    ? Boolean(options.cumulative)
+    : (options.isCumulative !== undefined ? Boolean(options.isCumulative) : true);
   const explicitStdRate = options.standardRate !== undefined && options.standardRate !== null && options.standardRate !== ''
     ? Number(options.standardRate)
     : null;
@@ -166,7 +168,7 @@ export function buildSopModel(report, derived, options = {}) {
   const pipeLen2 = Number(ref2.pipeLength) > 0 ? Number(ref2.pipeLength) : pipeLen1;
   const unitWeight2 = Number(ref2.stdWeight) > 0 ? Number(ref2.stdWeight) : unitWeight1;
 
-  // Standard production sequence in pieces: pre-fill constant hourly rate across all 24 rows
+  // Standard production sequence in pieces: progressive cumulative values across all 24 slots
   const hourlyRate1 = explicitStdRate !== null
     ? explicitStdRate
     : computeStandardHourlyPieces(report, ref1);
@@ -178,7 +180,12 @@ export function buildSopModel(report, derived, options = {}) {
   const stdShift2 = [];
   for (let i = 1; i <= 12; i += 1) {
     stdShift1.push(isCumulative ? i * hourlyRate1 : hourlyRate1);
-    stdShift2.push(isCumulative ? i * hourlyRate2 : hourlyRate2);
+  }
+  for (let i = 13; i <= 24; i += 1) {
+    const cumVal = isCumulative
+      ? (12 * hourlyRate1 + (i - 12) * hourlyRate2)
+      : hourlyRate2;
+    stdShift2.push(cumVal);
   }
 
   const shift1Rows = [];
@@ -331,7 +338,8 @@ export function buildSopModel(report, derived, options = {}) {
     s2TotalScrapKg,
     shift1Lead: isBlank ? '' : (summary.shift1Lead || ''),
     shift2Lead: isBlank ? '' : (summary.shift2Lead || ''),
-    isBlank
+    isBlank,
+    isCumulative
   };
 }
 
@@ -605,28 +613,39 @@ export function buildMorningSopModel(config = {}) {
   const calculatedRateKgH = Math.round(hourlyStdRate * unitWeight);
   const nominalCapacity = Number(config.nominalCapacity) || 200;
   const utilizationPct = nominalCapacity > 0 ? Math.round((calculatedRateKgH / nominalCapacity) * 100) : 0;
+  const isCumulative = config.cumulative !== undefined
+    ? Boolean(config.cumulative)
+    : (config.isCumulative !== undefined ? Boolean(config.isCumulative) : true);
 
-  const shift1Rows = SOP_SHIFT1_HOURS.map((hour) => ({
-    hour,
-    stdPcs: hourlyStdRate,
-    stdM: hourlyStdRate,
-    goodPcs: '',
-    goodM: '',
-    cause: '',
-    downtime: '',
-    rejectKg: ''
-  }));
+  const shift1Rows = SOP_SHIFT1_HOURS.map((hour, idx) => {
+    const slotNum = idx + 1; // 1 to 12
+    const target = isCumulative ? hourlyStdRate * slotNum : hourlyStdRate;
+    return {
+      hour,
+      stdPcs: target,
+      stdM: target,
+      goodPcs: '',
+      goodM: '',
+      cause: '',
+      downtime: '',
+      rejectKg: ''
+    };
+  });
 
-  const shift2Rows = SOP_SHIFT2_HOURS.map((hour) => ({
-    hour,
-    stdPcs: hourlyStdRate,
-    stdM: hourlyStdRate,
-    goodPcs: '',
-    goodM: '',
-    cause: '',
-    downtime: '',
-    rejectKg: ''
-  }));
+  const shift2Rows = SOP_SHIFT2_HOURS.map((hour, idx) => {
+    const slotNum = idx + 13; // 13 to 24
+    const target = isCumulative ? hourlyStdRate * slotNum : hourlyStdRate;
+    return {
+      hour,
+      stdPcs: target,
+      stdM: target,
+      goodPcs: '',
+      goodM: '',
+      cause: '',
+      downtime: '',
+      rejectKg: ''
+    };
+  });
 
   return {
     docCode: 'DOC-Ext.-03',
@@ -650,6 +669,7 @@ export function buildMorningSopModel(config = {}) {
     hourlyStdRate,
     calculatedRateKgH,
     utilizationPct,
+    isCumulative,
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs: '',

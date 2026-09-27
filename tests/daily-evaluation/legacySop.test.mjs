@@ -17,6 +17,7 @@ import {
   getAvailableProductsCatalog,
   calculateBenchmarkSpeedForProduct,
   buildMorningSopModel,
+  buildUniversalBlankSopModel,
   SOP_SHIFT1_HOURS,
   SOP_SHIFT2_HOURS
 } from '../../src/logic/legacySopHelper.js';
@@ -527,6 +528,37 @@ assert.equal(specsL2.speed, '');
 assert.equal(specsL2.calculatedRate, '');
 
 console.log('Immediate Previous Day operational filter & strict inheritance: OK');
+
+// 18. Shift Summary Metrics & Operational Field Bindings (DOC-Ext.-03)
+assert.ok(model.pipeLength > 0, 'pipeLength should be bound');
+assert.ok(model.unitWeight > 0, 'unitWeight should be bound');
+assert.ok(model.speed !== '', 'speed should be bound');
+assert.ok(typeof model.s1TotalWeightKg === 'number' || model.s1TotalWeightKg === '', 's1TotalWeightKg should be valid');
+assert.ok(typeof model.s1ScrapPct === 'string', 's1ScrapPct should be a string');
+assert.ok(typeof model.s1DowntimeMin === 'number', 's1DowntimeMin should be a number');
+assert.ok(typeof model.s1Efficiency === 'string', 's1Efficiency should be a string');
+assert.ok(typeof model.s2TotalWeightKg === 'number' || model.s2TotalWeightKg === '', 's2TotalWeightKg should be valid');
+assert.ok(typeof model.s2ScrapPct === 'string', 's2ScrapPct should be a string');
+assert.ok(typeof model.s2DowntimeMin === 'number', 's2DowntimeMin should be a number');
+assert.ok(typeof model.s2Efficiency === 'string', 's2Efficiency should be a string');
+
+// Em-dash product display verification
+const renderedDisplay = (codeBoundModel.displayProduct || '').replace(/\s+-\s+/, ' — ');
+assert.ok(renderedDisplay.includes('—'), 'Product display should support em-dash separation');
+
+// Test blank template fallback behavior
+const universalBlankModel = buildUniversalBlankSopModel();
+assert.equal(universalBlankModel.s1TotalWeightKg, '');
+assert.equal(universalBlankModel.s1ScrapPct, '');
+assert.equal(universalBlankModel.s1DowntimeMin, '');
+assert.equal(universalBlankModel.s1Efficiency, '');
+assert.equal(universalBlankModel.s2TotalWeightKg, '');
+assert.equal(universalBlankModel.s2ScrapPct, '');
+assert.equal(universalBlankModel.s2DowntimeMin, '');
+assert.equal(universalBlankModel.s2Efficiency, '');
+assert.equal(universalBlankModel.speed, '');
+
+console.log('Shift Summary metrics & operational fields: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

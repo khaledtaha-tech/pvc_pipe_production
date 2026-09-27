@@ -592,7 +592,7 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
       'Cause of Stop / Remarks',
       'Stop Time (Min)',
       'Reject Production (KG)',
-      'General Data of Production',
+      'Shift Summary & Metrics',
       '',
       ''
     ]
@@ -607,22 +607,27 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     let sideExtra = '';
 
     if (i === 0) {
-      sideLbl = 'Total Good Production (Pcs)';
+      sideLbl = 'Shift 1 Summary & Metrics';
+    } else if (i === 1) {
+      sideLbl = 'Total Good (Pcs):';
+      sideVal = model.s1TotalGoodPcs !== '' && model.s1TotalGoodPcs !== undefined ? model.s1TotalGoodPcs : '';
     } else if (i === 2) {
-      sideLbl = 'Ref 1:';
-      sideVal = model.s1TotalGoodPcs > 0 ? model.s1TotalGoodPcs : (model.s1TotalGoodM > 0 ? model.s1TotalGoodM : '');
+      sideLbl = 'Total Weight (Kg):';
+      sideVal = model.s1TotalWeightKg || '';
     } else if (i === 3) {
-      sideLbl = 'Ref 2:';
+      sideLbl = 'Total Reject (Kg):';
+      sideVal = model.s1TotalScrapKg !== '' && model.s1TotalScrapKg !== undefined ? model.s1TotalScrapKg : '';
+    } else if (i === 4) {
+      sideLbl = 'Scrap Allowance (%):';
+      sideVal = model.s1ScrapPct || '';
     } else if (i === 5) {
-      sideLbl = 'Total Rejection';
+      sideLbl = 'Total Down Time (Min):';
+      sideVal = model.s1DowntimeMin !== '' && model.s1DowntimeMin !== undefined ? model.s1DowntimeMin : '';
+    } else if (i === 6) {
+      sideLbl = 'Operational Efficiency:';
+      sideVal = model.s1Efficiency || '';
     } else if (i === 7) {
-      sideLbl = 'Ref 1:';
-      sideVal = model.s1TotalScrapKg > 0 ? model.s1TotalScrapKg : '';
-    } else if (i === 8) {
-      sideLbl = 'Ref 2:';
-    } else if (i === 9) {
-      sideLbl = 'Scrap:';
-      sideVal = model.s1TotalScrapKg > 0 ? model.s1TotalScrapKg : '';
+      sideLbl = 'Shift Supervisor Remarks & Handover Notes:';
     }
 
     aoa.push([
@@ -664,21 +669,27 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     let sideExtra = '';
 
     if (idx === 0) {
-      sideLbl = 'Total Good Production (Pcs)';
+      sideLbl = 'Shift 2 Summary & Metrics';
     } else if (idx === 1) {
-      sideLbl = 'Ref 1:';
-      sideVal = model.s2TotalGoodPcs > 0 ? model.s2TotalGoodPcs : (model.s2TotalGoodM > 0 ? model.s2TotalGoodM : '');
+      sideLbl = 'Total Good (Pcs):';
+      sideVal = model.s2TotalGoodPcs !== '' && model.s2TotalGoodPcs !== undefined ? model.s2TotalGoodPcs : '';
     } else if (idx === 2) {
-      sideLbl = 'Ref 2:';
+      sideLbl = 'Total Weight (Kg):';
+      sideVal = model.s2TotalWeightKg || '';
+    } else if (idx === 3) {
+      sideLbl = 'Total Reject (Kg):';
+      sideVal = model.s2TotalScrapKg !== '' && model.s2TotalScrapKg !== undefined ? model.s2TotalScrapKg : '';
     } else if (idx === 4) {
-      sideLbl = 'Total Rejection';
+      sideLbl = 'Scrap Allowance (%):';
+      sideVal = model.s2ScrapPct || '';
+    } else if (idx === 5) {
+      sideLbl = 'Total Down Time (Min):';
+      sideVal = model.s2DowntimeMin !== '' && model.s2DowntimeMin !== undefined ? model.s2DowntimeMin : '';
     } else if (idx === 6) {
-      sideLbl = 'Ref 1:';
+      sideLbl = 'Operational Efficiency:';
+      sideVal = model.s2Efficiency || '';
     } else if (idx === 7) {
-      sideLbl = 'Ref 2:';
-    } else if (idx === 8) {
-      sideLbl = 'Scrap:';
-      sideVal = model.s2TotalScrapKg > 0 ? model.s2TotalScrapKg : '';
+      sideLbl = 'Shift Supervisor Remarks & Handover Notes:';
     }
 
     aoa.push([
@@ -775,10 +786,10 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     { s: { r: 6, c: 6 }, e: { r: 6, c: 8 } },
     // Shift 1 Side Block Header Merges
     { s: { r: shift1StartRow, c: 6 }, e: { r: shift1StartRow, c: 8 } },
-    { s: { r: shift1StartRow + 5, c: 6 }, e: { r: shift1StartRow + 5, c: 8 } },
+    { s: { r: shift1StartRow + 7, c: 6 }, e: { r: shift1StartRow + 11, c: 8 } },
     // Shift 2 Side Block Header Merges
     { s: { r: shift2StartRow, c: 6 }, e: { r: shift2StartRow, c: 8 } },
-    { s: { r: shift2StartRow + 4, c: 6 }, e: { r: shift2StartRow + 4, c: 8 } },
+    { s: { r: shift2StartRow + 7, c: 6 }, e: { r: shift2StartRow + 11, c: 8 } },
     // Supervisor Signatures
     { s: { r: sigTitleRow, c: 0 }, e: { r: sigTitleRow, c: 3 } },
     { s: { r: sigTitleRow, c: 4 }, e: { r: sigTitleRow, c: 8 } },

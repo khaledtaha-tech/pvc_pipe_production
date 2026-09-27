@@ -12,6 +12,42 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
   const isBlankMode = Boolean(isBlank || report?.isBlank || model?.isBlank);
   const isUniversal = Boolean(model?.isUniversalBlank || (!model?.isMorningSop && isBlankMode));
 
+  const hasProduct = Boolean(!isUniversal && !isBlankMode && !model?.isIdle && (model?.displayProduct || model?.productDescription || model?.itemCode));
+  const productDisplay = hasProduct
+    ? (model?.itemCode && model?.productDescription && !model?.productDescription.includes(model?.itemCode)
+        ? `[${model.itemCode}] — ${model.productDescription}`
+        : (model?.displayProduct || model?.productDescription || `[${model?.itemCode}]`))
+    : '';
+
+  const hasLine = Boolean(!isUniversal && (model?.fullMachineName || model?.lineId));
+  const lineDisplay = hasLine
+    ? (model?.fullMachineName || model?.lineId)
+    : (isUniversal ? '________________' : (model?.fullMachineName || model?.lineId || '________________'));
+
+  const speedVal = (!isUniversal && !model?.isIdle && (model?.speed || model?.speed1))
+    ? Number(model?.speed || model?.speed1)
+    : null;
+  const speedDisplay = speedVal ? `${speedVal} M/Min` : '______ M/Min';
+
+  const lengthVal = (!isUniversal && (model?.pipeLength || model?.ref1PipeLength))
+    ? Number(model?.pipeLength || model?.ref1PipeLength || 6.0)
+    : (!isUniversal && !model?.isIdle ? 6.0 : null);
+  const lengthDisplay = lengthVal ? `${lengthVal.toFixed(1)} M` : '______ M';
+
+  const weightVal = (!isUniversal && !model?.isIdle && (model?.unitWeight || model?.unitWeight1))
+    ? Number(model?.unitWeight || model?.unitWeight1)
+    : null;
+  const weightDisplay = weightVal ? `${weightVal.toFixed(2)} Kg/Pc` : '______ Kg/Pc';
+
+  const renderMetric = (val, placeholder = '________') => {
+    if (isUniversal || isBlankMode || val === '' || val === null || val === undefined) {
+      return placeholder;
+    }
+    return typeof val === 'number'
+      ? (Number.isInteger(val) ? val.toLocaleString() : val.toFixed(1))
+      : String(val);
+  };
+
   return (
     <div
       className={`sop-sheet-container${isExporting ? ' sop-compact-export' : ''}${isBlankMode ? ' sop-blank-template' : ''}`}
@@ -78,73 +114,45 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
             </td>
           </tr>
 
-          {/* Header Row 4 */}
-          <tr>
-            <td className="sop-cell sop-empty"></td>
-            <td className="sop-cell sop-lbl text-center">
-              Line No.
+          {/* Full-Width Product Header Row */}
+          <tr className="sop-product-header-row">
+            <td colSpan={9} className="sop-cell sop-product-header-cell">
+              <div className="sop-product-line-wrap">
+                <span className="sop-product-title-lbl">Product Specification:</span>
+                {hasProduct ? (
+                  <span className="sop-product-spec-val">{productDisplay}</span>
+                ) : (
+                  <span className="sop-product-dotted-line"></span>
+                )}
+              </div>
             </td>
-            <td
-              className="sop-cell sop-val-bold text-center"
-              style={{ whiteSpace: 'nowrap', fontSize: '10.5px' }}
-            >
-              {isUniversal ? <span className="sop-blank-underline" /> : (model.fullMachineName || model.lineId || (isBlankMode ? <span className="sop-blank-underline" /> : ''))}
-            </td>
-            <td colSpan={3} className="sop-cell sop-prod-pieces">
-              PRODUCTION PIECES
-            </td>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
           </tr>
 
-          {/* Header Row 5 */}
-          <tr>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
-            <td colSpan={3} className="sop-cell sop-item-desc">
-              {(isUniversal || isBlankMode || model.isIdle || (!model.displayProduct && !model.productDescription)) ? (
-                <div className="sop-blank-product-box">
-                  <span className="sop-blank-lbl">Product: </span>
-                  <span className="sop-blank-underline long" />
+          {/* Clean Single-Row Operational Sub-Header */}
+          <tr className="sop-op-subheader-row">
+            <td colSpan={9} className="sop-cell sop-op-subheader-cell">
+              <div className="sop-op-subgrid">
+                <div className="sop-op-col">
+                  <span className="sop-op-lbl">Line No:</span>{' '}
+                  <span className="sop-op-val">{lineDisplay}</span>
                 </div>
-              ) : (
-                model.displayProduct || (model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription)
-              )}
+                <div className="sop-op-col">
+                  <span className="sop-op-lbl">Standard Speed:</span>{' '}
+                  <span className="sop-op-val">{speedDisplay}</span>
+                </div>
+                <div className="sop-op-col">
+                  <span className="sop-op-lbl">Cut Length:</span>{' '}
+                  <span className="sop-op-val">{lengthDisplay}</span>
+                </div>
+                <div className="sop-op-col">
+                  <span className="sop-op-lbl">Nominal Weight:</span>{' '}
+                  <span className="sop-op-val">{weightDisplay}</span>
+                </div>
+              </div>
             </td>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
           </tr>
 
-          {/* Header Row 6 */}
-          <tr>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
-            <td className="sop-cell sop-ref-hdr text-center">
-              {(isUniversal || isBlankMode || model.isIdle || !model.ref1Spec)
-                ? 'Ref 1: ____________'
-                : (model.ref1Spec || '1st reference')}
-            </td>
-            <td colSpan={2} className="sop-cell sop-ref-hdr text-center">
-              {(isUniversal || isBlankMode || model.isIdle || !model.ref2Spec)
-                ? 'Ref 2: ____________'
-                : (model.ref2Spec || '2nd reference')}
-            </td>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
-          </tr>
-
-          {/* Header Row 7 */}
-          <tr>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
-            <td className="sop-cell sop-speed text-center">
-              {(isUniversal || isBlankMode || model.isIdle || !model.speed1)
-                ? 'Speed: ______ M/Min'
-                : `${model.speed1} M/Min`}
-            </td>
-            <td colSpan={2} className="sop-cell sop-speed text-center">
-              {(isUniversal || isBlankMode || model.isIdle || !model.speed2)
-                ? 'Speed: ______ M/Min'
-                : `${model.speed2} M/Min`}
-            </td>
-            <td colSpan={3} className="sop-cell sop-empty"></td>
-          </tr>
-
-          {/* Table Headers (Row 8) */}
+          {/* Table Headers */}
           <tr className="sop-head-row">
             <th className="sop-th">Hour</th>
             <th className="sop-th">
@@ -161,11 +169,11 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
               Reject Production<br />(KG)
             </th>
             <th colSpan={3} className="sop-th sop-general-th">
-              General Data of Production
+              Shift Summary &amp; Metrics
             </th>
           </tr>
 
-          {/* Shift 1 Hourly Rows (Rows 9 to 20) */}
+          {/* Shift 1 Hourly Rows (Rows 0 to 11) */}
           {model.shift1Rows.map((r, i) => {
             const isLast = i === 11;
             return (
@@ -179,91 +187,78 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                 <td className="sop-cell-dt">{r.downtime}</td>
                 <td className="sop-cell-reject">{r.rejectKg !== '' ? r.rejectKg : ''}</td>
 
-                {/* Right Block for Shift 1 */}
+                {/* Right Shift Summary Card for Shift 1 */}
                 {i === 0 && (
                   <td colSpan={3} className="sop-side-header">
-                    Total Good Production (Pcs)
+                    Shift 1 Summary &amp; Metrics
                   </td>
                 )}
                 {i === 1 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Good (Pcs):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s1TotalGoodPcs, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 2 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 1:</td>
-                    <td className="sop-side-val">
-                      {model.s1TotalGoodPcs > 0 ? (Number.isInteger(model.s1TotalGoodPcs) ? model.s1TotalGoodPcs.toLocaleString() : model.s1TotalGoodPcs) : (model.s1TotalGoodM > 0 ? model.s1TotalGoodM.toLocaleString() : '')}
-                    </td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Weight (Kg):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s1TotalWeightKg, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 3 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 2:</td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Reject (Kg):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s1TotalScrapKg, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 4 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Scrap Allowance (%):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s1ScrapPct, '________%')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 5 && (
-                  <td colSpan={3} className="sop-side-header">
-                    Total Rejection
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Down Time (Min):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s1DowntimeMin, '________')}</span>
+                    </div>
                   </td>
                 )}
                 {i === 6 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Operational Efficiency:</span>
+                      <span className="sop-summary-val">{renderMetric(model.s1Efficiency, '________%')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 7 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 1:</td>
-                    <td className="sop-side-val">
-                      {model.s1TotalScrapKg > 0 ? model.s1TotalScrapKg : ''}
-                    </td>
-                    <td></td>
-                  </>
-                )}
-                {i === 8 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 2:</td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
-                )}
-                {i === 9 && (
-                  <>
-                    <td className="sop-side-lbl">Scrap</td>
-                    <td className="sop-side-val">
-                      {model.s1TotalScrapKg > 0 ? model.s1TotalScrapKg : ''}
-                    </td>
-                    <td></td>
-                  </>
-                )}
-                {i >= 10 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} rowSpan={5} className="sop-summary-notes-cell">
+                    <div className="sop-notes-container">
+                      <div className="sop-notes-header">Shift Supervisor Remarks &amp; Handover Notes:</div>
+                      <div className="sop-notes-lines">
+                        <div className="sop-notes-line"></div>
+                        <div className="sop-notes-line"></div>
+                        <div className="sop-notes-line"></div>
+                        <div className="sop-notes-line"></div>
+                      </div>
+                    </div>
+                  </td>
                 )}
               </tr>
             );
           })}
 
-          {/* Shift 2 Hourly Rows (Rows 21 to 32) */}
+          {/* Shift 2 Hourly Rows (Rows 0 to 11) */}
           {model.shift2Rows.map((r, i) => {
             const isLast = i === 11;
             return (
@@ -277,82 +272,78 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                 <td className="sop-cell-dt">{r.downtime}</td>
                 <td className="sop-cell-reject">{r.rejectKg !== '' ? r.rejectKg : ''}</td>
 
-                {/* Right Block for Shift 2 */}
+                {/* Right Shift Summary Card for Shift 2 */}
                 {i === 0 && (
                   <td colSpan={3} className="sop-side-header">
-                    Total Good Production (Pcs)
+                    Shift 2 Summary &amp; Metrics
                   </td>
                 )}
                 {i === 1 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 1:</td>
-                    <td className="sop-side-val">
-                      {model.s2TotalGoodPcs > 0 ? (Number.isInteger(model.s2TotalGoodPcs) ? model.s2TotalGoodPcs.toLocaleString() : model.s2TotalGoodPcs) : (model.s2TotalGoodM > 0 ? model.s2TotalGoodM.toLocaleString() : '')}
-                    </td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Good (Pcs):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s2TotalGoodPcs, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 2 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 2:</td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Weight (Kg):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s2TotalWeightKg, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 3 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Reject (Kg):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s2TotalScrapKg, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 4 && (
-                  <td colSpan={3} className="sop-side-header">
-                    Total Rejection
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Scrap Allowance (%):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s2ScrapPct, '________%')}</span>
+                    </div>
                   </td>
                 )}
                 {i === 5 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Total Down Time (Min):</span>
+                      <span className="sop-summary-val">{renderMetric(model.s2DowntimeMin, '________')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 6 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 1:</td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} className="sop-summary-item">
+                    <div className="sop-summary-item-wrap">
+                      <span className="sop-summary-lbl">Operational Efficiency:</span>
+                      <span className="sop-summary-val">{renderMetric(model.s2Efficiency, '________%')}</span>
+                    </div>
+                  </td>
                 )}
                 {i === 7 && (
-                  <>
-                    <td className="sop-side-lbl">Ref 2:</td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
-                )}
-                {i === 8 && (
-                  <>
-                    <td className="sop-side-lbl">Scrap</td>
-                    <td className="sop-side-val">
-                      {model.s2TotalScrapKg > 0 ? model.s2TotalScrapKg : ''}
-                    </td>
-                    <td></td>
-                  </>
-                )}
-                {i >= 9 && (
-                  <>
-                    <td className="sop-side-lbl"></td>
-                    <td className="sop-side-val"></td>
-                    <td></td>
-                  </>
+                  <td colSpan={3} rowSpan={5} className="sop-summary-notes-cell">
+                    <div className="sop-notes-container">
+                      <div className="sop-notes-header">Shift Supervisor Remarks &amp; Handover Notes:</div>
+                      <div className="sop-notes-lines">
+                        <div className="sop-notes-line"></div>
+                        <div className="sop-notes-line"></div>
+                        <div className="sop-notes-line"></div>
+                        <div className="sop-notes-line"></div>
+                      </div>
+                    </div>
+                  </td>
                 )}
               </tr>
             );
           })}
 
-          {/* Footer Supervisor Signatures (Rows 33-34) */}
+          {/* Footer Supervisor Signatures */}
           <tr>
             <td colSpan={4} className="sop-sig-title">
               Day Shift Supervisor

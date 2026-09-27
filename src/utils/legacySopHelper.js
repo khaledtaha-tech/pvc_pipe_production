@@ -308,13 +308,57 @@ export function buildSopModel(report, derived, options = {}) {
   }
 
   const displayProduct = combinedItemCodes
-    ? (productDescription ? `[${combinedItemCodes}] - ${productDescription}` : `[${combinedItemCodes}]`)
+    ? (productDescription ? `[${combinedItemCodes}] — ${productDescription}` : `[${combinedItemCodes}]`)
     : productDescription;
 
   const s1TotalGoodPcs = isBlank ? '' : (Number.isInteger(s1GoodPcsTotal) ? s1GoodPcsTotal : Math.round(s1GoodPcsTotal * 10) / 10);
   const s1TotalScrapKg = isBlank ? '' : s1ScrapKgTotal;
   const s2TotalGoodPcs = isBlank ? '' : (Number.isInteger(s2GoodPcsTotal) ? s2GoodPcsTotal : Math.round(s2GoodPcsTotal * 10) / 10);
   const s2TotalScrapKg = isBlank ? '' : s2ScrapKgTotal;
+
+  const unitWeight = Number(unitWeight1) > 0 ? Number(unitWeight1) : (Number(unitWeight2) > 0 ? Number(unitWeight2) : '');
+  const pipeLength = Number(pipeLen1) > 0 ? Number(pipeLen1) : (Number(pipeLen2) > 0 ? Number(pipeLen2) : 6.0);
+  const speed = speed1 || speed2 || '';
+
+  let s1DowntimeTotal = 0;
+  for (let i = 0; i < 12; i += 1) {
+    const slot = slots[i] || {};
+    const dt = Number(slot.downtime) > 0 ? Number(slot.downtime) : 0;
+    s1DowntimeTotal += dt;
+  }
+
+  let s2DowntimeTotal = 0;
+  for (let i = 0; i < 12; i += 1) {
+    const slot = slots[i + 12] || {};
+    const dt = Number(slot.downtime) > 0 ? Number(slot.downtime) : 0;
+    s2DowntimeTotal += dt;
+  }
+
+  const s1TotalWeightKg = (!isBlank && s1GoodPcsTotal > 0 && unitWeight > 0)
+    ? Math.round(s1GoodPcsTotal * unitWeight)
+    : '';
+  const s2TotalWeightKg = (!isBlank && s2GoodPcsTotal > 0 && unitWeight > 0)
+    ? Math.round(s2GoodPcsTotal * unitWeight)
+    : '';
+
+  const s1ScrapPct = (!isBlank && s1ScrapKgTotal > 0 && s1TotalWeightKg > 0)
+    ? ((s1ScrapKgTotal / (s1TotalWeightKg + s1ScrapKgTotal)) * 100).toFixed(1) + '%'
+    : (!isBlank && s1ScrapKgTotal > 0 ? '100%' : (!isBlank && s1GoodPcsTotal > 0 ? '0.0%' : ''));
+
+  const s2ScrapPct = (!isBlank && s2ScrapKgTotal > 0 && s2TotalWeightKg > 0)
+    ? ((s2ScrapKgTotal / (s2TotalWeightKg + s2ScrapKgTotal)) * 100).toFixed(1) + '%'
+    : (!isBlank && s2ScrapKgTotal > 0 ? '100%' : (!isBlank && s2GoodPcsTotal > 0 ? '0.0%' : ''));
+
+  const s1TargetTotal = hourlyRate1 > 0 ? hourlyRate1 * 12 : 0;
+  const s2TargetTotal = hourlyRate2 > 0 ? hourlyRate2 * 12 : s1TargetTotal;
+
+  const s1Efficiency = (!isBlank && s1GoodPcsTotal > 0 && s1TargetTotal > 0)
+    ? Math.min(100, Math.round((s1GoodPcsTotal / s1TargetTotal) * 100)) + '%'
+    : (!isBlank && (720 - s1DowntimeTotal) > 0 && s1GoodPcsTotal > 0 ? Math.round(((720 - s1DowntimeTotal) / 720) * 100) + '%' : '');
+
+  const s2Efficiency = (!isBlank && s2GoodPcsTotal > 0 && s2TargetTotal > 0)
+    ? Math.min(100, Math.round((s2GoodPcsTotal / s2TargetTotal) * 100)) + '%'
+    : (!isBlank && (720 - s2DowntimeTotal) > 0 && s2GoodPcsTotal > 0 ? Math.round(((720 - s2DowntimeTotal) / 720) * 100) + '%' : '');
 
   return {
     docCode: 'DOC-Ext.-03',
@@ -338,14 +382,25 @@ export function buildSopModel(report, derived, options = {}) {
     ref2Spec: ref2.pipeSpec || '',
     speed1: isBlank ? '' : speed1,
     speed2: isBlank ? '' : speed2,
+    speed: isBlank ? '' : speed,
+    pipeLength,
+    unitWeight,
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs,
     s1TotalGoodM: s1TotalGoodPcs,
+    s1TotalWeightKg,
     s1TotalScrapKg,
+    s1ScrapPct,
+    s1DowntimeMin: isBlank ? '' : s1DowntimeTotal,
+    s1Efficiency,
     s2TotalGoodPcs,
     s2TotalGoodM: s2TotalGoodPcs,
+    s2TotalWeightKg,
     s2TotalScrapKg,
+    s2ScrapPct,
+    s2DowntimeMin: isBlank ? '' : s2DowntimeTotal,
+    s2Efficiency,
     shift1Lead: isBlank ? '' : (summary.shift1Lead || ''),
     shift2Lead: isBlank ? '' : (summary.shift2Lead || ''),
     isBlank,
@@ -754,6 +809,7 @@ export function buildMorningSopModel(config = {}) {
     ref2Spec: '',
     speed1: speed,
     speed2: speed,
+    speed: speed,
     pipeLength,
     unitWeight,
     nominalCapacity,
@@ -766,10 +822,18 @@ export function buildMorningSopModel(config = {}) {
     shift2Rows,
     s1TotalGoodPcs: '',
     s1TotalGoodM: '',
+    s1TotalWeightKg: '',
     s1TotalScrapKg: '',
+    s1ScrapPct: '',
+    s1DowntimeMin: '',
+    s1Efficiency: '',
     s2TotalGoodPcs: '',
     s2TotalGoodM: '',
+    s2TotalWeightKg: '',
     s2TotalScrapKg: '',
+    s2ScrapPct: '',
+    s2DowntimeMin: '',
+    s2Efficiency: '',
     shift1Lead: config.shift1Lead || '',
     shift2Lead: config.shift2Lead || '',
     isBlank: true,
@@ -826,16 +890,26 @@ export function buildUniversalBlankSopModel(config = {}) {
     ref2Spec: '',
     speed1: '',
     speed2: '',
+    speed: '',
     pipeLength: 6.0,
+    unitWeight: '',
     hourlyStdRate: '',
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs: '',
     s1TotalGoodM: '',
+    s1TotalWeightKg: '',
     s1TotalScrapKg: '',
+    s1ScrapPct: '',
+    s1DowntimeMin: '',
+    s1Efficiency: '',
     s2TotalGoodPcs: '',
     s2TotalGoodM: '',
+    s2TotalWeightKg: '',
     s2TotalScrapKg: '',
+    s2ScrapPct: '',
+    s2DowntimeMin: '',
+    s2Efficiency: '',
     shift1Lead: '',
     shift2Lead: '',
     isBlank: true,

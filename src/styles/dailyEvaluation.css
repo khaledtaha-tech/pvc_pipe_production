@@ -2773,6 +2773,89 @@
   color: #0f172a;
 }
 
+.sop-product-header-row {
+  height: 24px;
+  background: #f8fafc;
+}
+
+.sop-product-header-cell {
+  padding: 3px 8px !important;
+  vertical-align: middle !important;
+}
+
+.sop-product-line-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.sop-product-title-lbl {
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  color: #1e3a8a;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.sop-product-spec-val {
+  font-weight: 800;
+  font-size: 11.5px;
+  color: #0f172a;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sop-product-dotted-line {
+  flex: 1;
+  border-bottom: 1.2px dashed #94a3b8;
+  height: 1px;
+  margin-left: 4px;
+}
+
+.sop-op-subheader-row {
+  height: 22px;
+  background: #ffffff;
+}
+
+.sop-op-subheader-cell {
+  padding: 2px 8px !important;
+  vertical-align: middle !important;
+}
+
+.sop-op-subgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+}
+
+.sop-op-col {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.sop-op-lbl {
+  font-weight: 700;
+  font-size: 9.5px;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.sop-op-val {
+  font-weight: 800;
+  font-size: 10.5px;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
 .sop-ref-hdr {
   font-style: italic;
   font-size: 10.5px;
@@ -2858,10 +2941,77 @@
 
 .sop-side-header {
   font-weight: 800;
-  font-size: 11px;
+  font-size: 10.5px;
   text-align: center;
   color: #1e3a8a;
   background: #e0e7ff;
+  padding: 3px 4px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.sop-summary-item {
+  padding: 1.5px 6px !important;
+  vertical-align: middle !important;
+  background: #ffffff;
+}
+
+.sop-summary-item-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sop-summary-lbl {
+  font-weight: 700;
+  font-size: 9.5px;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.sop-summary-val {
+  font-weight: 800;
+  font-size: 10.5px;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sop-summary-notes-cell {
+  padding: 4px 6px !important;
+  vertical-align: top !important;
+  background: #fafafa;
+}
+
+.sop-notes-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 3px;
+}
+
+.sop-notes-header {
+  font-weight: 700;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  color: #475569;
+  letter-spacing: 0.2px;
+  margin-bottom: 2px;
+}
+
+.sop-notes-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 4px;
+}
+
+.sop-notes-line {
+  border-bottom: 1px dashed #cbd5e1;
+  height: 1px;
+  width: 100%;
 }
 
 .sop-side-lbl {
@@ -2925,6 +3075,13 @@
   color: #000000 !important;
 }
 
+.sop-sheet-container.sop-blank-template .sop-product-title-lbl,
+.sop-sheet-container.sop-blank-template .sop-product-spec-val,
+.sop-sheet-container.sop-blank-template .sop-op-lbl,
+.sop-sheet-container.sop-blank-template .sop-op-val,
+.sop-sheet-container.sop-blank-template .sop-summary-lbl,
+.sop-sheet-container.sop-blank-template .sop-summary-val,
+.sop-sheet-container.sop-blank-template .sop-notes-header,
 .sop-sheet-container.sop-blank-template .sop-doc-code,
 .sop-sheet-container.sop-blank-template .sop-doc-title,
 .sop-sheet-container.sop-blank-template .sop-brand,
@@ -2949,6 +3106,22 @@
 .sop-sheet-container.sop-blank-template .sop-sig-name {
   color: #000000 !important;
   background: #ffffff !important;
+}
+
+.sop-sheet-container.sop-blank-template .sop-product-header-row,
+.sop-sheet-container.sop-blank-template .sop-op-subheader-row,
+.sop-sheet-container.sop-blank-template .sop-summary-item,
+.sop-sheet-container.sop-blank-template .sop-summary-notes-cell {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.sop-sheet-container.sop-blank-template .sop-product-dotted-line {
+  border-bottom: 1.2px dashed #000000 !important;
+}
+
+.sop-sheet-container.sop-blank-template .sop-notes-line {
+  border-bottom: 1px dashed #000000 !important;
 }
 
 .sop-sheet-container.sop-blank-template .sop-header-meta .sop-meta-row {

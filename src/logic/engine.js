@@ -215,7 +215,15 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
   const totalDowntimeHours = round1(grand.downtime / 60);
   const operatingHours = round1(24 - totalDowntimeHours);
   const availability = operatingHours / 24;
-  const performance = grand.target > 0 ? grand.actual / grand.target : 0;
+
+  const deratingFactor =
+    Number(engineering?.deratingFactor) > 0 && Number(engineering.deratingFactor) <= 100
+      ? Number(engineering.deratingFactor)
+      : 100;
+  const deratingRatio = deratingFactor / 100;
+  const effectiveTarget = round1(grand.target * deratingRatio);
+  const performance =
+    effectiveTarget > 0 ? grand.actual / effectiveTarget : (grand.target > 0 ? grand.actual / grand.target : 0);
   const quality = grand.actual > 0 ? grand.good / grand.actual : 0;
   const oee = availability * performance * quality;
 
@@ -256,10 +264,12 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
     qStr,
     oeeStr,
     engineering: {
+      ...engineering,
       totalWeightKg,
       actualRateKgH,
       nominalCapacityKgH,
-      capacityUtilizationPct
+      capacityUtilizationPct,
+      deratingFactor
     }
   };
 }

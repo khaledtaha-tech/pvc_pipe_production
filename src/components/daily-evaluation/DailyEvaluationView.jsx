@@ -30,6 +30,7 @@ import ExcelUploader from './ExcelUploader.jsx';
 import ExportModal from './ExportModal.jsx';
 import PrintSopModal from './PrintSopModal.jsx';
 import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
+import AutoReconcileModal from './AutoReconcileModal.jsx';
 import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
 import JSZip from 'jszip';
 import {
@@ -137,6 +138,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
   const [isBlankSopPrint, setIsBlankSopPrint] = useState(false);
   const [isPrintChoiceModalOpen, setIsPrintChoiceModalOpen] = useState(false);
   const [isPrintSopModalOpen, setIsPrintSopModalOpen] = useState(false);
+  const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
 
@@ -1148,10 +1150,28 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
     }
   };
 
+  const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces, deratingFactor }) => {
+    update((r) => {
+      r.slots = updatedSlots;
+      r.summary = {
+        ...r.summary,
+        totalOutput: totalActualPieces
+      };
+      r.engineering = {
+        ...r.engineering,
+        deratingFactor
+      };
+      return r;
+    });
+    notify('Shift run auto-reconciled successfully! 24h slots and OEE recomputed.');
+    setIsReconcileModalOpen(false);
+  }, [update, notify]);
+
   useImperativeHandle(ref, () => ({
     handleSave,
     save: handleSave,
     openBlankSopPrint: () => setIsPrintChoiceModalOpen(true),
+    openAutoReconcile: () => setIsReconcileModalOpen(true),
     exportSingleExcel: () => handleExportExcelSingle(),
     exportAllExcel: () => handleExportExcelAll(),
     exportDateRange: (from, to) => exportDateRangeToExcel(records, from, to, machineMaster),
@@ -1375,6 +1395,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
                   />
                   <span>Laser B&W Theme</span>
                 </label>
+                <button
+                  type="button"
+                  className="btn btn-reconcile"
+                  onClick={() => setIsReconcileModalOpen(true)}
+                  disabled={activeLinesForDate.length === 0 || !report?.slots || report.slots.length === 0}
+                  title="Auto-reconcile 24h run, reverse estimate slot production, and align OEE with machine derating"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
+                    <path d="M12 20v-6M6 20V10M18 20V4" />
+                  </svg>
+                  Auto-Reconcile Shift Run
+                </button>
                 <button type="button" className="btn btn-ghost" onClick={handleSave}>
                   Save to History
                 </button>
@@ -1685,6 +1717,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
         onOpenUniversalBlank={handleTriggerUniversalBlankPrint}
         isGenerating={isGeneratingMorningPdf}
         lang={lang}
+      />
+
+      {/* Reverse OEE Auto-Reconciler & Distribution Modal */}
+      <AutoReconcileModal
+        isOpen={isReconcileModalOpen}
+        onClose={() => setIsReconcileModalOpen(false)}
+        report={report}
+        derived={derived}
+        machineMaster={machineMaster}
+        onApply={handleApplyReconciliation}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

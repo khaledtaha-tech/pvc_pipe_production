@@ -1008,3 +1008,188 @@ export function generateUniquePlanningCatalogExcelWorkbook(uniqueMatrix = []) {
   return wb;
 }
 
+/**
+ * Analyzes raw historical ERP rows to generate column mapping, health checks, and preview rows
+ * for the ERP Import Verification Modal.
+ */
+export function analyzeErpImport(rawHistoricalRows, masterProfiles = MASTER_MACHINE_PROFILES) {
+  if (!rawHistoricalRows || !Array.isArray(rawHistoricalRows) || rawHistoricalRows.length === 0) {
+    return {
+      columnMappings: [],
+      healthCheck: {
+        totalRows: 0,
+        validCount: 0,
+        excludedCount: 0,
+        excludedDetails: []
+      },
+      previewRows: []
+    };
+  }
+
+  const sampleRow = rawHistoricalRows.find(r => r && typeof r === 'object' && Object.keys(r).length > 0) || rawHistoricalRows[0] || {};
+  const colMap = matchColumns(sampleRow);
+  const excelHeaders = Object.keys(sampleRow);
+
+  const SYSTEM_FIELD_LABELS = {
+    docNo: 'Document No',
+    date: 'Date',
+    itemCode: 'Item Code',
+    product: 'Description',
+    qty: 'Quantity',
+    unitWeight: 'Unit Weight',
+    totalWeight: 'Total Weight',
+    reason: 'Notes / Remarks',
+    machine: 'Machine Line',
+    scrap: 'Scrap (kg)',
+    hours: 'Operating Hours',
+    material: 'Material'
+  };
+
+  const columnMappings = excelHeaders.map(header => {
+    let mappedFieldKey = null;
+    for (const [sysKey, origCol] of Object.entries(colMap)) {
+      if (origCol === header) {
+        mappedFieldKey = sysKey;
+        break;
+      }
+    }
+    const systemField = mappedFieldKey ? (SYSTEM_FIELD_LABELS[mappedFieldKey] || mappedFieldKey) : 'Auxiliary / Custom';
+    const isMapped = mappedFieldKey !== null;
+
+    return {
+      excelHeader: header,
+      systemField,
+      mappedFieldKey,
+      isMapped
+    };
+  });
+
+  const getVal = (row, field, fallbacks = []) => {
+    if (colMap[field] && row[colMap[field]] !== undefined && row[colMap[field]] !== '') {
+      return row[colMap[field]];
+    }
+    for (const fb of fallbacks) {
+      if (row[fb] !== undefined && row[fb] !== '') return row[fb];
+    }
+    return '';
+  };
+
+  let validCount = 0;
+  let excludedCount = 0;
+  const exclusionMap = {};
+  const allParsedRows = [];
+
+  rawHistoricalRows.forEach((row, idx) => {
+    const rawDesc = getVal(row, 'product', [
+      'Product Name', 'productName', 'Product Description & Specs', 'product',
+      'Description', 'Item Description', 'Item Name'
+    ]);
+    const desc = String(rawDesc || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+    const specs = parseProductSpecs(desc || 'Standard Pipe');
+    const diameter = specs.diameter !== '-' ? specs.diameter : (row['Diameter'] || '-');
+    const thickness = specs.thickness !== '-' ? specs.thickness : (row['Thickness'] || '-');
+    const diameterMm = parseDiameterToMm(diameter);
+
+    // Exclusion evaluation
+    let exclusionReason = null;
+    if (!desc || desc.toUpperCase() === 'UNKNOWN' || desc.toUpperCase() === 'UNKNOWN PRODUCT') {
+      exclusionReason = 'Missing or unreadable product description';
+    } else if (desc.toUpperCase().includes('COMPOUND')) {
+      exclusionReason = 'Compounding formulation (Non-pipe)';
+    } else if (
+      desc.toUpperCase().includes('JACKET') || 
+      desc.toUpperCase().includes('OUTER JACKET') || 
+      desc.toUpperCase().includes('W/SLICON') || 
+      desc.toUpperCase().includes('SILICON') || 
+      desc.toUpperCase().includes('ACCESSORY')
+    ) {
+      exclusionReason = 'Cable ducting / jacketing accessory';
+    } else if (!isValidPipeOrConduitProduct(desc, diameter, diameterMm)) {
+      exclusionReason = 'Non-standard / unverified profile specification';
+    }
+
+    if (exclusionReason) {
+      excludedCount++;
+      exclusionMap[exclusionReason] = (exclusionMap[exclusionReason] || 0) + 1;
+    } else {
+      validCount++;
+    }
+
+    const rawDate = getVal(row, 'date', ['Doc Date', 'DocDate', 'Date', 'date']);
+    const date = normalizeDate(rawDate);
+
+    const rawQty = getVal(row, 'qty', ['Qty', 'qty', 'Quantity', 'Production Qty (FG)']);
+    const qty = parseNumber(rawQty, 0);
+
+    const rawUnitWeight = getVal(row, 'unitWeight', ['Weight', 'weight', 'Unit Weight (kg)', 'unitWeight', 'Unit Weight']);
+    const unitWeight = parseNumber(rawUnitWeight, 0);
+
+    const rawTotalWeight = getVal(row, 'totalWeight', ['TotalWeight', 'Total Weight', 'Total Weight (kg)', 'totalWeight']);
+    let totalWeight = parseNumber(rawTotalWeight, 0);
+    if (totalWeight === 0 && qty > 0 && unitWeight > 0) {
+      totalWeight = Math.round(qty * unitWeight * 100) / 100;
+    }
+
+    const rawCode = getVal(row, 'itemCode', [
+      'Product Code', 'Item Code', 'itemCode', 'ProductCode', 'code', 'Code'
+    ]);
+    const itemCode = (rawCode !== undefined && rawCode !== null && String(rawCode).trim() !== '' && String(rawCode).trim() !== '-')
+      ? String(rawCode).replace(/^ERP-/i, '').trim()
+      : String(1000 + idx + 1);
+
+    const docNo = String(getVal(row, 'docNo', ['Doc No', 'DocNo', 'Document No', 'doc_no', 'Doc'])).trim();
+
+    const rawHours = getVal(row, 'hours', ['Operating Hours', 'operatingHours', 'Hours', 'hours']);
+    const operatingHours = parseNumber(rawHours, 24) || 24;
+
+    const inference = inferMachineForRun({
+      product: desc,
+      diameter,
+      diameterMm,
+      totalWeight,
+      operatingHours
+    }, masterProfiles);
+
+    allParsedRows.push({
+      rowNumber: idx + 1,
+      docNo: docNo || '-',
+      date: date || 'N/A',
+      itemCode,
+      product: desc || 'Unknown Product',
+      diameter: diameter || '-',
+      diameterMm: diameterMm !== null ? `${diameterMm} mm` : '-',
+      thickness: thickness || '-',
+      qty: qty > 0 ? qty.toLocaleString() : '-',
+      unitWeight: unitWeight > 0 ? `${unitWeight.toFixed(2)} kg` : '-',
+      totalWeight: totalWeight > 0 ? `${totalWeight.toLocaleString()} kg` : '-',
+      isExcluded: !!exclusionReason,
+      exclusionReason,
+      primaryMachine: inference.primaryMachine || 'Unassigned',
+      primaryLoading: inference.primaryLoadingRatio !== null ? `${inference.primaryLoadingRatio}%` : '-',
+      alt1Machine: inference.alternative1 || '-',
+      alt2Machine: inference.alternative2 || '-',
+      confidence: inference.inferenceConfidence
+    });
+  });
+
+  const excludedDetails = Object.entries(exclusionMap).map(([reason, count]) => ({
+    reason,
+    count
+  }));
+
+  const validRows = allParsedRows.filter(r => !r.isExcluded);
+  const previewRows = (validRows.length >= 3 ? validRows : allParsedRows).slice(0, 3);
+
+  return {
+    columnMappings,
+    healthCheck: {
+      totalRows: rawHistoricalRows.length,
+      validCount,
+      excludedCount,
+      excludedDetails
+    },
+    previewRows
+  };
+}
+

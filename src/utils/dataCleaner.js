@@ -391,8 +391,10 @@ export function parseSheetToJsonWithDynamicHeader(sheet, XLSX) {
 
   const headerMarkers = [
     'product name', 'product code', 'totalweight', 'total weight',
-    'doc date', 'docdate', 'doc no', 'item code', 'product description',
+    'doc date', 'docdate', 'doc no', 'docno', 'document no', 'document',
+    'item code', 'product description',
     'qty', 'quantity', 'unit weight', 'weight',
+    'remarks', 'notes',
     '\u0627\u0633\u0645 \u0627\u0644\u0635\u0646\u0641',
     '\u0643\u0648\u062f \u0627\u0644\u0635\u0646\u0641',
     '\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0648\u0632\u0646',
@@ -585,15 +587,18 @@ export function matchColumns(rowObj) {
       mapping.hours = k;
     }
 
-    // 10. Reason of Stop:
+    // 10. Reason of Stop / Remarks / Notes:
     if (!mapping.reason && (
+      norm === 'remarks' ||
+      norm === 'notes' ||
       norm.includes('reason') || 
       norm.includes('downtime') || 
       norm.includes('stop') || 
       norm.includes('remarks') || 
-      norm.includes('سبب') || 
-      norm.includes('توقف') || 
-      norm.includes('ملاحظات')
+      norm.includes('notes') ||
+      norm.includes('\u0633\u0628\u0628') || 
+      norm.includes('\u062a\u0648\u0642\u0641') || 
+      norm.includes('\u0645\u0644\u0627\u062d\u0638\u0627\u062a')
     )) {
       mapping.reason = k;
     }
@@ -602,11 +607,24 @@ export function matchColumns(rowObj) {
     if (!mapping.material && (
       norm === 'material' || 
       norm === 'rawmaterial' || 
-      norm.includes('مادة') || 
-      norm.includes('خام') || 
-      /^(material|raw\s*material|المادة|الخام)$/i.test(orig)
+      norm.includes('\u0645\u0627\u062f\u0629') || 
+      norm.includes('\u062e\u0627\u0645') || 
+      /^(material|raw\s*material|\u0627\u0644\u0645\u0627\u062f\u0629|\u0627\u0644\u062e\u0627\u0645)$/i.test(orig)
     )) {
       mapping.material = k;
+    }
+
+    // 12. Document Number / Doc No:
+    if (!mapping.docNo && (
+      norm === 'docno' ||
+      norm === 'docnumber' ||
+      norm === 'documentno' ||
+      norm === 'doc_no' ||
+      norm === 'doc' ||
+      norm.includes('docno') ||
+      /^(doc\s*no|doc\s*number|document\s*no|doc_no|doc)$/i.test(orig)
+    )) {
+      mapping.docNo = k;
     }
   }
 
@@ -657,7 +675,11 @@ export function cleanPipeProductionData(rawData) {
       warningsCount++;
     }
 
-    // 2. Item Code
+    // 2. Document Number / Doc No
+    const rawDocNo = colMap.docNo ? row[colMap.docNo] : (row['Doc No'] || row['DocNo'] || row['docNo'] || row['Document No']);
+    const docNo = (rawDocNo !== undefined && rawDocNo !== null) ? String(rawDocNo).trim() : '';
+
+    // 3. Item Code
     const rawCode = colMap.itemCode ? row[colMap.itemCode] : (row['Item Code'] || row['itemCode'] || row['Product Code']);
     const itemCode = (rawCode !== undefined && rawCode !== null && String(rawCode).trim() !== '' && String(rawCode).trim() !== '-')
       ? String(rawCode).replace(/^ERP-/i, '').trim()
@@ -756,6 +778,7 @@ export function cleanPipeProductionData(rawData) {
     const cleanedRecord = {
       id: `row-${rowNum}-${Date.now()}-${index}`,
       rowNumber: rowNum,
+      docNo,
       date,
       itemCode,
       product,

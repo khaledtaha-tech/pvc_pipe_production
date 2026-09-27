@@ -43,6 +43,7 @@ import {
   savePersistedRecords,
   clearPersistedRecords
 } from '../../data/store.js';
+import ErpImportVerificationModal from '../common/ErpImportVerificationModal.jsx';
 
 export default function DataExchangeCenter({
   lang = 'en',
@@ -83,6 +84,8 @@ export default function DataExchangeCenter({
   const [erpDragging, setErpDragging] = useState(false);
   const [erpFileName, setErpFileName] = useState('');
   const [erpError, setErpError] = useState('');
+  const [isErpModalOpen, setIsErpModalOpen] = useState(false);
+  const [pendingErpUpload, setPendingErpUpload] = useState(null);
   const erpFileInputRef = useRef(null);
 
   // --- Print & Export Controls State ---
@@ -202,28 +205,46 @@ export default function DataExchangeCenter({
   const handleErpFile = async (file) => {
     if (!file) return;
     setErpError('');
-    setErpFileName(file.name);
 
     try {
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { cellDates: true, cellNF: false, cellText: false });
       const targetSheet =
-        wb.SheetNames.find((s) => /erp|pipes|daily|receipts|history|log/i.test(s)) ||
+        wb.SheetNames.find((s) => /^pipes$/i.test(s.trim())) ||
+        wb.SheetNames.find((s) => /pipes/i.test(s)) ||
+        wb.SheetNames.find((s) => /erp|daily|receipts|history|log/i.test(s)) ||
         wb.SheetNames[0];
 
-      const ws = wb.Sheets[targetSheet];
-      const jsonData = parseSheetToJsonWithDynamicHeader(ws, XLSX);
-      if (!jsonData || jsonData.length === 0) {
-        setErpError('ERP file contains no recognizable data rows.');
-        return;
-      }
-      setHistoricalRawRows(jsonData);
-      notify(`Loaded ${jsonData.length} historical ERP runs from "${targetSheet}"`);
+      setPendingErpUpload({
+        file,
+        fileName: file.name,
+        wb,
+        initialSheetName: targetSheet
+      });
+      setIsErpModalOpen(true);
     } catch (err) {
       console.error(err);
       setErpError('Failed to parse historical ERP file.');
       notify('Error parsing ERP workbook.');
     }
+  };
+
+  const handleConfirmErpModal = (rows, sheetName) => {
+    if (!rows || rows.length === 0) {
+      notify('No valid rows found in selected sheet.');
+      return;
+    }
+    setHistoricalRawRows(rows);
+    setErpFileName(pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx');
+    setIsErpModalOpen(false);
+    setPendingErpUpload(null);
+    notify(`Ingested ${rows.length} historical ERP runs from "${sheetName}" into Intelligence Engine`);
+  };
+
+  const handleCloseErpModal = () => {
+    setIsErpModalOpen(false);
+    setPendingErpUpload(null);
+    if (erpFileInputRef.current) erpFileInputRef.current.value = '';
   };
 
   // --- Sample Ingestion Actions ---
@@ -1262,6 +1283,20 @@ export default function DataExchangeCenter({
           </div>
         </div>
       </div>
+
+      {/* ERP Ingestion Verification Modal */}
+      {isErpModalOpen && pendingErpUpload && (
+        <ErpImportVerificationModal
+          isOpen={isErpModalOpen}
+          onClose={handleCloseErpModal}
+          onConfirm={handleConfirmErpModal}
+          file={pendingErpUpload.file}
+          wb={pendingErpUpload.wb}
+          initialSheetName={pendingErpUpload.initialSheetName}
+          lang={lang}
+          theme={theme}
+        />
+      )}
     </div>
   );
 }

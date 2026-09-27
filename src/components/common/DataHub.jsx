@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { parseSheetToJsonWithDynamicHeader } from '../../utils/dataCleaner.js';
 import { t } from '../../utils/translations.js';
+import ErpImportVerificationModal from '../common/ErpImportVerificationModal.jsx';
 
 export default function DataHub({
   onDataLoaded,
@@ -48,6 +49,8 @@ export default function DataHub({
   const [erpDragging, setErpDragging] = useState(false);
   const [erpFileName, setErpFileName] = useState('');
   const [erpError, setErpError] = useState('');
+  const [isErpModalOpen, setIsErpModalOpen] = useState(false);
+  const [pendingErpUpload, setPendingErpUpload] = useState(null);
   const erpFileInputRef = useRef(null);
 
   // --- Dropzone 1 Handler: Active Production Log ---
@@ -101,28 +104,41 @@ export default function DataHub({
   const handleErpFile = async (file) => {
     if (!file) return;
     setErpError('');
-    setErpFileName(file.name);
 
     try {
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { cellDates: true, cellNF: false, cellText: false });
-      const targetSheet = wb.SheetNames.find(s => 
-        /pipes|daily|production|receipts|\u0625\u0646\u062a\u0627\u062c|\u0627\u0633\u062a\u0644\u0627\u0645/i.test(s)
-      ) || wb.SheetNames[0];
+      const targetSheet =
+        wb.SheetNames.find((s) => /^pipes$/i.test(s.trim())) ||
+        wb.SheetNames.find((s) => /pipes/i.test(s)) ||
+        wb.SheetNames.find((s) => /erp|daily|production|receipts/i.test(s)) ||
+        wb.SheetNames[0];
 
-      const ws = wb.Sheets[targetSheet];
-      const jsonData = parseSheetToJsonWithDynamicHeader(ws, XLSX);
-
-      if (!jsonData || jsonData.length === 0) {
-        setErpError(isAr ? '\u0645\u0644\u0641 ERP \u0641\u0627\u0631\u063a \u0623\u0648 \u062a\u0639\u0630\u0631 \u062a\u062d\u062f\u064a\u062f \u0627\u0644\u0635\u0641\u0648\u0641.' : 'ERP file is empty or headers could not be detected.');
-        return;
-      }
-
-      onUploadHistoricalFile(jsonData, file.name);
+      setPendingErpUpload({
+        file,
+        fileName: file.name,
+        wb,
+        initialSheetName: targetSheet
+      });
+      setIsErpModalOpen(true);
     } catch (err) {
       console.error(err);
-      setErpError(isAr ? '\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u0642\u0631\u0627\u0621\u0629 \u0645\u0644\u0641 ERP.' : 'Failed to parse historical ERP file.');
+      setErpError(isAr ? 'Failed to parse ERP file.' : 'Failed to parse historical ERP file.');
     }
+  };
+
+  const handleConfirmErpModal = (rows, sheetName) => {
+    if (!rows || rows.length === 0) return;
+    onUploadHistoricalFile(rows, pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx');
+    setErpFileName(pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx');
+    setIsErpModalOpen(false);
+    setPendingErpUpload(null);
+  };
+
+  const handleCloseErpModal = () => {
+    setIsErpModalOpen(false);
+    setPendingErpUpload(null);
+    if (erpFileInputRef.current) erpFileInputRef.current.value = '';
   };
 
   return (
@@ -457,6 +473,19 @@ export default function DataHub({
 
       </div>
 
+      {/* ERP Ingestion Verification Modal */}
+      {isErpModalOpen && pendingErpUpload && (
+        <ErpImportVerificationModal
+          isOpen={isErpModalOpen}
+          onClose={handleCloseErpModal}
+          onConfirm={handleConfirmErpModal}
+          file={pendingErpUpload.file}
+          wb={pendingErpUpload.wb}
+          initialSheetName={pendingErpUpload.initialSheetName}
+          lang={lang}
+          theme={theme}
+        />
+      )}
     </section>
   );
 }

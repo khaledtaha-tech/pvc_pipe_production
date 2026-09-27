@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import html2pdf from 'html2pdf.js';
-import { MACHINES, machineLabel, PLANT_NAME, SOP_REF, DOC_VERSION } from '../../config/machines.js';
+import { MACHINES, matchMachine, machineLabel, PLANT_NAME, SOP_REF, DOC_VERSION } from '../../config/machines.js';
 import { makeRefSpec, generateReport, buildAll } from '../../logic/engine.js';
 import {
   newId,
@@ -154,6 +154,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
+  const [showAllLines, setShowAllLines] = useState(false);
 
   // Reset blank and batch SOP print state after browser print dialog closes
   useEffect(() => {
@@ -1070,7 +1071,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
   const selectedDate = report?.header?.date || selectableDates[selectableDates.length - 1] || '';
 
-  // Operating lines / machines for currently selected date with auto-lookup across datasets
+  // Query operating records for currently selected date across combined datasets
   const activeLinesForDate = useMemo(() => {
     if (!selectedDate) return [];
 
@@ -1085,32 +1086,42 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     const consolidatedForDate = consolidateDailyMachineRecords(recordsForDate, machineMaster);
 
     const list = [];
-    const activeMachineIds = new Set();
-
     consolidatedForDate.forEach((r) => {
-      const lid = r.machineId || r.matchedMachine?.id || r.machineRaw;
-      activeMachineIds.add(lid);
+      // Must be actively operating (operatingHours > 0 or productionQty > 0 or totalWeight > 0)
+      if (!isRecordOperating(r)) return;
+
+      const matched = matchMachine(r.machineId || r.machineRaw || r.matchedMachine?.id, machineMaster);
+      const lid = matched?.id || r.machineId || r.matchedMachine?.id || r.machineRaw;
+
       const mName =
+        matched?.name ||
         r.matchedMachine?.name ||
         (r.machineName ? r.machineName.replace(/^[A-Z0-9-]+\s*-\s*/, '') : r.machineRaw);
-      const qtyText = r.productionQty ? ` (${r.productionQty.toLocaleString()} Pcs)` : '';
+      const qty = Number(r.productionQty) || 0;
+      const qtyText = qty > 0 ? ` (${qty.toLocaleString()} Pcs)` : '';
       const label = mName ? `${lid} - ${mName}${qtyText}` : `${lid}${qtyText}`;
 
       list.push({
-        key: `${lid}_${selectedDate}`,
         lineId: lid,
         label,
         record: r,
         isActive: true,
-        productionQty: r.productionQty || 0
+        productionQty: qty
       });
     });
 
-    // Also include registered factory machines that didn't run on this date (idle state)
+    list.sort((a, b) => a.lineId.localeCompare(b.lineId));
+    return list;
+  }, [combinedDatasets, selectedDate, machineMaster]);
+
+  // Registered factory lines that are idle on selected date
+  const idleLinesForDate = useMemo(() => {
+    const activeLineIds = new Set(activeLinesForDate.map((item) => item.lineId));
+    const list = [];
+
     machineMaster.forEach((m) => {
-      if (!activeMachineIds.has(m.id)) {
+      if (!activeLineIds.has(m.id)) {
         list.push({
-          key: `${m.id}_${selectedDate}_idle`,
           lineId: m.id,
           label: `${m.id} - ${m.name} (Idle / 0 Pcs)`,
           record: null,
@@ -1120,64 +1131,53 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       }
     });
 
+    list.sort((a, b) => a.lineId.localeCompare(b.lineId));
     return list;
-  }, [combinedDatasets, selectedDate, machineMaster]);
+  }, [activeLinesForDate, machineMaster]);
 
-  // Derived selected option key in line selector
-  const selectedLineKey = useMemo(() => {
-    if (activeLinesForDate.length === 0) return '';
-    const currentLineId = report?.header?.lineId;
-    if (currentLineId) {
-      const match = activeLinesForDate.find(
-        (item) => item.lineId === currentLineId || isMachineMatch(item.lineId, currentLineId, machineMaster)
-      );
-      if (match) return match.key;
-    }
-    return activeLinesForDate[0]?.key || '';
-  }, [activeLinesForDate, report?.header?.lineId, machineMaster]);
+  const hasOperatingLinesOnDate = activeLinesForDate.length > 0;
 
-  // If active report is pointing to an idle machine on a date that has active operating lines, auto-sync to first active line
-  useEffect(() => {
-    if (combinedDatasets.length > 0 && selectedDate && activeLinesForDate.length > 0) {
-      const currentActiveItem = activeLinesForDate.find(
-        (item) => item.isActive && (item.lineId === report?.header?.lineId || isMachineMatch(item.lineId, report?.header?.lineId, machineMaster))
-      );
-      if (!currentActiveItem) {
-        const firstActive = activeLinesForDate.find((item) => item.isActive && item.record);
-        if (firstActive?.record) {
-          const firstActiveRep = convertLogRowToReport(firstActive.record, {
-            deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(firstActive.lineId, machineMaster)
-          });
-          setReport(firstActiveRep);
-        }
-      }
+  // Lines to display in machine selector (filtered active lines by default, or all factory lines)
+  const displayLines = useMemo(() => {
+    if (hasOperatingLinesOnDate && !showAllLines) {
+      return activeLinesForDate;
     }
-  }, [combinedDatasets, selectedDate, activeLinesForDate, report?.header?.lineId, machineMaster]);
+    return [...activeLinesForDate, ...idleLinesForDate];
+  }, [hasOperatingLinesOnDate, showAllLines, activeLinesForDate, idleLinesForDate]);
+
+  // Canonical machine ID of the active report for robust, unambiguous binding
+  const canonicalCurrentLineId = useMemo(() => {
+    const rawId = report?.header?.lineId;
+    if (!rawId) return 'L-01';
+    const matched = matchMachine(rawId, machineMaster);
+    return matched?.id || rawId;
+  }, [report?.header?.lineId, machineMaster]);
+
+  // Ensure current machine is always in the dropdown options so value binding never breaks
+  const displayLinesWithCurrent = useMemo(() => {
+    if (!canonicalCurrentLineId) return displayLines;
+    const exists = displayLines.some((item) => item.lineId === canonicalCurrentLineId);
+    if (exists) return displayLines;
+
+    const matched = matchMachine(canonicalCurrentLineId, machineMaster);
+    const mName = matched?.name || canonicalCurrentLineId;
+    const fallbackItem = {
+      lineId: canonicalCurrentLineId,
+      label: `${canonicalCurrentLineId} - ${mName} (Idle / 0 Pcs)`,
+      record: null,
+      isActive: false,
+      productionQty: 0
+    };
+    return [...displayLines, fallbackItem];
+  }, [displayLines, canonicalCurrentLineId, machineMaster]);
 
   const handleToolbarDateChange = (newDate) => {
     if (!newDate || newDate === selectedDate) return;
 
-    const currentLineId = report?.header?.lineId || 'L-01';
+    // Reset showAllLines back to false (default to active only for new date)
+    setShowAllLines(false);
 
-    // 1. Check if the current line has records on the new date
-    const currentLineRecords = queryProductionRecords({
-      dataset: combinedDatasets,
-      date: newDate,
-      machine: currentLineId,
-      machineMaster
-    });
-
-    if (currentLineRecords.length > 0) {
-      const consolidated = consolidateDailyMachineRecords(currentLineRecords, machineMaster);
-      const newRep = convertLogRowToReport(consolidated[0], {
-        deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(currentLineId, machineMaster)
-      });
-      setReport(newRep);
-      notify(`Loaded daily production log for ${newRep.header.lineId} (${newDate}): ${newRep.summary.totalOutput} Pcs`);
-      return;
-    }
-
-    // 2. Current line has no records on new date. Check if any other machine ran on new date
+    // Query operating records for newDate
     const allForNewDate = queryProductionRecordsForDate({
       dataset: combinedDatasets,
       date: newDate,
@@ -1186,47 +1186,58 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
     if (allForNewDate.length > 0) {
       const consolidated = consolidateDailyMachineRecords(allForNewDate, machineMaster);
-      const newRep = convertLogRowToReport(consolidated[0], {
-        deratingFactor: getDefaultDeratingFactor(consolidated[0].machineId, machineMaster)
+      // Auto-select first active operating machine for new date
+      const firstActiveRecord = consolidated.find(isRecordOperating) || consolidated[0];
+      const targetMachineId = firstActiveRecord.machineId || firstActiveRecord.machineRaw;
+      const canonicalTargetId = matchMachine(targetMachineId, machineMaster)?.id || targetMachineId || 'L-01';
+
+      const newRep = convertLogRowToReport(firstActiveRecord, {
+        deratingFactor: getDefaultDeratingFactor(canonicalTargetId, machineMaster)
       });
       setReport(newRep);
       notify(`Loaded active line ${newRep.header.lineId} for ${newDate}: ${newRep.summary.totalOutput} Pcs`);
       return;
     }
 
-    // 3. No records for any machine on new date -> Keep standard blank/zero behavior
-    const blankRep = blankReportForMachine(newDate, currentLineId, machineMaster);
+    // No operating records for any machine on newDate -> Keep current machine or L-01 in blank state
+    const targetLineId = canonicalCurrentLineId || 'L-01';
+    const blankRep = blankReportForMachine(newDate, targetLineId, machineMaster);
     setReport(blankRep);
     notify(`Selected date ${newDate}: No production records (Blank/Zero State)`);
   };
 
-  const handleToolbarLineChange = (key) => {
-    if (!key) return;
-    const targetItem = activeLinesForDate.find((item) => item.key === key);
-    if (!targetItem) return;
+  const handleToolbarLineChange = (targetLineId) => {
+    if (!targetLineId) return;
 
-    const targetLineId = targetItem.lineId;
+    if (targetLineId === '__TOGGLE_ALL__' || targetLineId === '__SHOW_ALL__' || targetLineId === '__SHOW_ACTIVE__') {
+      setShowAllLines((prev) => !prev);
+      return;
+    }
 
-    // Query records for targetLineId on selectedDate
+    const matchedMachineObj = matchMachine(targetLineId, machineMaster);
+    const canonicalId = matchedMachineObj?.id || targetLineId;
+
+    // Query records for canonicalId on selectedDate
     const matchedRecords = queryProductionRecords({
       dataset: combinedDatasets,
       date: selectedDate,
-      machine: targetLineId,
+      machine: canonicalId,
       machineMaster
     });
 
     if (matchedRecords.length > 0) {
       const consolidated = consolidateDailyMachineRecords(matchedRecords, machineMaster);
-      const newRep = convertLogRowToReport(consolidated[0], {
-        deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(targetLineId, machineMaster)
+      const activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+      const newRep = convertLogRowToReport(activeRecord, {
+        deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(canonicalId, machineMaster)
       });
       setReport(newRep);
-      notify(`Auto-bound production log for ${targetLineId} (${selectedDate}): ${newRep.summary.totalOutput} Pcs`);
+      notify(`Auto-bound production log for ${canonicalId} (${selectedDate}): ${newRep.summary.totalOutput} Pcs`);
     } else {
-      // (d) If no records exist for that line on that date, keep standard blank/zero behavior
-      const blankRep = blankReportForMachine(selectedDate, targetLineId, machineMaster);
+      // If no records exist for that line on that date, create blank report for that machine
+      const blankRep = blankReportForMachine(selectedDate, canonicalId, machineMaster);
       setReport(blankRep);
-      notify(`Selected ${targetLineId} (${selectedDate}): No records found (Blank/Zero State)`);
+      notify(`Selected ${canonicalId} (${selectedDate}): No records found (Blank/Zero State)`);
     }
   };
 
@@ -1413,23 +1424,41 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     </select>
                   </div>
 
-                  <div className="sheet-selector-group">
+                  <div className="sheet-selector-group machine-selector-group">
                     <label htmlFor="sheet-machine-select" className="sheet-selector-label">Line / Machine:</label>
-                    <select
-                      id="sheet-machine-select"
-                      className="sheet-select machine-select"
-                      value={selectedLineKey}
-                      onChange={(e) => handleToolbarLineChange(e.target.value)}
-                      disabled={activeLinesForDate.length === 0}
-                    >
-                      {activeLinesForDate.length === 0 ? (
-                        <option value="" disabled>No Active Lines (Factory Stop)</option>
-                      ) : (
-                        activeLinesForDate.map((item) => (
-                          <option key={item.key} value={item.key}>{item.label}</option>
-                        ))
+                    <div className="machine-select-wrapper">
+                      <select
+                        id="sheet-machine-select"
+                        className="sheet-select machine-select"
+                        value={canonicalCurrentLineId}
+                        onChange={(e) => handleToolbarLineChange(e.target.value)}
+                        disabled={displayLinesWithCurrent.length === 0}
+                      >
+                        {displayLinesWithCurrent.length === 0 ? (
+                          <option value="" disabled>No Active Lines (Factory Stop)</option>
+                        ) : (
+                          displayLinesWithCurrent.map((item) => (
+                            <option key={item.lineId} value={item.lineId}>{item.label}</option>
+                          ))
+                        )}
+                        {hasOperatingLinesOnDate && (
+                          <option value="__TOGGLE_ALL__">
+                            --- {showAllLines ? 'Filter Active Lines Only' : 'Show All Lines (Including Idle)'} ---
+                          </option>
+                        )}
+                      </select>
+
+                      {hasOperatingLinesOnDate && (
+                        <button
+                          type="button"
+                          className={`btn-line-toggle ${showAllLines ? 'active' : ''}`}
+                          onClick={() => setShowAllLines((prev) => !prev)}
+                          title={showAllLines ? 'Filter to active operating lines only' : 'Show all factory lines including idle'}
+                        >
+                          {showAllLines ? 'Active Only' : 'Show All'}
+                        </button>
                       )}
-                    </select>
+                    </div>
                   </div>
                 </div>
                 <span className="kicker-note">

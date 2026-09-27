@@ -360,5 +360,76 @@ assert.equal(boundBlank.report.header.date, '2026-09-26', 'Header date should be
 assert.equal(boundBlank.report.slots[0].actual, 0, 'Blank slots should have 0 actual output');
 console.log('Auto-Binding to Report Header & Blank/Zero Fallback: OK');
 
+// 10. Active Machines Date Filtering & Machine Dropdown Selection Binding
+const sampleFactoryDataset = [
+  {
+    date: '2026-09-26',
+    machine: 'L-03 - KTS 700',
+    itemCode: '1140',
+    productionQty: 2500,
+    operatingHours: 20
+  },
+  {
+    date: '2026-09-26',
+    machine: 'L-05 - KTS 350',
+    itemCode: '1150',
+    productionQty: 1800,
+    operatingHours: 18
+  },
+  {
+    date: '2026-09-26',
+    machine: 'L-04 - KTS 200',
+    itemCode: '1160',
+    productionQty: 0,
+    operatingHours: 0
+  },
+  {
+    date: '2026-09-27',
+    machine: 'L-02 - KTS 250 TDH',
+    itemCode: '1120',
+    productionQty: 3200,
+    operatingHours: 24
+  }
+];
+
+// Test date filtering for 2026-09-26
+const recordsFor26 = queryProductionRecordsForDate({
+  dataset: sampleFactoryDataset,
+  date: '2026-09-26'
+});
+// Filter active operating lines (productionQty > 0 or operatingHours > 0)
+const operatingLines26 = recordsFor26.filter((r) => Number(r.productionQty) > 0 || Number(r.operatingHours) > 0);
+assert.equal(operatingLines26.length, 2, 'Should find exactly 2 operating lines on 2026-09-26 (L-03 and L-05)');
+assert.ok(operatingLines26.some((r) => r.machineId === 'L-03'), 'L-03 must be in active operating lines');
+assert.ok(operatingLines26.some((r) => r.machineId === 'L-05'), 'L-05 must be in active operating lines');
+assert.ok(!operatingLines26.some((r) => r.machineId === 'L-04'), 'Idle line L-04 must be excluded from active list');
+
+// Test auto-selection of first active machine on date change
+const firstActive26 = operatingLines26[0];
+assert.equal(firstActive26.machineId, 'L-03', 'First active machine on 2026-09-26 should be L-03');
+
+const recordsFor27 = queryProductionRecordsForDate({
+  dataset: sampleFactoryDataset,
+  date: '2026-09-27'
+});
+const operatingLines27 = recordsFor27.filter((r) => Number(r.productionQty) > 0 || Number(r.operatingHours) > 0);
+assert.equal(operatingLines27.length, 1, 'Should find exactly 1 operating line on 2026-09-27');
+assert.equal(operatingLines27[0].machineId, 'L-02', 'First active machine on 2026-09-27 should be L-02');
+
+// Test exact machine selection binding by ID (not array index)
+const selectedL05 = queryProductionRecords({
+  dataset: sampleFactoryDataset,
+  date: '2026-09-26',
+  machine: 'L-05'
+});
+assert.equal(selectedL05.length, 1, 'Selecting L-05 by exact ID should return exactly 1 record');
+assert.equal(selectedL05[0].machineId, 'L-05', 'Selected record machineId must match requested ID L-05');
+
+// Test idle line selection produces blank report with exact requested lineId
+const idleL04Blank = blankReportForMachine('2026-09-26', 'L-04');
+assert.equal(idleL04Blank.header.lineId, 'L-04', 'Blank report header lineId must strictly match requested L-04');
+assert.equal(idleL04Blank.summary.totalOutput, '0', 'Blank report totalOutput must be 0');
+console.log('Active Machines Date Filtering & Machine Dropdown Selection Binding: OK');
+
 console.log('All OEE Reconciler unit tests passed successfully!');
 

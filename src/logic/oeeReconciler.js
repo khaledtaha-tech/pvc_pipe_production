@@ -376,7 +376,8 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
   const unitWeight = Number(raw['Unit Weight (kg)'] ?? raw.unitWeight ?? raw.unit_weight ?? raw['Unit Weight'] ?? raw.UnitWeight ?? 0) || 0;
   const totalWeight = Number(raw['Total Weight (kg)'] ?? raw.totalWeight ?? raw.total_weight ?? raw['Total Weight'] ?? (qty * unitWeight)) || 0;
   const scrapKg = Number(raw['Scrap / Rejection (kg)'] ?? raw.scrapKg ?? raw.scrap_rejection ?? raw['Scrap (kg)'] ?? raw['Scrap'] ?? 0) || 0;
-  const operatingHours = Number(raw['Operating Hours'] ?? raw.operatingHours ?? raw.operating_hours ?? raw['OperatingHours'] ?? 24) || 24;
+  const rawOpH = raw['Operating Hours'] ?? raw.operatingHours ?? raw.operating_hours ?? raw['OperatingHours'];
+  const operatingHours = rawOpH != null && rawOpH !== '' && !Number.isNaN(Number(rawOpH)) ? Number(rawOpH) : 24;
   const reasonOfStop = String(raw['Reason of Stop'] ?? raw.reasonOfStop ?? raw.reason_of_stop ?? raw['ReasonOfStop'] ?? '').trim();
 
   const matchedMachine = matchMachine(machineRaw, dynamicMaster);

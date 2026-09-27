@@ -18,8 +18,18 @@ import {
 import {
   parseExcelWorkbook,
   convertLogRowToReport,
-  consolidateDailyMachineRecords
+  consolidateDailyMachineRecords,
+  normalizeExcelDate
 } from '../../logic/excelParser.js';
+import {
+  queryProductionRecords,
+  queryProductionRecordsForDate,
+  normalizeProductionRow,
+  isDateMatch,
+  isMachineMatch,
+  blankReportForMachine,
+  autoBindProductionLogToReport
+} from '../../logic/oeeReconciler.js';
 import PlantAnalytics from './PlantAnalytics.jsx';
 import ReportSheet from './ReportSheet.jsx';
 import LegacySopSheet from './LegacySopSheet.jsx';
@@ -92,7 +102,10 @@ function blankReport() {
   };
 }
 
-const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, sharedRecords, sharedTheme, lang = 'en' }, ref) {
+const DailyEvaluationView = forwardRef(function DailyEvaluationView(
+  { onNotify, sharedRecords, sharedTheme, lang = 'en', historicalRawRows = [], rawRows = [] },
+  ref
+) {
   const isAr = lang === 'ar';
   const [records, setRecords] = useState(() => {
     const persisted = loadPersistedRecords();
@@ -1022,16 +1035,29 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
       ? report.header.lineCustom || 'Custom Line'
       : machineLabel(report.header.lineId, machineMaster);
 
-  // Available unique dates from active records
+  // Combined production datasets from uploaded records, daily log rawRows, and ERP historicalRawRows
+  const combinedDatasets = useMemo(() => {
+    const list = [];
+    if (Array.isArray(records) && records.length > 0) list.push(...records);
+    if (Array.isArray(rawRows) && rawRows.length > 0) list.push(...rawRows);
+    if (Array.isArray(historicalRawRows) && historicalRawRows.length > 0) list.push(...historicalRawRows);
+    return list;
+  }, [records, rawRows, historicalRawRows]);
+
+  // Available unique dates from all active and historical datasets
   const availableDates = useMemo(() => {
     const set = new Set();
-    records.forEach((r) => {
-      if (r.date && !String(r.date).toLowerCase().includes('total')) {
-        set.add(r.date);
+    combinedDatasets.forEach((r) => {
+      const rawDate = r.Date || r.date || r['DATE'];
+      if (rawDate && !String(rawDate).toLowerCase().includes('total')) {
+        const norm = normalizeExcelDate(rawDate);
+        if (norm && /^\d{4}-\d{2}-\d{2}$/.test(norm)) {
+          set.add(norm);
+        }
       }
     });
     return Array.from(set).sort();
-  }, [records]);
+  }, [combinedDatasets]);
 
   // Ensure current report date is available in selectable list
   const selectableDates = useMemo(() => {
@@ -1044,95 +1070,134 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
 
   const selectedDate = report?.header?.date || selectableDates[selectableDates.length - 1] || '';
 
-  // Active operating lines / machines for currently selected date
+  // Operating lines / machines for currently selected date with auto-lookup across datasets
   const activeLinesForDate = useMemo(() => {
     if (!selectedDate) return [];
 
-    if (records.length === 0) {
-      if (report?.header?.lineId) {
-        return [
-          {
-            key: report.header.lineId,
-            lineId: report.header.lineId,
-            label: lineLabel,
-            record: null
-          }
-        ];
-      }
-      return [];
-    }
+    // Query operating records for this date across combined datasets
+    const recordsForDate = queryProductionRecordsForDate({
+      dataset: combinedDatasets,
+      date: selectedDate,
+      machineMaster
+    });
 
-    const operatingForDate = getOperatingRecordsForDate(records, selectedDate, machineMaster);
-    if (operatingForDate.length === 0) {
-      return [];
-    }
+    // Consolidate multi-item records for same machine on this date
+    const consolidatedForDate = consolidateDailyMachineRecords(recordsForDate, machineMaster);
 
     const list = [];
-    operatingForDate.forEach((r) => {
+    const activeMachineIds = new Set();
+
+    consolidatedForDate.forEach((r) => {
       const lid = r.machineId || r.matchedMachine?.id || r.machineRaw;
+      activeMachineIds.add(lid);
       const mName =
         r.matchedMachine?.name ||
         (r.machineName ? r.machineName.replace(/^[A-Z0-9-]+\s*-\s*/, '') : r.machineRaw);
-      const label = mName ? `${lid} - ${mName}` : lid;
+      const qtyText = r.productionQty ? ` (${r.productionQty.toLocaleString()} Pcs)` : '';
+      const label = mName ? `${lid} - ${mName}${qtyText}` : `${lid}${qtyText}`;
 
       list.push({
-        key: r.id || `${lid}_${selectedDate}`,
+        key: `${lid}_${selectedDate}`,
         lineId: lid,
         label,
-        record: r
+        record: r,
+        isActive: true,
+        productionQty: r.productionQty || 0
       });
     });
 
+    // Also include registered factory machines that didn't run on this date (idle state)
+    machineMaster.forEach((m) => {
+      if (!activeMachineIds.has(m.id)) {
+        list.push({
+          key: `${m.id}_${selectedDate}_idle`,
+          lineId: m.id,
+          label: `${m.id} - ${m.name} (Idle / 0 Pcs)`,
+          record: null,
+          isActive: false,
+          productionQty: 0
+        });
+      }
+    });
+
     return list;
-  }, [records, selectedDate, report?.header?.lineId, lineLabel, machineMaster]);
+  }, [combinedDatasets, selectedDate, machineMaster]);
 
   // Derived selected option key in line selector
   const selectedLineKey = useMemo(() => {
     if (activeLinesForDate.length === 0) return '';
-    if (report?.sourceRecordId) {
-      const match = activeLinesForDate.find((item) => item.record && item.record.id === report.sourceRecordId);
+    const currentLineId = report?.header?.lineId;
+    if (currentLineId) {
+      const match = activeLinesForDate.find(
+        (item) => item.lineId === currentLineId || isMachineMatch(item.lineId, currentLineId, machineMaster)
+      );
       if (match) return match.key;
     }
-    const byLine = activeLinesForDate.find((item) => item.lineId === report?.header?.lineId);
-    if (byLine) return byLine.key;
     return activeLinesForDate[0]?.key || '';
-  }, [activeLinesForDate, report?.sourceRecordId, report?.header?.lineId]);
+  }, [activeLinesForDate, report?.header?.lineId, machineMaster]);
 
   // If active report is pointing to an idle machine on a date that has active operating lines, auto-sync to first active line
   useEffect(() => {
-    if (records.length > 0 && selectedDate && activeLinesForDate.length > 0) {
-      const isCurrentActive = activeLinesForDate.some(
-        (item) => item.lineId === report?.header?.lineId || (item.record && item.record.id === report?.sourceRecordId)
+    if (combinedDatasets.length > 0 && selectedDate && activeLinesForDate.length > 0) {
+      const currentActiveItem = activeLinesForDate.find(
+        (item) => item.isActive && (item.lineId === report?.header?.lineId || isMachineMatch(item.lineId, report?.header?.lineId, machineMaster))
       );
-      if (!isCurrentActive && activeLinesForDate[0]?.record) {
-        const firstActiveRep = convertLogRowToReport(activeLinesForDate[0].record);
-        setReport(firstActiveRep);
+      if (!currentActiveItem) {
+        const firstActive = activeLinesForDate.find((item) => item.isActive && item.record);
+        if (firstActive?.record) {
+          const firstActiveRep = convertLogRowToReport(firstActive.record, {
+            deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(firstActive.lineId, machineMaster)
+          });
+          setReport(firstActiveRep);
+        }
       }
     }
-  }, [records, selectedDate, activeLinesForDate, report?.header?.lineId, report?.sourceRecordId]);
+  }, [combinedDatasets, selectedDate, activeLinesForDate, report?.header?.lineId, machineMaster]);
 
   const handleToolbarDateChange = (newDate) => {
     if (!newDate || newDate === selectedDate) return;
 
-    if (records && records.length > 0) {
-      const operatingForNewDate = getOperatingRecordsForDate(records, newDate, machineMaster);
-      if (operatingForNewDate.length > 0) {
-        const currentLineId = report?.header?.lineId;
-        const sameLineRecord = operatingForNewDate.find(
-          (r) => r.machineId === currentLineId || r.matchedMachine?.id === currentLineId
-        );
-        const targetRecord = sameLineRecord || operatingForNewDate[0];
-        const newRep = convertLogRowToReport(targetRecord);
-        setReport(newRep);
-        notify(`Loaded 24-hour report for ${newRep.header.lineId} (${newDate})`);
-      } else {
-        patchHeader('date', newDate);
-        notify(`Selected date ${newDate}: No active operating lines (Factory Stop)`);
-      }
-    } else {
-      patchHeader('date', newDate);
-      notify(`Date updated to ${newDate}`);
+    const currentLineId = report?.header?.lineId || 'L-01';
+
+    // 1. Check if the current line has records on the new date
+    const currentLineRecords = queryProductionRecords({
+      dataset: combinedDatasets,
+      date: newDate,
+      machine: currentLineId,
+      machineMaster
+    });
+
+    if (currentLineRecords.length > 0) {
+      const consolidated = consolidateDailyMachineRecords(currentLineRecords, machineMaster);
+      const newRep = convertLogRowToReport(consolidated[0], {
+        deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(currentLineId, machineMaster)
+      });
+      setReport(newRep);
+      notify(`Loaded daily production log for ${newRep.header.lineId} (${newDate}): ${newRep.summary.totalOutput} Pcs`);
+      return;
     }
+
+    // 2. Current line has no records on new date. Check if any other machine ran on new date
+    const allForNewDate = queryProductionRecordsForDate({
+      dataset: combinedDatasets,
+      date: newDate,
+      machineMaster
+    });
+
+    if (allForNewDate.length > 0) {
+      const consolidated = consolidateDailyMachineRecords(allForNewDate, machineMaster);
+      const newRep = convertLogRowToReport(consolidated[0], {
+        deratingFactor: getDefaultDeratingFactor(consolidated[0].machineId, machineMaster)
+      });
+      setReport(newRep);
+      notify(`Loaded active line ${newRep.header.lineId} for ${newDate}: ${newRep.summary.totalOutput} Pcs`);
+      return;
+    }
+
+    // 3. No records for any machine on new date -> Keep standard blank/zero behavior
+    const blankRep = blankReportForMachine(newDate, currentLineId, machineMaster);
+    setReport(blankRep);
+    notify(`Selected date ${newDate}: No production records (Blank/Zero State)`);
   };
 
   const handleToolbarLineChange = (key) => {
@@ -1140,13 +1205,28 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
     const targetItem = activeLinesForDate.find((item) => item.key === key);
     if (!targetItem) return;
 
-    if (targetItem.record) {
-      const newRep = convertLogRowToReport(targetItem.record);
+    const targetLineId = targetItem.lineId;
+
+    // Query records for targetLineId on selectedDate
+    const matchedRecords = queryProductionRecords({
+      dataset: combinedDatasets,
+      date: selectedDate,
+      machine: targetLineId,
+      machineMaster
+    });
+
+    if (matchedRecords.length > 0) {
+      const consolidated = consolidateDailyMachineRecords(matchedRecords, machineMaster);
+      const newRep = convertLogRowToReport(consolidated[0], {
+        deratingFactor: report?.engineering?.deratingFactor || getDefaultDeratingFactor(targetLineId, machineMaster)
+      });
       setReport(newRep);
-      notify(`Loaded 24-hour report for ${targetItem.label} (${selectedDate})`);
+      notify(`Auto-bound production log for ${targetLineId} (${selectedDate}): ${newRep.summary.totalOutput} Pcs`);
     } else {
-      patchHeader('lineId', targetItem.lineId);
-      notify(`Machine updated to ${targetItem.lineId}`);
+      // (d) If no records exist for that line on that date, keep standard blank/zero behavior
+      const blankRep = blankReportForMachine(selectedDate, targetLineId, machineMaster);
+      setReport(blankRep);
+      notify(`Selected ${targetLineId} (${selectedDate}): No records found (Blank/Zero State)`);
     }
   };
 
@@ -1726,6 +1806,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView({ onNotify, 
         report={report}
         derived={derived}
         machineMaster={machineMaster}
+        dataset={combinedDatasets}
         onApply={handleApplyReconciliation}
       />
 

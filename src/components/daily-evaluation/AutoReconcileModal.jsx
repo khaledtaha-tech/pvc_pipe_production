@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { HOUR_WINDOWS } from '../../logic/engine.js';
 import {
   getDefaultDeratingFactor,
   STANDARD_BREAKDOWN_REASONS,
   DEFAULT_EVENT_CONFIGS,
   calculateReconciliationAudit,
-  reconcileShiftRun
+  reconcileShiftRun,
+  queryProductionRecords
 } from '../../logic/oeeReconciler.js';
 
 /**
@@ -19,11 +21,28 @@ export default function AutoReconcileModal({
   report,
   derived,
   machineMaster,
+  dataset = [],
   onApply
 }) {
   const lineId = report?.header?.lineId || '';
   const lineName = report?.header?.lineCustom || lineId || 'Extruder Line';
   const reportDate = report?.header?.date || '';
+
+  // Automatic Actual Output Lookup from loaded daily production dataset
+  const autoMatchedRecords = useMemo(() => {
+    if (!dataset || dataset.length === 0 || !reportDate || !lineId) return [];
+    return queryProductionRecords({
+      dataset,
+      date: reportDate,
+      machine: lineId,
+      machineMaster
+    });
+  }, [dataset, reportDate, lineId, machineMaster]);
+
+  const autoMatchedQty = useMemo(() => {
+    if (autoMatchedRecords.length === 0) return null;
+    return autoMatchedRecords.reduce((sum, r) => sum + (Number(r.productionQty) || 0), 0);
+  }, [autoMatchedRecords]);
 
   // Nominal standard rate (Pcs/h) from derived or ref
   const targetRate = useMemo(() => {
@@ -38,10 +57,13 @@ export default function AutoReconcileModal({
     return 100;
   }, [derived, report]);
 
-  // Initial values derived from active report
+  // Initial values derived from auto-matched daily log or active report
   const initialActual = useMemo(() => {
+    if (autoMatchedQty != null && autoMatchedQty > 0) {
+      return autoMatchedQty;
+    }
     return Number(derived?.grandTotals?.actual) || Number(report?.summary?.totalOutput) || 0;
-  }, [derived, report]);
+  }, [autoMatchedQty, derived, report]);
 
   const initialDerating = useMemo(() => {
     return Number(report?.engineering?.deratingFactor) || getDefaultDeratingFactor(lineId, machineMaster);
@@ -187,9 +209,17 @@ export default function AutoReconcileModal({
 
             <div className="reconcile-grid-2">
               <div className="reconcile-field-group">
-                <label htmlFor="reconcile-actual-pcs" className="reconcile-field-label">
-                  Total Actual Produced Pieces (FG):
-                </label>
+                <div className="reconcile-label-with-badge">
+                  <label htmlFor="reconcile-actual-pcs" className="reconcile-field-label">
+                    Total Actual Produced Pieces (FG):
+                  </label>
+                  {autoMatchedQty != null && (
+                    <span className="reconcile-auto-match-badge" title="Automatically pre-populated from ingested daily production log">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>Auto-Bound: {autoMatchedQty.toLocaleString()} Pcs</span>
+                    </span>
+                  )}
+                </div>
                 <div className="reconcile-input-wrap">
                   <input
                     id="reconcile-actual-pcs"
@@ -203,6 +233,11 @@ export default function AutoReconcileModal({
                   <span className="reconcile-input-unit">Pcs</span>
                 </div>
                 <div className="reconcile-field-hint">
+                  {autoMatchedRecords.length > 0 && autoMatchedRecords[0]?.description ? (
+                    <span className="text-emerald-400 font-medium">
+                      Matched: {autoMatchedRecords[0].itemCode ? `[${autoMatchedRecords[0].itemCode}] ` : ''}{autoMatchedRecords[0].description} &middot;{' '}
+                    </span>
+                  ) : null}
                   Equivalent to <b>{audit.actualEquivalentHours.toFixed(1)} hours</b> at 100% standard capacity.
                 </div>
               </div>

@@ -1,5 +1,6 @@
-import { MACHINES } from '../config/machines.js';
-import { round1, roundToSum, HOUR_WINDOWS } from './dailyReportEngine.js';
+import { MACHINES, matchMachine, normalizeMachineKey, PLANT_NAME } from '../config/machines.js';
+import { round1, roundToSum, HOUR_WINDOWS, makeRefSpec, emptySlots } from './dailyReportEngine.js';
+import { normalizeExcelDate, consolidateDailyMachineRecords, convertLogRowToReport } from './dailyExcelParser.js';
 
 /**
  * Standard technical downtime categories for extrusion breakdowns
@@ -317,5 +318,266 @@ export function reconcileShiftRun(report, params = {}) {
     totalActualPieces: desiredActual,
     deratingFactor: audit.deratingFactor,
     audit
+  };
+}
+
+/**
+ * Test whether two dates match across string formats, Date objects, or numeric serials
+ */
+export function isDateMatch(dateA, dateB) {
+  if (!dateA || !dateB) return false;
+  const normA = normalizeExcelDate(dateA);
+  const normB = normalizeExcelDate(dateB);
+  if (normA && normB && normA === normB) return true;
+  return String(dateA).trim() === String(dateB).trim();
+}
+
+/**
+ * Robust machine line matching between records and target selection
+ */
+export function isMachineMatch(machineA, machineB, dynamicList = MACHINES) {
+  if (!machineA || !machineB) return false;
+  const mA = typeof machineA === 'object' && machineA !== null
+    ? (machineA.id || machineA.machineId || machineA.name || machineA.machineRaw)
+    : String(machineA);
+  const mB = typeof machineB === 'object' && machineB !== null
+    ? (machineB.id || machineB.machineId || machineB.name || machineB.machineRaw)
+    : String(machineB);
+
+  const matchedA = matchMachine(mA, dynamicList);
+  const matchedB = matchMachine(mB, dynamicList);
+
+  if (matchedA && matchedB && matchedA.id === matchedB.id) {
+    return true;
+  }
+
+  const normA = normalizeMachineKey(mA);
+  const normB = normalizeMachineKey(mB);
+  if (normA && normB && (normA === normB || normA.includes(normB) || normB.includes(normA))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Standardize any raw production record (ERP historical row, daily log row, or parsed record)
+ */
+export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
+  if (!raw) return null;
+
+  const rawDate = raw.Date ?? raw.date ?? raw['DATE'] ?? '';
+  const date = normalizeExcelDate(rawDate);
+  const itemCode = String(raw['Item Code'] ?? raw.itemCode ?? raw.item_code ?? raw['Item'] ?? raw['item'] ?? '').trim();
+  const description = String(raw['Product Description & Specs'] ?? raw.description ?? raw.desc ?? raw['Product'] ?? raw['Description'] ?? '').trim();
+  const machineRaw = String(raw.Machine ?? raw.machine ?? raw.machineRaw ?? raw.machineName ?? raw.machineId ?? '').trim();
+
+  const qty = Number(raw['Production Qty (FG)'] ?? raw.productionQty ?? raw.qty ?? raw.production_qty ?? raw['Production Qty'] ?? raw.ProductionQty ?? 0) || 0;
+  const unitWeight = Number(raw['Unit Weight (kg)'] ?? raw.unitWeight ?? raw.unit_weight ?? raw['Unit Weight'] ?? raw.UnitWeight ?? 0) || 0;
+  const totalWeight = Number(raw['Total Weight (kg)'] ?? raw.totalWeight ?? raw.total_weight ?? raw['Total Weight'] ?? (qty * unitWeight)) || 0;
+  const scrapKg = Number(raw['Scrap / Rejection (kg)'] ?? raw.scrapKg ?? raw.scrap_rejection ?? raw['Scrap (kg)'] ?? raw['Scrap'] ?? 0) || 0;
+  const operatingHours = Number(raw['Operating Hours'] ?? raw.operatingHours ?? raw.operating_hours ?? raw['OperatingHours'] ?? 24) || 24;
+  const reasonOfStop = String(raw['Reason of Stop'] ?? raw.reasonOfStop ?? raw.reason_of_stop ?? raw['ReasonOfStop'] ?? '').trim();
+
+  const matchedMachine = matchMachine(machineRaw, dynamicMaster);
+  const machineId = matchedMachine ? matchedMachine.id : (machineRaw || 'L-01');
+  const machineName = matchedMachine ? `${matchedMachine.id} - ${matchedMachine.name}` : machineRaw;
+  const nominalCapacityKgH = matchedMachine?.capacityKgH || matchedMachine?.nominalCapacity || 0;
+
+  const actualRateKgH = operatingHours > 0 ? round1(totalWeight / operatingHours) : 0;
+  const capacityUtilizationPct = nominalCapacityKgH > 0 ? round1((actualRateKgH / nominalCapacityKgH) * 100) : 0;
+
+  return {
+    id: raw.id || `log_${date}_${machineId}_${itemCode || 'row'}`,
+    date,
+    itemCode,
+    description,
+    machineRaw,
+    machineId,
+    machineName,
+    matchedMachine,
+    nominalCapacityKgH,
+    productionQty: qty,
+    unitWeight: round1(unitWeight),
+    totalWeight: Math.round(totalWeight),
+    scrapKg: round1(scrapKg),
+    operatingHours: round1(operatingHours),
+    downtimeHours: round1(Math.max(0, 24 - operatingHours)),
+    reasonOfStop,
+    actualRateKgH,
+    capacityUtilizationPct,
+    raw
+  };
+}
+
+/**
+ * Query matching production records for a specific line/machine and date from any dataset
+ */
+export function queryProductionRecords({
+  dataset = [],
+  date,
+  machine,
+  machineMaster = MACHINES
+}) {
+  if (!date || !machine || !Array.isArray(dataset) || dataset.length === 0) {
+    return [];
+  }
+
+  const results = [];
+  const seenSignatures = new Set();
+
+  for (const item of dataset) {
+    if (!item) continue;
+    const row = normalizeProductionRow(item, machineMaster);
+    if (!row || !row.date) continue;
+
+    if (isDateMatch(row.date, date) && isMachineMatch(row.machineId || row.machineRaw, machine, machineMaster)) {
+      const sig = `${row.date}__${normalizeMachineKey(row.machineId)}__${row.itemCode}__${row.productionQty}`;
+      if (!seenSignatures.has(sig)) {
+        seenSignatures.add(sig);
+        results.push(row);
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Query all production records operating on a specific date across any dataset
+ */
+export function queryProductionRecordsForDate({
+  dataset = [],
+  date,
+  machineMaster = MACHINES
+}) {
+  if (!date || !Array.isArray(dataset) || dataset.length === 0) {
+    return [];
+  }
+
+  const results = [];
+  const seenSignatures = new Set();
+
+  for (const item of dataset) {
+    if (!item) continue;
+    const row = normalizeProductionRow(item, machineMaster);
+    if (!row || !row.date) continue;
+
+    if (isDateMatch(row.date, date)) {
+      const sig = `${row.date}__${normalizeMachineKey(row.machineId)}__${row.itemCode}__${row.productionQty}`;
+      if (!seenSignatures.has(sig)) {
+        seenSignatures.add(sig);
+        results.push(row);
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Creates standard blank/zero report for a given machine and date
+ */
+export function blankReportForMachine(date, machineId, machineMaster = MACHINES) {
+  const matched = matchMachine(machineId, machineMaster) || MACHINES[0];
+  const mid = matched.id || machineId || 'L-01';
+  const mName = matched.name || mid;
+  const nominalCap = matched.capacityKgH || matched.nominalCapacity || 0;
+
+  return {
+    id: `rep_blank_${Date.now()}_${mid}`,
+    sourceRecordId: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    header: {
+      date: normalizeExcelDate(date) || (typeof date === 'string' ? date : '2026-09-01'),
+      lineId: mid,
+      lineCustom: mName,
+      plantName: PLANT_NAME
+    },
+    refs: {
+      1: makeRefSpec(),
+      2: makeRefSpec()
+    },
+    summary: {
+      startCounter: '0',
+      endCounter: '0',
+      totalOutput: '0',
+      haulOffMeter: '0',
+      resinLot: '',
+      totalBundles: '0',
+      totalScrapPipes: '0',
+      totalPurgeKg: '0',
+      shift1Lead: 'Shift 1 Lead / Extrusion Tech',
+      shift2Lead: 'Shift 2 Lead / Extrusion Tech',
+      plantManager: 'Plant Production Manager'
+    },
+    downtimeEvents: [],
+    slots: HOUR_WINDOWS.map((h) => ({
+      index: h.index,
+      window: h.label,
+      shift: h.shift,
+      startHour: h.startHour,
+      ref: '1',
+      rate: nominalCap > 0 ? Math.round(nominalCap / 2) : 100,
+      actual: 0,
+      target: 0,
+      scrap: 0,
+      purge: 0,
+      bundles: 0,
+      downtime: 0,
+      reason: ''
+    })),
+    engineering: {
+      nominalCapacityKgH: nominalCap,
+      actualRateKgH: 0,
+      capacityUtilizationPct: 0,
+      operatingHours: 0,
+      totalWeightKg: 0,
+      deratingFactor: getDefaultDeratingFactor(mid, machineMaster)
+    }
+  };
+}
+
+/**
+ * Automatically bind production log record(s) to a report model
+ */
+export function autoBindProductionLogToReport({
+  dataset = [],
+  date,
+  machine,
+  machineMaster = MACHINES,
+  currentReport = null
+}) {
+  const matchedRows = queryProductionRecords({
+    dataset,
+    date,
+    machine,
+    machineMaster
+  });
+
+  if (matchedRows.length === 0) {
+    return {
+      hasMatch: false,
+      report: blankReportForMachine(date, machine, machineMaster),
+      matchedRows: [],
+      totalActualPieces: 0
+    };
+  }
+
+  // Consolidate matched rows (handles single and multi-item runs on same day)
+  const consolidated = consolidateDailyMachineRecords(matchedRows, machineMaster);
+  const primaryRow = consolidated[0] || matchedRows[0];
+  const report = convertLogRowToReport(primaryRow, {
+    deratingFactor: currentReport?.engineering?.deratingFactor || getDefaultDeratingFactor(primaryRow.machineId, machineMaster)
+  });
+
+  const totalActualPieces = Number(report.summary.totalOutput) || primaryRow.productionQty || 0;
+
+  return {
+    hasMatch: true,
+    report,
+    matchedRows,
+    totalActualPieces
   };
 }

@@ -5,7 +5,14 @@ import {
   calculateReconciliationAudit,
   reconcileShiftRun,
   STANDARD_BREAKDOWN_REASONS,
-  DEFAULT_EVENT_CONFIGS
+  DEFAULT_EVENT_CONFIGS,
+  isDateMatch,
+  isMachineMatch,
+  normalizeProductionRow,
+  queryProductionRecords,
+  queryProductionRecordsForDate,
+  blankReportForMachine,
+  autoBindProductionLogToReport
 } from '../../src/logic/oeeReconciler.js';
 import { generateReport, buildAll, HOUR_WINDOWS } from '../../src/logic/engine.js';
 import { getBenchmarkReport } from '../../src/data/store.js';
@@ -193,4 +200,165 @@ assert.ok(
 );
 console.log('Integration with buildAll & target baseline integrity: OK');
 
+// 6. Date & Machine Matching Precision
+assert.equal(isDateMatch('2026-09-26', '2026-09-26'), true, 'Exact ISO dates should match');
+assert.equal(isDateMatch('26/09/2026', '2026-09-26'), true, 'DD/MM/YYYY should match ISO date');
+assert.equal(isDateMatch('2026-09-26', '2026-09-27'), false, 'Different dates must not match');
+
+// Machine matching
+assert.equal(isMachineMatch('L-03', 'L-03 - KTS 700'), true, 'Line ID L-03 should match L-03 - KTS 700');
+assert.equal(isMachineMatch('KTS 700', 'L-03'), true, 'KTS 700 should match L-03');
+assert.equal(isMachineMatch('KTS-700', 'L-03'), true, 'KTS-700 should match L-03');
+assert.equal(isMachineMatch('KTS 350 TDH', 'L-08'), true, 'KTS 350 TDH should match L-08');
+assert.equal(isMachineMatch('KTS 350 TDH', 'L-05'), false, 'KTS 350 TDH must NOT match standard L-05');
+assert.equal(isMachineMatch('L-01', 'L-02'), false, 'Different machines must not match');
+console.log('Date & Machine Matching: OK');
+
+// 7. Row Normalization across ERP and Daily Log Formats
+const erpSampleRow = {
+  'Date': '2026-09-26',
+  'Item Code': '1140',
+  'Product Description & Specs': 'UPVC PIPE 110x5.3 PN-12.5 SASO-ISO',
+  'Machine': 'L-03 - KTS 700',
+  'Production Qty (FG)': 4800,
+  'Unit Weight (kg)': 17.30,
+  'Total Weight (kg)': 83040,
+  'Scrap / Rejection (kg)': 50,
+  'Operating Hours': 24,
+  'Reason of Stop': ''
+};
+
+const normalized = normalizeProductionRow(erpSampleRow);
+assert.equal(normalized.date, '2026-09-26', 'Normalized date should match 2026-09-26');
+assert.equal(normalized.itemCode, '1140', 'Item code should be normalized');
+assert.equal(normalized.machineId, 'L-03', 'Machine ID should resolve to L-03');
+assert.equal(normalized.productionQty, 4800, 'Production Qty should parse to 4800');
+assert.equal(normalized.unitWeight, 17.3, 'Unit weight should parse to 17.3');
+assert.equal(normalized.totalWeight, 83040, 'Total weight should parse to 83040');
+assert.equal(normalized.nominalCapacityKgH, 500, 'L-03 nominal capacity should be 500 kg/h');
+assert.ok(normalized.actualRateKgH > 0, 'Actual rate should be positive');
+console.log('Row Normalization: OK');
+
+// 8. Automatic Actual Output Lookup & Finished Goods Aggregation
+const testErpDataset = [
+  erpSampleRow,
+  {
+    'Date': '2026-09-26',
+    'Item Code': '249',
+    'Product Description & Specs': 'uPVC PIPE 110x5.3 PN-12.5',
+    'Machine': 'KTS-350',
+    'Production Qty (FG)': 392,
+    'Unit Weight (kg)': 17.30,
+    'Total Weight (kg)': 6782,
+    'Operating Hours': 24
+  },
+  {
+    'Date': '2026-09-27',
+    'Item Code': '1141',
+    'Product Description & Specs': 'PVC PRESSURE PIPE 3/4 SCH 40',
+    'Machine': 'L-03 - KTS 700',
+    'Production Qty (FG)': 3200,
+    'Unit Weight (kg)': 1.20,
+    'Total Weight (kg)': 3840,
+    'Operating Hours': 24
+  }
+];
+
+// Query for date 2026-09-26 and line L-03 - KTS 700
+const matchedL03 = queryProductionRecords({
+  dataset: testErpDataset,
+  date: '2026-09-26',
+  machine: 'L-03 - KTS 700'
+});
+
+assert.equal(matchedL03.length, 1, 'Should find exactly 1 matching record for L-03 on 2026-09-26');
+assert.equal(matchedL03[0].productionQty, 4800, 'Should match 4800 production pieces');
+assert.equal(matchedL03[0].itemCode, '1140', 'Should match item 1140');
+
+// Query with line ID shorthand 'L-03'
+const matchedByShortId = queryProductionRecords({
+  dataset: testErpDataset,
+  date: '2026-09-26',
+  machine: 'L-03'
+});
+assert.equal(matchedByShortId.length, 1, 'Should match using short line ID L-03');
+assert.equal(matchedByShortId[0].productionQty, 4800);
+
+// Multi-item run on same date and machine: aggregation test
+const multiItemDataset = [
+  {
+    'Date': '2026-09-26',
+    'Item Code': '1140',
+    'Product Description & Specs': 'UPVC PIPE 110x5.3 PN-12.5',
+    'Machine': 'L-03 - KTS 700',
+    'Production Qty (FG)': 2500,
+    'Unit Weight (kg)': 17.30,
+    'Operating Hours': 14
+  },
+  {
+    'Date': '2026-09-26',
+    'Item Code': '1141',
+    'Product Description & Specs': 'UPVC PIPE 160x7.7 PN-12.5',
+    'Machine': 'L-03 - KTS 700',
+    'Production Qty (FG)': 1500,
+    'Unit Weight (kg)': 35.00,
+    'Operating Hours': 10
+  }
+];
+
+const matchedMulti = queryProductionRecords({
+  dataset: multiItemDataset,
+  date: '2026-09-26',
+  machine: 'L-03 - KTS 700'
+});
+assert.equal(matchedMulti.length, 2, 'Should find both items for L-03 on 2026-09-26');
+const totalMultiQty = matchedMulti.reduce((sum, r) => sum + r.productionQty, 0);
+assert.equal(totalMultiQty, 4000, 'Aggregated finished goods quantity should be 2500 + 1500 = 4000');
+console.log('Production Records Query & Aggregation: OK');
+
+// 9. Auto-Binding to Report Header & Blank/Zero Fallback
+const boundSingle = autoBindProductionLogToReport({
+  dataset: testErpDataset,
+  date: '2026-09-26',
+  machine: 'L-03 - KTS 700'
+});
+
+assert.equal(boundSingle.hasMatch, true, 'Should find matching record');
+assert.equal(boundSingle.totalActualPieces, 4800, 'Total actual pieces should be auto-bound to 4800');
+assert.equal(boundSingle.report.summary.totalOutput, '4800', 'Summary totalOutput should be 4800');
+assert.equal(boundSingle.report.refs['1'].itemCode, '1140', 'Ref 1 item code should be bound to 1140');
+assert.ok(boundSingle.report.refs['1'].pipeSpec.includes('110x5.3'), 'Ref 1 pipeSpec should contain pipe spec');
+assert.equal(boundSingle.report.refs['1'].od, '110', 'Ref 1 OD should be 110');
+assert.equal(boundSingle.report.refs['1'].wt, '5.3', 'Ref 1 WT should be 5.3');
+assert.equal(boundSingle.report.refs['1'].cls, 'PN-12.5', 'Ref 1 Class should be PN-12.5');
+assert.equal(boundSingle.report.refs['1'].stdWeight, '17.3', 'Ref 1 stdWeight should be bound');
+assert.ok(Number(boundSingle.report.refs['1'].targetRate) > 0, 'Target rate should be calculated');
+assert.ok(boundSingle.report.slots.length === 24, '24 hour slots should be built');
+
+// Multi-item binding verification
+const boundMulti = autoBindProductionLogToReport({
+  dataset: multiItemDataset,
+  date: '2026-09-26',
+  machine: 'L-03 - KTS 700'
+});
+assert.equal(boundMulti.hasMatch, true);
+assert.equal(boundMulti.totalActualPieces, 4000, 'Multi-item aggregated output should be 4000');
+assert.equal(boundMulti.report.refs['1'].itemCode, '1140');
+assert.equal(boundMulti.report.refs['2'].itemCode, '1141');
+
+// Blank/Zero Fallback for line with no records on that date
+const boundBlank = autoBindProductionLogToReport({
+  dataset: testErpDataset,
+  date: '2026-09-26',
+  machine: 'L-07 - KTS 170'
+});
+assert.equal(boundBlank.hasMatch, false, 'No records for L-07 on 2026-09-26');
+assert.equal(boundBlank.totalActualPieces, 0, 'Blank state should have 0 actual pieces');
+assert.equal(boundBlank.report.summary.totalOutput, '0', 'Blank state summary should have 0 output');
+assert.equal(boundBlank.report.header.lineId, 'L-07', 'Header should be set to requested line');
+assert.equal(boundBlank.report.header.date, '2026-09-26', 'Header date should be set to requested date');
+assert.equal(boundBlank.report.slots[0].actual, 0, 'Blank slots should have 0 actual output');
+console.log('Auto-Binding to Report Header & Blank/Zero Fallback: OK');
+
 console.log('All OEE Reconciler unit tests passed successfully!');
+

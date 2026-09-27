@@ -340,7 +340,13 @@ function AppContent() {
 
         <div className={`daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
           <ErrorBoundary>
-            <DailyEvaluationView ref={dailyEvalRef} sharedTheme={theme} lang={lang} />
+            <DailyEvaluationView
+              ref={dailyEvalRef}
+              sharedTheme={theme}
+              lang={lang}
+              historicalRawRows={historicalRawRows}
+              rawRows={rawRows}
+            />
           </ErrorBoundary>
         </div>
       </main>

@@ -21,23 +21,25 @@ import UniquePlanningCatalogView from './UniquePlanningCatalogView';
 import ErrorBoundary from '../common/ErrorBoundary';
 
 import { t } from '../../utils/translations';
+import { SAMPLE_PRODUCTION_DATA } from '../../data/sampleData';
+import { SAMPLE_HISTORICAL_ERP_DATA } from '../../data/sampleHistoricalErpData';
 
 export default function DataAnalysisView({
   lang,
   activeTab,
   setActiveTab,
   theme,
-  rawRows,
+  rawRows = [],
   setRawRows,
-  historicalRawRows,
+  historicalRawRows = [],
   setHistoricalRawRows,
   currentSheetName,
   setCurrentSheetName,
-  cleanedRows,
-  auditReport,
+  cleanedRows = [],
+  auditReport = [],
   analytics,
-  planningMatrix,
-  masterRuns,
+  planningMatrix = [],
+  masterRuns = [],
   isManualModalOpen,
   setIsManualModalOpen,
   isClearDialogOpen,
@@ -47,7 +49,8 @@ export default function DataAnalysisView({
   handleExportCleanLog,
   handleExportConsolidated,
   handleExportMasterPlan,
-  handleExportUniqueCatalog
+  handleExportUniqueCatalog,
+  onNotify
 }) {
   const isAr = lang === 'ar';
 
@@ -57,6 +60,8 @@ export default function DataAnalysisView({
       <DataHub
         lang={lang}
         theme={theme}
+        rawRows={rawRows}
+        historicalRawRows={historicalRawRows}
         onDataLoaded={(rows, name) => {
           setRawRows(rows);
           setCurrentSheetName(name);
@@ -64,10 +69,29 @@ export default function DataAnalysisView({
         onHistoricalDataLoaded={(rows) => {
           setHistoricalRawRows(rows);
         }}
+        onUploadHistoricalFile={(rows) => {
+          setHistoricalRawRows(rows);
+        }}
+        onLoadSample={() => {
+          setRawRows(SAMPLE_PRODUCTION_DATA);
+          setCurrentSheetName('Daily Production Log');
+          if (onNotify) onNotify('Loaded benchmark factory production sample (59 active runs)');
+        }}
+        onLoadHistoricalSample={() => {
+          setHistoricalRawRows(SAMPLE_HISTORICAL_ERP_DATA);
+          if (onNotify) onNotify('Loaded 15 historical ERP runs for machine inference');
+        }}
+        onClearHistoricalData={() => {
+          setHistoricalRawRows([]);
+          if (onNotify) onNotify('Cleared historical ERP runs');
+        }}
         onClearData={() => setIsClearDialogOpen(true)}
+        activeRecordCount={rawRows.length}
+        historicalRecordCount={historicalRawRows.length}
         recordCount={rawRows.length}
         historicalCount={historicalRawRows.length}
         currentSheetName={currentSheetName}
+        onNotify={onNotify}
       />
 
       {/* Main Module Content */}

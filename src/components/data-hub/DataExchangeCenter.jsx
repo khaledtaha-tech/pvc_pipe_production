@@ -43,6 +43,7 @@ import {
   savePersistedRecords,
   clearPersistedRecords
 } from '../../data/store.js';
+import { saveAppState } from '../../utils/indexedDbStorage.js';
 import ErpImportVerificationModal from '../common/ErpImportVerificationModal.jsx';
 
 export default function DataExchangeCenter({
@@ -230,15 +231,52 @@ export default function DataExchangeCenter({
   };
 
   const handleConfirmErpModal = (rows, sheetName) => {
-    if (!rows || rows.length === 0) {
-      notify('No valid rows found in selected sheet.');
-      return;
+    try {
+      if (!rows || rows.length === 0) {
+        notify('No valid rows found in selected sheet.');
+        return;
+      }
+
+      // Defensive sanitization: ensure clean, plain objects without circular references
+      const sanitizedRows = rows.map((r) => {
+        if (!r || typeof r !== 'object') return {};
+        const clean = {};
+        for (const [k, v] of Object.entries(r)) {
+          if (typeof v === 'function' || typeof v === 'symbol') continue;
+          clean[k] = v !== undefined && v !== null ? v : '';
+        }
+        return clean;
+      });
+
+      // 1. Commit to React state
+      if (setHistoricalRawRows) {
+        setHistoricalRawRows(sanitizedRows);
+      }
+      const targetFileName = pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx';
+      setErpFileName(targetFileName);
+
+      // 2. Trigger IndexedDB persistence
+      saveAppState({
+        rawRows: rawRows || [],
+        historicalRawRows: sanitizedRows,
+        currentSheetName: currentSheetName || 'Daily Production Log'
+      }).catch((err) => {
+        console.error('Failed to persist historical ERP state in DataExchangeCenter:', err);
+      });
+
+      // 3. Close the modal immediately and clear staged input
+      setIsErpModalOpen(false);
+      setPendingErpUpload(null);
+      if (erpFileInputRef.current) {
+        erpFileInputRef.current.value = '';
+      }
+
+      // 4. Success toast notification
+      notify(`Successfully ingested ${sanitizedRows.length} historical ERP runs from "${sheetName || 'PIPES'}" into Intelligence Engine`);
+    } catch (err) {
+      console.error('Error confirming ERP ingestion in DataExchangeCenter:', err);
+      notify('Failed to ingest ERP rows due to an unexpected error.');
     }
-    setHistoricalRawRows(rows);
-    setErpFileName(pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx');
-    setIsErpModalOpen(false);
-    setPendingErpUpload(null);
-    notify(`Ingested ${rows.length} historical ERP runs from "${sheetName}" into Intelligence Engine`);
   };
 
   const handleCloseErpModal = () => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
@@ -47,12 +47,23 @@ export default function ErpImportVerificationModal({
 
   const [selectedSheet, setSelectedSheet] = useState(defaultSheet);
 
-  // Extract raw rows from the active sheet
+  useEffect(() => {
+    if (defaultSheet) {
+      setSelectedSheet(defaultSheet);
+    }
+  }, [defaultSheet]);
+
+  // Extract raw rows from the active sheet with defensive dynamic parser and fallback
   const rawRows = useMemo(() => {
     if (!wb || !selectedSheet || !wb.Sheets[selectedSheet]) return [];
     try {
       const ws = wb.Sheets[selectedSheet];
-      return parseSheetToJsonWithDynamicHeader(ws, XLSX);
+      const parsed = parseSheetToJsonWithDynamicHeader(ws, XLSX);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+      const fallback = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      return Array.isArray(fallback) ? fallback : [];
     } catch (err) {
       console.error('Error parsing sheet in verification modal:', err);
       return [];
@@ -67,8 +78,36 @@ export default function ErpImportVerificationModal({
   const { columnMappings, healthCheck, previewRows } = analysis;
 
   const handleConfirm = () => {
-    if (onConfirm) {
-      onConfirm(rawRows, selectedSheet);
+    try {
+      if (!onConfirm) {
+        console.warn('ErpImportVerificationModal: No onConfirm callback provided.');
+        if (onClose) onClose();
+        return;
+      }
+
+      if (!rawRows || rawRows.length === 0) {
+        console.warn('ErpImportVerificationModal: No rows found to ingest.');
+        return;
+      }
+
+      // Defensive sanitization: ensure clean, serializable plain objects
+      const sanitizedRows = rawRows.map((row) => {
+        if (!row || typeof row !== 'object') return {};
+        const cleanRow = {};
+        for (const [k, v] of Object.entries(row)) {
+          if (typeof v === 'function' || typeof v === 'symbol') continue;
+          if (v instanceof Date) {
+            cleanRow[k] = v.toISOString().split('T')[0];
+          } else {
+            cleanRow[k] = v !== undefined && v !== null ? v : '';
+          }
+        }
+        return cleanRow;
+      });
+
+      onConfirm(sanitizedRows, selectedSheet);
+    } catch (err) {
+      console.error('Error in ErpImportVerificationModal handleConfirm:', err);
     }
   };
 
@@ -446,10 +485,11 @@ export default function ErpImportVerificationModal({
 
           <button
             type="button"
+            data-testid="confirm-erp-ingest-btn"
             onClick={handleConfirm}
-            disabled={rawRows.length === 0}
-            className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
-              rawRows.length > 0
+            disabled={!rawRows || rawRows.length === 0}
+            className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-[0.98] ${
+              rawRows && rawRows.length > 0
                 ? isLight
                   ? 'bg-teal-700 hover:bg-teal-600 text-white shadow-teal-900/20'
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/50'

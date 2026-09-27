@@ -15,23 +15,30 @@ import {
 } from 'lucide-react';
 import { parseSheetToJsonWithDynamicHeader } from '../../utils/dataCleaner.js';
 import { t } from '../../utils/translations.js';
+import { saveAppState } from '../../utils/indexedDbStorage.js';
 import ErpImportVerificationModal from '../common/ErpImportVerificationModal.jsx';
 
 export default function DataHub({
   onDataLoaded,
   onLoadSample,
   onUploadHistoricalFile,
+  onHistoricalDataLoaded,
   onLoadHistoricalSample,
   onClearHistoricalData,
   onExportMasterPlan,
   onExportUniqueCatalog,
   activeRecordCount = 0,
   historicalRecordCount = 0,
+  recordCount,
+  historicalCount,
   totalMasterCount = 0,
   uniqueCatalogCount = 0,
   currentSheetName = 'Daily Production Log',
   theme = 'dark',
-  lang = 'en'
+  lang = 'en',
+  rawRows = [],
+  historicalRawRows = [],
+  onNotify
 }) {
   const isLight = theme === 'light';
   const isAr = lang === 'ar';
@@ -128,11 +135,55 @@ export default function DataHub({
   };
 
   const handleConfirmErpModal = (rows, sheetName) => {
-    if (!rows || rows.length === 0) return;
-    onUploadHistoricalFile(rows, pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx');
-    setErpFileName(pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx');
-    setIsErpModalOpen(false);
-    setPendingErpUpload(null);
+    try {
+      if (!rows || rows.length === 0) return;
+
+      // Defensive sanitization: ensure clean, plain objects without circular references
+      const sanitizedRows = rows.map((r) => {
+        if (!r || typeof r !== 'object') return {};
+        const clean = {};
+        for (const [k, v] of Object.entries(r)) {
+          if (typeof v === 'function' || typeof v === 'symbol') continue;
+          clean[k] = v !== undefined && v !== null ? v : '';
+        }
+        return clean;
+      });
+
+      const commitFn = onUploadHistoricalFile || onHistoricalDataLoaded;
+      const targetFileName = pendingErpUpload?.fileName || 'Historical_ERP_Log.xlsx';
+
+      if (commitFn) {
+        commitFn(sanitizedRows, targetFileName);
+      } else {
+        console.warn('DataHub: Neither onUploadHistoricalFile nor onHistoricalDataLoaded callback provided.');
+      }
+
+      setErpFileName(targetFileName);
+
+      // Trigger IndexedDB persistence
+      saveAppState({
+        rawRows: rawRows || [],
+        historicalRawRows: sanitizedRows,
+        currentSheetName: currentSheetName || 'Daily Production Log'
+      }).catch((err) => {
+        console.error('Failed to persist historical ERP state in DataHub:', err);
+      });
+
+      // Close modal immediately and clear staged input
+      setIsErpModalOpen(false);
+      setPendingErpUpload(null);
+      if (erpFileInputRef.current) {
+        erpFileInputRef.current.value = '';
+      }
+
+      // Success notification
+      const successMsg = `Successfully ingested ${sanitizedRows.length} historical ERP runs from "${sheetName || 'PIPES'}" into Intelligence Engine`;
+      if (onNotify) {
+        onNotify(successMsg);
+      }
+    } catch (err) {
+      console.error('Error confirming ERP ingestion in DataHub:', err);
+    }
   };
 
   const handleCloseErpModal = () => {

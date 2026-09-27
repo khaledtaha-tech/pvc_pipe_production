@@ -303,6 +303,7 @@ function AppContent() {
               handleExportConsolidated={handleExportConsolidatedExcel}
               handleExportMasterPlan={handleExportMasterPlanExcel}
               handleExportUniqueCatalog={handleExportUniqueCatalog}
+              onNotify={showToast}
             />
           </ErrorBoundary>
         )}

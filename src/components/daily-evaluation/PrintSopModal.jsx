@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { MACHINES } from '../../config/machines.js';
+import { MACHINES, matchMachine } from '../../config/machines.js';
 import {
   formatFullMachineName,
   findPreviousRunForMachine,
@@ -63,28 +63,29 @@ export default function PrintSopModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    const list = machineMaster.map((m) => {
-      const prevRun = findPreviousRunForMachine(records, m.id, targetDate);
-      const specs = extractMachineSpecsFromRun(prevRun, m.id, machineMaster);
-      const isCurrent = m.id === currentMachineId;
+    const activeMaster = Array.isArray(machineMaster) && machineMaster.length > 0 ? machineMaster : MACHINES;
+    const list = activeMaster.map((m) => {
+      const prevRun = findPreviousRunForMachine(records, m?.id, targetDate);
+      const specs = extractMachineSpecsFromRun(prevRun, m?.id, activeMaster);
+      const isCurrent = m?.id === currentMachineId;
       const hadRun = Boolean(prevRun);
-      const nominalCapacity = Number(prevRun?.nominalCapacityKgH) || Number(m.nominalCapacity) || Number(m.capacityKgH) || Number(specs.nominalCapacity) || 200;
-      const unitWeight = Number(specs.unitWeight) > 0 ? Number(specs.unitWeight) : 1.0;
-      const calculatedRateKgH = Math.round(specs.calculatedRate * unitWeight);
+      const nominalCapacity = Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || 200;
+      const unitWeight = Number(specs?.unitWeight) > 0 ? Number(specs.unitWeight) : 1.0;
+      const calculatedRateKgH = Math.round((Number(specs?.calculatedRate) || 0) * unitWeight);
 
       return {
-        machineId: m.id,
-        machineName: m.name,
-        fullMachineName: specs.fullMachineName,
+        machineId: m?.id || '',
+        machineName: m?.name || '',
+        fullMachineName: specs?.fullMachineName || m?.name || m?.id || '',
         isSelected: scope === 'current' ? isCurrent : (hadRun || isCurrent),
-        previousRunDate: specs.previousRunDate,
-        productDescription: specs.productDescription,
-        itemCode: specs.itemCode || '',
-        od: specs.od || '',
-        wt: specs.wt || '',
-        speed: specs.speed,
-        pipeLength: specs.pipeLength,
-        calculatedRate: specs.calculatedRate,
+        previousRunDate: specs?.previousRunDate || null,
+        productDescription: specs?.productDescription || '',
+        itemCode: specs?.itemCode || '',
+        od: specs?.od || '',
+        wt: specs?.wt || '',
+        speed: specs?.speed || 10,
+        pipeLength: specs?.pipeLength || 6.0,
+        calculatedRate: specs?.calculatedRate || 100,
         unitWeight,
         nominalCapacity,
         calculatedRateKgH
@@ -383,13 +384,21 @@ export default function PrintSopModal({
           {linesState
             .filter((l) => (scope === 'current' ? l.machineId === currentMachineId : true))
             .map((line) => {
-              const unitWeight = Number(line.unitWeight) > 0 ? Number(line.unitWeight) : 1.0;
-              const speed = Number(line.speed) || 0;
-              const pipeLength = Number(line.pipeLength) > 0 ? Number(line.pipeLength) : 6.0;
-              const pcsPerHour = Number(line.calculatedRate) > 0 ? Number(line.calculatedRate) : (speed > 0 && pipeLength > 0 ? Math.round((speed * 60) / pipeLength) : 0);
+              const unitWeight = Number(line?.unitWeight) > 0 ? Number(line.unitWeight) : 1.0;
+              const speed = Number(line?.speed) || 0;
+              const pipeLength = Number(line?.pipeLength) > 0 ? Number(line.pipeLength) : 6.0;
+              const pcsPerHour = Number(line?.calculatedRate) > 0
+                ? Number(line.calculatedRate)
+                : (speed > 0 && pipeLength > 0 ? Math.round((speed * 60) / pipeLength) : 0);
               const calculatedKgH = Math.round(pcsPerHour * unitWeight);
-              const machineSetting = matchMachine(line.machineId, machineMaster) || machineMaster.find((m) => m.id === line.machineId);
-              const nominalKgH = Number(line.nominalCapacity) || Number(machineSetting?.nominalCapacity) || Number(machineSetting?.capacityKgH) || 200;
+
+              // Defensive machine lookup with fallback
+              const activeMaster = Array.isArray(machineMaster) && machineMaster.length > 0 ? machineMaster : MACHINES;
+              const machineSetting = (typeof matchMachine === 'function' && line?.machineId)
+                ? (matchMachine(line.machineId, activeMaster) || activeMaster.find((m) => m?.id === line.machineId))
+                : (activeMaster.find((m) => m?.id === line?.machineId) || null);
+
+              const nominalKgH = Number(line?.nominalCapacity) || Number(machineSetting?.nominalCapacity) || Number(machineSetting?.capacityKgH) || 200;
               const utilizationPct = nominalKgH > 0 ? Math.round((calculatedKgH / nominalKgH) * 100) : 0;
 
               return (

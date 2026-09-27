@@ -37,66 +37,6 @@ export const DEFAULT_EVENT_CONFIGS = {
   }
 };
 
-/**
- * Retrieve machine default aging/derating factor (50% - 100%)
- * Older lines (KTS 200, KTS 170, KTS 100) default to 85%
- * Intermediate lines default to 88% - 90%
- * Modern / Heavy lines default to 92% - 95%
- */
-export function getDefaultDeratingFactor(machineId, machineMaster = null) {
-  if (!machineId) return 85;
-
-  const cleanId = String(machineId).toUpperCase();
-
-  // Known line profiles
-  if (cleanId.includes('L-04') || cleanId.includes('KTS 200') || cleanId.includes('KTS-200')) {
-    return 85;
-  }
-  if (cleanId.includes('L-07') || cleanId.includes('KTS 170') || cleanId.includes('KTS-170')) {
-    return 85;
-  }
-  if (cleanId.includes('L-09') || cleanId.includes('KTS 100') || cleanId.includes('KTS-100')) {
-    return 85;
-  }
-  if (cleanId.includes('L-05') || cleanId.includes('KTS 350') || cleanId.includes('KTS-350')) {
-    return 88;
-  }
-  if (cleanId.includes('L-02') || cleanId.includes('KTS 250') || cleanId.includes('KTS-250')) {
-    return 90;
-  }
-  if (cleanId.includes('L-08') || cleanId.includes('350 TDH') || cleanId.includes('350-TDH')) {
-    return 90;
-  }
-  if (cleanId.includes('L-06') || cleanId.includes('KABRA') || cleanId.includes('K-90')) {
-    return 92;
-  }
-  if (cleanId.includes('L-03') || cleanId.includes('KTS 700') || cleanId.includes('KTS-700')) {
-    return 92;
-  }
-  if (cleanId.includes('L-01') || cleanId.includes('KTS 550') || cleanId.includes('KTS-550')) {
-    return 95;
-  }
-
-  // Lookup in static or dynamic master
-  const list = Array.isArray(machineMaster) && machineMaster.length > 0 ? machineMaster : MACHINES;
-  const match = list.find((m) => {
-    if (m.id && cleanId.includes(m.id.toUpperCase())) return true;
-    if (m.name && cleanId.includes(m.name.toUpperCase())) return true;
-    if (Array.isArray(m.matchKeys)) {
-      return m.matchKeys.some((k) => cleanId.includes(k.toUpperCase()));
-    }
-    return false;
-  });
-
-  if (match) {
-    if (match.capacityKgH && match.nominalCapacity && match.nominalCapacity > 0) {
-      const ratio = Math.round((match.capacityKgH / match.nominalCapacity) * 100);
-      return Math.min(100, Math.max(70, ratio));
-    }
-  }
-
-  return 85;
-}
 
 /**
  * Append reason with semicolon separator
@@ -139,14 +79,12 @@ export function applyEventToSlots(slots, startSlotIdx, durationMin, reason) {
 export function calculateReconciliationAudit({
   totalActualPieces = 0,
   targetRate = 0,
-  deratingFactor = 100,
   moldChangeMin = 0,
   warmupMin = 0,
   breakdownMin = 0
 }) {
   const rate = Number(targetRate) > 0 ? Number(targetRate) : 0;
   const actualPcs = Math.max(0, Math.round(Number(totalActualPieces) || 0));
-  const factor = Number(deratingFactor) > 0 && Number(deratingFactor) <= 100 ? Number(deratingFactor) : 100;
 
   const theoreticalCapacityPcs = round1(24 * rate);
   const actualEquivalentHours = rate > 0 ? round1(actualPcs / rate) : 0;
@@ -161,13 +99,9 @@ export function calculateReconciliationAudit({
   const totalDowntimeHours = round1(totalDowntimeMin / 60);
   const operatingHours = Math.max(0, round1(24 - totalDowntimeHours));
 
-  // Speed derating capacity loss in equivalent operating hours and pieces
-  const speedDeratingLossHours = round1(operatingHours * (1 - (factor / 100)));
-  const speedDeratingLossPieces = Math.round(speedDeratingLossHours * rate);
-
-  // Total Accounted = Declared Downtime + Speed Derating
-  const totalAccountedHours = round1(totalDowntimeHours + speedDeratingLossHours);
-  const totalAccountedPieces = Math.round((totalDowntimeHours * rate) + speedDeratingLossPieces);
+  // Total Accounted = Declared Downtime
+  const totalAccountedHours = totalDowntimeHours;
+  const totalAccountedPieces = Math.round(totalDowntimeHours * rate);
 
   // Unexplained Time Gap
   const rawGapHours = missingHours - totalAccountedHours;
@@ -179,7 +113,6 @@ export function calculateReconciliationAudit({
     theoreticalCapacityPcs,
     actualPcs,
     targetRate: rate,
-    deratingFactor: factor,
     actualEquivalentHours,
     missingHours,
     missingPieces,
@@ -192,8 +125,6 @@ export function calculateReconciliationAudit({
     totalDowntimeMin,
     totalDowntimeHours,
     operatingHours,
-    speedDeratingLossHours,
-    speedDeratingLossPieces,
     totalAccountedHours,
     totalAccountedPieces,
     unexplainedGapHours,
@@ -204,12 +135,11 @@ export function calculateReconciliationAudit({
 
 /**
  * Reconcile shift run: apply declared downtime windows, reverse-distribute actual pieces
- * across remaining operating hours, and update engineering derating factor.
+ * across remaining operating hours.
  */
 export function reconcileShiftRun(report, params = {}) {
   const {
     totalActualPieces = 0,
-    deratingFactor = 85,
     events = {}
   } = params;
 
@@ -307,7 +237,6 @@ export function reconcileShiftRun(report, params = {}) {
   const audit = calculateReconciliationAudit({
     totalActualPieces: desiredActual,
     targetRate,
-    deratingFactor,
     moldChangeMin,
     warmupMin,
     breakdownMin
@@ -316,7 +245,6 @@ export function reconcileShiftRun(report, params = {}) {
   return {
     updatedSlots: slots,
     totalActualPieces: desiredActual,
-    deratingFactor: audit.deratingFactor,
     audit
   };
 }
@@ -533,8 +461,7 @@ export function blankReportForMachine(date, machineId, machineMaster = MACHINES)
       actualRateKgH: 0,
       capacityUtilizationPct: 0,
       operatingHours: 0,
-      totalWeightKg: 0,
-      deratingFactor: getDefaultDeratingFactor(mid, machineMaster)
+      totalWeightKg: 0
     }
   };
 }
@@ -568,9 +495,7 @@ export function autoBindProductionLogToReport({
   // Consolidate matched rows (handles single and multi-item runs on same day)
   const consolidated = consolidateDailyMachineRecords(matchedRows, machineMaster);
   const primaryRow = consolidated[0] || matchedRows[0];
-  const report = convertLogRowToReport(primaryRow, {
-    deratingFactor: currentReport?.engineering?.deratingFactor || getDefaultDeratingFactor(primaryRow.machineId, machineMaster)
-  });
+  const report = convertLogRowToReport(primaryRow);
 
   const totalActualPieces = Number(report.summary.totalOutput) || primaryRow.productionQty || 0;
 
@@ -579,10 +504,8 @@ export function autoBindProductionLogToReport({
     ? report.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0)
     : 0;
   if (totalActualPieces > 0 && slotSum === 0) {
-    const derating = report.engineering?.deratingFactor || getDefaultDeratingFactor(primaryRow.machineId, machineMaster);
     const reconciled = reconcileShiftRun(report, {
-      totalActualPieces,
-      deratingFactor: derating
+      totalActualPieces
     });
     report.slots = reconciled.updatedSlots;
   }

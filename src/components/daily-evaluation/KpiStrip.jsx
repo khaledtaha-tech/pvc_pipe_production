@@ -44,14 +44,7 @@ export default function KpiStrip({ derived }) {
           <div className="kpi-value">
             {derived.pStr}
           </div>
-          <div className="kpi-label">
-            Performance (P = Act/Tgt)
-            {eng.deratingFactor && eng.deratingFactor < 100 ? (
-              <span className="kpi-sub-badge" title="Machine Aging Derating Factor applied to effective target">
-                ({eng.deratingFactor}% Age Factor)
-              </span>
-            ) : null}
-          </div>
+          <div className="kpi-label">Performance (P = Act/Tgt)</div>
         </div>
 
         <div className="kpi-card">
@@ -72,7 +65,7 @@ export default function KpiStrip({ derived }) {
       <div className="kpi-formula-bar">
         <span className="formula-tag">ENGINEERING OEE BREAKDOWN</span>
         <span className="formula-text">
-          <b>Overall OEE</b> = <b>Availability</b> ({derived.aStr}) &times; <b>Performance</b> ({derived.pStr}{eng.deratingFactor && eng.deratingFactor < 100 ? ` [${eng.deratingFactor}% Age Factor]` : ''}) &times; <b>Quality</b> ({derived.qStr}) = <b className="formula-res">{derived.oeeStr}</b>
+          <b>Overall OEE</b> = <b>Availability</b> ({derived.aStr}) &times; <b>Performance</b> ({derived.pStr}) &times; <b>Quality</b> ({derived.qStr}) = <b className="formula-res">{derived.oeeStr}</b>
         </span>
         {hasCapacity ? (
           <span className="capacity-badge">

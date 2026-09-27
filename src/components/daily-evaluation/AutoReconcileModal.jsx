@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { HOUR_WINDOWS } from '../../logic/engine.js';
 import {
-  getDefaultDeratingFactor,
   STANDARD_BREAKDOWN_REASONS,
   DEFAULT_EVENT_CONFIGS,
   calculateReconciliationAudit,
@@ -65,13 +64,8 @@ export default function AutoReconcileModal({
     return Number(derived?.grandTotals?.actual) || Number(report?.summary?.totalOutput) || 0;
   }, [autoMatchedQty, derived, report]);
 
-  const initialDerating = useMemo(() => {
-    return Number(report?.engineering?.deratingFactor) || getDefaultDeratingFactor(lineId, machineMaster);
-  }, [report, lineId, machineMaster]);
-
   // State
   const [totalActualPieces, setTotalActualPieces] = useState(initialActual);
-  const [deratingFactor, setDeratingFactor] = useState(initialDerating);
 
   // Shift Events State
   const [moldChange, setMoldChange] = useState({
@@ -101,9 +95,8 @@ export default function AutoReconcileModal({
   useEffect(() => {
     if (isOpen) {
       setTotalActualPieces(initialActual);
-      setDeratingFactor(initialDerating);
     }
-  }, [isOpen, initialActual, initialDerating]);
+  }, [isOpen, initialActual]);
 
   // Handle ESC key
   useEffect(() => {
@@ -124,12 +117,11 @@ export default function AutoReconcileModal({
     return calculateReconciliationAudit({
       totalActualPieces,
       targetRate,
-      deratingFactor,
       moldChangeMin: moldMin,
       warmupMin: warmMin,
       breakdownMin: breakMin
     });
-  }, [totalActualPieces, targetRate, deratingFactor, moldChange, warmup, breakdown]);
+  }, [totalActualPieces, targetRate, moldChange, warmup, breakdown]);
 
   if (!isOpen) return null;
 
@@ -142,7 +134,6 @@ export default function AutoReconcileModal({
 
     const reconciled = reconcileShiftRun(report, {
       totalActualPieces: Number(totalActualPieces) || 0,
-      deratingFactor: Number(deratingFactor) || 100,
       events: {
         moldChange: {
           enabled: moldChange.enabled,
@@ -201,97 +192,43 @@ export default function AutoReconcileModal({
 
         {/* Modal Form */}
         <form onSubmit={handleApply} className="export-modal-form reconcile-modal-form">
-          {/* Section 1: Output and Machine Derating */}
+          {/* Section 1: Output */}
           <div className="reconcile-section">
             <h4 className="export-section-title">
-              1. 24h Actual Finished Goods &amp; Machine Aging Factor
+              1. 24h Actual Finished Goods Output
             </h4>
 
-            <div className="reconcile-grid-2">
-              <div className="reconcile-field-group">
-                <div className="reconcile-label-with-badge">
-                  <label htmlFor="reconcile-actual-pcs" className="reconcile-field-label">
-                    Total Actual Produced Pieces (FG):
-                  </label>
-                  {autoMatchedQty != null && (
-                    <span className="reconcile-auto-match-badge" title="Automatically pre-populated from ingested daily production log">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Auto-Bound: {autoMatchedQty.toLocaleString()} Pcs</span>
-                    </span>
-                  )}
-                </div>
-                <div className="reconcile-input-wrap">
-                  <input
-                    id="reconcile-actual-pcs"
-                    type="number"
-                    min="0"
-                    step="1"
-                    className="reconcile-text-input"
-                    value={totalActualPieces}
-                    onChange={(e) => setTotalActualPieces(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  />
-                  <span className="reconcile-input-unit">Pcs</span>
-                </div>
-                <div className="reconcile-field-hint">
-                  {autoMatchedRecords.length > 0 && autoMatchedRecords[0]?.description ? (
-                    <span className="text-emerald-400 font-medium">
-                      Matched: {autoMatchedRecords[0].itemCode ? `[${autoMatchedRecords[0].itemCode}] ` : ''}{autoMatchedRecords[0].description} &middot;{' '}
-                    </span>
-                  ) : null}
-                  Equivalent to <b>{audit.actualEquivalentHours.toFixed(1)} hours</b> at 100% standard capacity.
-                </div>
-              </div>
-
-              <div className="reconcile-field-group">
-                <div className="reconcile-label-with-badge">
-                  <label htmlFor="reconcile-derating-factor" className="reconcile-field-label">
-                    Machine Aging / Speed Derating:
-                  </label>
-                  <span className="reconcile-derating-badge">
-                    {deratingFactor}% Speed Factor
+            <div className="reconcile-field-group">
+              <div className="reconcile-label-with-badge">
+                <label htmlFor="reconcile-actual-pcs" className="reconcile-field-label">
+                  Total Actual Produced Pieces (FG):
+                </label>
+                {autoMatchedQty != null && (
+                  <span className="reconcile-auto-match-badge" title="Automatically pre-populated from ingested daily production log">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Auto-Bound: {autoMatchedQty.toLocaleString()} Pcs</span>
                   </span>
-                </div>
-                <div className="reconcile-slider-row">
-                  <input
-                    id="reconcile-derating-factor"
-                    type="range"
-                    min="60"
-                    max="100"
-                    step="1"
-                    className="reconcile-range-slider"
-                    value={deratingFactor}
-                    onChange={(e) => setDeratingFactor(parseInt(e.target.value, 10))}
-                  />
-                  <div className="reconcile-quick-buttons">
-                    <button
-                      type="button"
-                      className={`reconcile-quick-btn ${deratingFactor === 85 ? 'active' : ''}`}
-                      onClick={() => setDeratingFactor(85)}
-                      title="Default for older extruder lines (KTS 200, KTS 170)"
-                    >
-                      85% (Older)
-                    </button>
-                    <button
-                      type="button"
-                      className={`reconcile-quick-btn ${deratingFactor === 90 ? 'active' : ''}`}
-                      onClick={() => setDeratingFactor(90)}
-                      title="Standard line baseline"
-                    >
-                      90% (Standard)
-                    </button>
-                    <button
-                      type="button"
-                      className={`reconcile-quick-btn ${deratingFactor === 100 ? 'active' : ''}`}
-                      onClick={() => setDeratingFactor(100)}
-                      title="100% nominal speed"
-                    >
-                      100% (Nominal)
-                    </button>
-                  </div>
-                </div>
-                <div className="reconcile-field-hint">
-                  Adjusts Performance (P = Act/Tgt) without modifying standard SOP baseline.
-                </div>
+                )}
+              </div>
+              <div className="reconcile-input-wrap">
+                <input
+                  id="reconcile-actual-pcs"
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="reconcile-text-input"
+                  value={totalActualPieces}
+                  onChange={(e) => setTotalActualPieces(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                />
+                <span className="reconcile-input-unit">Pcs</span>
+              </div>
+              <div className="reconcile-field-hint">
+                {autoMatchedRecords.length > 0 && autoMatchedRecords[0]?.description ? (
+                  <span className="text-emerald-400 font-medium">
+                    Matched: {autoMatchedRecords[0].itemCode ? `[${autoMatchedRecords[0].itemCode}] ` : ''}{autoMatchedRecords[0].description} &middot;{' '}
+                  </span>
+                ) : null}
+                Equivalent to <b>{audit.actualEquivalentHours.toFixed(1)} hours</b> at 100% standard capacity.
               </div>
             </div>
           </div>
@@ -515,12 +452,8 @@ export default function AutoReconcileModal({
                   <span className="reconcile-metric-lbl">Declared Stoppages (Downtime):</span>
                   <span className="reconcile-metric-val">{audit.totalDowntimeHours.toFixed(1)}h ({audit.totalDowntimeMin} min)</span>
                 </div>
-                <div className="reconcile-audit-metric">
-                  <span className="reconcile-metric-lbl">Speed Aging Derating Loss ({audit.deratingFactor}%):</span>
-                  <span className="reconcile-metric-val">{audit.speedDeratingLossHours.toFixed(1)}h (~{audit.speedDeratingLossPieces} Pcs)</span>
-                </div>
                 <div className="reconcile-audit-metric font-semibold text-emerald-300">
-                  <span className="reconcile-metric-lbl">Total Accounted Variance:</span>
+                  <span className="reconcile-metric-lbl">Total Accounted Stoppages:</span>
                   <span className="reconcile-metric-val">{audit.totalAccountedHours.toFixed(1)}h</span>
                 </div>
               </div>
@@ -535,7 +468,7 @@ export default function AutoReconcileModal({
                     Unexplained Time Gap: <b>{audit.unexplainedGapHours.toFixed(1)} Hours</b> (~{audit.unexplainedGapPieces.toLocaleString()} Pcs)
                   </div>
                   <div className="reconcile-alert-desc">
-                    Missing output exceeds declared setup, breakdowns, and machine aging derating. Minor unlogged micro-stoppages, slower haul-off pacing, or operator speed derating require internal supervisor review.
+                    Missing output exceeds declared setup and breakdown events. Minor unlogged micro-stoppages or slower haul-off pacing require internal supervisor review.
                   </div>
                 </div>
               </div>
@@ -547,7 +480,7 @@ export default function AutoReconcileModal({
                     100% Fully Reconciled Shift Run
                   </div>
                   <div className="reconcile-alert-desc">
-                    All cycle variance is cleanly accounted for by declared setup events, breakdowns, and the machine aging derating factor.
+                    All cycle variance is cleanly accounted for by declared setup events and breakdowns.
                   </div>
                 </div>
               </div>

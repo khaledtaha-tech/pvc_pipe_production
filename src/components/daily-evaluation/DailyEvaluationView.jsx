@@ -29,7 +29,6 @@ import {
   isMachineMatch,
   blankReportForMachine,
   autoBindProductionLogToReport,
-  getDefaultDeratingFactor,
   reconcileShiftRun
 } from '../../logic/oeeReconciler.js';
 import PlantAnalytics from './PlantAnalytics.jsx';
@@ -326,10 +325,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         ? repToSet.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0)
         : 0;
       if (totalActual > 0 && (slotSum === 0 || !repToSet.slots || repToSet.slots.length !== 24)) {
-        const derating = repToSet.engineering?.deratingFactor || getDefaultDeratingFactor(repToSet.header?.lineId, machineMaster);
         const reconciled = reconcileShiftRun(repToSet, {
-          totalActualPieces: totalActual,
-          deratingFactor: derating
+          totalActualPieces: totalActual
         });
         repToSet = { ...repToSet, slots: reconciled.updatedSlots };
       }
@@ -1246,8 +1243,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
 
     // Step b: Automatically populate the report header (specs, target output, line speed, nominal capacity)
-    const deratingFactor = report?.engineering?.deratingFactor || getDefaultDeratingFactor(canonicalId, machineMaster);
-    let newRep = convertLogRowToReport(activeRecord, { deratingFactor });
+    let newRep = convertLogRowToReport(activeRecord);
 
     // Step c: Automatically populate or synthesize active 24-hour slots with imported pieces/run data
     const totalActual = Number(newRep.summary?.totalOutput) || Number(activeRecord.productionQty) || 0;
@@ -1257,8 +1253,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
     if (totalActual > 0 && (slotSum === 0 || !newRep.slots || newRep.slots.length !== 24)) {
       const reconciled = reconcileShiftRun(newRep, {
-        totalActualPieces: totalActual,
-        deratingFactor
+        totalActualPieces: totalActual
       });
       newRep.slots = reconciled.updatedSlots;
     }
@@ -1279,7 +1274,6 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     selectedDate,
     activeLinesForDate,
     combinedDatasets,
-    report?.engineering?.deratingFactor,
     notify
   ]);
 
@@ -1331,16 +1325,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     loadAndBindReportForLineAndDate(selectedDate, targetLineId);
   };
 
-  const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces, deratingFactor }) => {
+  const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces }) => {
     update((r) => {
       r.slots = updatedSlots;
       r.summary = {
         ...r.summary,
         totalOutput: totalActualPieces
-      };
-      r.engineering = {
-        ...r.engineering,
-        deratingFactor
       };
       return r;
     });
@@ -1599,7 +1589,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   className="btn btn-reconcile"
                   onClick={() => setIsReconcileModalOpen(true)}
                   disabled={activeLinesForDate.length === 0 || !report?.slots || report.slots.length === 0}
-                  title="Auto-reconcile 24h run, reverse estimate slot production, and align OEE with machine derating"
+                  title="Auto-reconcile 24h run and reverse estimate slot production across operating hours"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
                     <path d="M12 20v-6M6 20V10M18 20V4" />

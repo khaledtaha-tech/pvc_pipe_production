@@ -764,8 +764,6 @@ export function convertLogRowToReport(row, options = {}) {
   const actualRateKgH = totalOpHours > 0 ? round1(totalWeightKg / totalOpHours) : 0;
   const capacityUtilizationPct = nominalCap > 0 ? round1((actualRateKgH / nominalCap) * 100) : 0;
 
-  const deratingFactor = options.deratingFactor || 100;
-
   const report = {
     id: newId(),
     sourceRecordId: row.id || null,
@@ -801,8 +799,7 @@ export function convertLogRowToReport(row, options = {}) {
       actualRateKgH: row.actualRateKgH || actualRateKgH,
       capacityUtilizationPct: row.capacityUtilizationPct || capacityUtilizationPct,
       operatingHours: totalOpHours,
-      totalWeightKg: totalWeightKg,
-      deratingFactor
+      totalWeightKg: totalWeightKg
     }
   };
 

@@ -88,7 +88,10 @@ const derived = buildAll(benchmark.slots, benchmark.refs, benchmark.summary.star
 const model = buildSopModel(benchmark, derived);
 
 assert.equal(model.docCode, 'DOC-Ext.-03');
-assert.equal(model.version, '3');
+assert.equal(model.version, '04');
+assert.equal(model.plantName, 'AL MANAR PIPES FACTORY');
+assert.equal(model.reportTitle, 'PVC PIPE EXTRUSION DAILY MONITORING REPORT');
+assert.equal(model.reportSubtitle, 'Production Execution & Quality Follow-Up');
 assert.equal(model.fullMachineName, 'L-03 - KTS 700');
 assert.equal(model.lineId, 'L-03 - KTS 700');
 assert.equal(model.shift1Rows.length, 12);
@@ -124,7 +127,8 @@ console.log('Model generation with cumulative standard pieces rate (Filled View)
 // 6. Blank SOP Template Model Building (DOC-Ext.-03)
 const blankModel = buildBlankSopModel({ standardRate: 20 });
 assert.equal(blankModel.docCode, 'DOC-Ext.-03');
-assert.equal(blankModel.version, '3');
+assert.equal(blankModel.version, '04');
+assert.equal(blankModel.plantName, 'AL MANAR PIPES FACTORY');
 assert.equal(blankModel.isBlank, true);
 assert.equal(blankModel.fullMachineName, '');
 assert.equal(blankModel.productDescription, '');
@@ -158,14 +162,20 @@ blankModel.shift2Rows.forEach((r, idx) => {
 });
 console.log('Blank SOP Template (DOC-Ext.-03) model generation: OK');
 
-// 7. Pre-filled Calculated Hourly Standard Production in Pieces (Default 100 pcs/h, Cumulative)
+// 7. Pre-filled Calculated Hourly Standard Production in Pieces (Explicit or Blank Fallback)
+const blankWithRate = buildBlankSopModel({ standardRate: 100 });
+assert.equal(blankWithRate.shift1Rows.length, 12);
+assert.equal(blankWithRate.shift2Rows.length, 12);
+assert.equal(blankWithRate.shift1Rows[0].stdPcs, 100);
+assert.equal(blankWithRate.shift1Rows[11].stdPcs, 1200);
+assert.equal(blankWithRate.shift2Rows[0].stdPcs, 1300);
+assert.equal(blankWithRate.shift2Rows[11].stdPcs, 2400);
+
 const blankDefault = buildBlankSopModel();
-assert.equal(blankDefault.shift1Rows.length, 12);
-assert.equal(blankDefault.shift2Rows.length, 12);
-assert.equal(blankDefault.shift1Rows[0].stdPcs, 100);
-assert.equal(blankDefault.shift1Rows[11].stdPcs, 1200);
-assert.equal(blankDefault.shift2Rows[0].stdPcs, 1300);
-assert.equal(blankDefault.shift2Rows[11].stdPcs, 2400);
+assert.equal(blankDefault.shift1Rows[0].stdPcs, '');
+assert.equal(blankDefault.shift1Rows[11].stdPcs, '');
+assert.equal(blankDefault.shift2Rows[0].stdPcs, '');
+assert.equal(blankDefault.shift2Rows[11].stdPcs, '');
 console.log('Pre-filled standard production rate in pieces (stdPcs): OK');
 
 // 8. Previous Operational Run Auto-Inheritance (findPreviousRunForMachine)
@@ -244,7 +254,10 @@ const morningModel = buildMorningSopModel({
 });
 
 assert.equal(morningModel.docCode, 'DOC-Ext.-03');
-assert.equal(morningModel.version, '3');
+assert.equal(morningModel.version, '04');
+assert.equal(morningModel.plantName, 'AL MANAR PIPES FACTORY');
+assert.equal(morningModel.reportTitle, 'PVC PIPE EXTRUSION DAILY MONITORING REPORT');
+assert.equal(morningModel.reportSubtitle, 'Production Execution & Quality Follow-Up');
 assert.equal(morningModel.isBlank, true);
 assert.equal(morningModel.isMorningSop, true);
 assert.equal(morningModel.dateDots, '19.09.2026');
@@ -409,6 +422,36 @@ for (let i = 13; i <= 24; i++) {
 assert.equal(sopCumulative400.shift2Rows[0].stdPcs, 5200);
 assert.equal(sopCumulative400.shift2Rows[11].stdPcs, 9600);
 console.log('Cumulative progressive target formula across hours 1 to 24: OK');
+ 
+// 16. Idle Line Handling & Blank Pen Entry Fallbacks (DOC-Ext.-03)
+const idleSpecs = extractMachineSpecsFromRun(null, 'L-04');
+assert.equal(idleSpecs.machineId, 'L-04');
+assert.equal(idleSpecs.isIdle, true);
+assert.equal(idleSpecs.productDescription, '');
+assert.equal(idleSpecs.itemCode, '');
+assert.equal(idleSpecs.speed, '');
+assert.equal(idleSpecs.calculatedRate, '');
+assert.equal(idleSpecs.calculatedRateKgH, '');
+
+const idleMorningModel = buildMorningSopModel({
+  lineId: 'L-04',
+  date: '2026-09-20',
+  isIdle: true
+});
+assert.equal(idleMorningModel.version, '04');
+assert.equal(idleMorningModel.isIdle, true);
+assert.equal(idleMorningModel.productDescription, '');
+assert.equal(idleMorningModel.speed1, '');
+assert.equal(idleMorningModel.speed2, '');
+assert.equal(idleMorningModel.shift1Rows.length, 12);
+assert.equal(idleMorningModel.shift2Rows.length, 12);
+idleMorningModel.shift1Rows.forEach((r) => {
+  assert.equal(r.stdPcs, '', 'Idle shift 1 row must be empty string');
+});
+idleMorningModel.shift2Rows.forEach((r) => {
+  assert.equal(r.stdPcs, '', 'Idle shift 2 row must be empty string');
+});
+console.log('Idle/stopped machine line blank handling: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

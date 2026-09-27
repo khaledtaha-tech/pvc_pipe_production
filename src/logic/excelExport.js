@@ -525,61 +525,63 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
   const model = buildSopModel(report, derived, options);
 
   const aoa = [
-    // Row 1 (index 0): Doc Header
+    // Row 1 (index 0): Company Name, Title, Doc Code
     [
-      model.docCode,
+      model.plantName || 'AL MANAR PIPES FACTORY',
       '',
-      'DOCUMENT IN POST',
+      model.reportTitle || 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
       '',
       '',
       '',
-      'N° VERSION',
-      model.version,
+      'Doc Code:',
+      model.docCode || 'DOC-Ext.-03',
       ''
     ],
-    // Row 2 (index 1): Brand & Title & Date
+    // Row 2 (index 1): Subtitle & Revision
     [
-      model.plantName,
-      '',
-      'Production follow',
       '',
       '',
+      model.reportSubtitle || 'Production Execution & Quality Follow-Up',
       '',
-      'Date',
-      model.dateSpaces,
+      '',
+      '',
+      'Revision:',
+      model.version || '04',
       ''
     ],
-    // Row 3 (index 2): Line No. & Title
+    // Row 3 (index 2): Line No. & PRODUCTION PIECES & Date
     [
       '',
       'Line No.',
-      model.fullMachineName || model.lineId,
+      model.fullMachineName || model.lineId || '',
       'PRODUCTION PIECES',
       '',
       '',
-      '', '', ''
+      'Date:',
+      model.dateIso || model.targetDate || model.dateDots || '',
+      ''
     ],
     // Row 4 (index 3): Item Description
     [
       '', '', '',
-      model.displayProduct || (model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription),
+      model.displayProduct || (model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription) || '',
       '', '', '', '', ''
     ],
-    // Row 5 (index 4): Reference specs & Date
+    // Row 5 (index 4): Reference specs (Secondary Date removed)
     [
       '', '', '',
-      '1st reference',
-      '2nd reference',
+      model.ref1Spec || '1st reference',
+      model.ref2Spec || '2nd reference',
       '',
-      'DATE',
-      model.dateDots,
+      '',
+      '',
       ''
     ],
     // Row 6 (index 5): Reference Speed Values
     [
       '', '', '',
-      `${model.speed1} M/Min`,
-      `${model.speed2} M/Min`,
+      model.speed1 ? `${model.speed1} M/Min` : '',
+      model.speed2 ? `${model.speed2} M/Min` : '',
       '', '', '', ''
     ],
     // Row 7 (index 6): Table Column Headers
@@ -753,27 +755,24 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
 
   // Configure cell merges
   ws['!merges'] = [
-    // Header Row 1: DOC-Ext.-03 (A1:B1), DOCUMENT IN POST (C1:F1), Version (H1:I1)
+    // Header Row 1: Plant Name (A1:B1), Title (C1:F1), Doc Code (H1:I1)
     { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
     { s: { r: 0, c: 2 }, e: { r: 0, c: 5 } },
     { s: { r: 0, c: 7 }, e: { r: 0, c: 8 } },
-    // Header Row 2: Date of Creation (H2:I2)
+    // Header Row 2: Subtitle (C2:F2), Revision (H2:I2)
+    { s: { r: 1, c: 2 }, e: { r: 1, c: 5 } },
     { s: { r: 1, c: 7 }, e: { r: 1, c: 8 } },
-    // Header Row 3: Plant Name (A3:B3), Title (C3:F3), Date (H3:I3)
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 1 } },
-    { s: { r: 2, c: 2 }, e: { r: 2, c: 5 } },
+    // Header Row 3: PRODUCTION PIECES (D3:F3), Date (H3:I3)
+    { s: { r: 2, c: 3 }, e: { r: 2, c: 5 } },
     { s: { r: 2, c: 7 }, e: { r: 2, c: 8 } },
-    // Header Row 4: PRODUCTION PIECES (D4:F4)
+    // Header Row 4: Product Description (D4:F4)
     { s: { r: 3, c: 3 }, e: { r: 3, c: 5 } },
-    // Header Row 5: Product Description (D5:F5)
-    { s: { r: 4, c: 3 }, e: { r: 4, c: 5 } },
-    // Header Row 6: 2nd Ref (E6:F6), Date (H6:I6)
+    // Header Row 5: 2nd Ref (E5:F5) - Notice: NO secondary Date merge on H5:I5
+    { s: { r: 4, c: 4 }, e: { r: 4, c: 5 } },
+    // Header Row 6: Speed 2 (E6:F6)
     { s: { r: 5, c: 4 }, e: { r: 5, c: 5 } },
-    { s: { r: 5, c: 7 }, e: { r: 5, c: 8 } },
-    // Header Row 7: Speed 2 (E7:F7)
-    { s: { r: 6, c: 4 }, e: { r: 6, c: 5 } },
-    // Header Row 8: General Data Header (G8:I8)
-    { s: { r: 7, c: 6 }, e: { r: 7, c: 8 } },
+    // Header Row 7: General Data Header (G7:I7)
+    { s: { r: 6, c: 6 }, e: { r: 6, c: 8 } },
     // Shift 1 Side Block Header Merges
     { s: { r: shift1StartRow, c: 6 }, e: { r: shift1StartRow, c: 8 } },
     { s: { r: shift1StartRow + 5, c: 6 }, e: { r: shift1StartRow + 5, c: 8 } },

@@ -139,10 +139,16 @@ assert.equal(
 const sopWs = buildLegacySopExcelSheet(benchmark, derived);
 assert.ok(sopWs, 'SOP Worksheet should be created');
 assert.ok(sopWs['!cols'] && sopWs['!cols'].length === 9, 'Should have 9 column widths configured');
-assert.equal(sopWs['A1'].v, 'DOC-Ext.-03', 'Cell A1 must contain docCode');
-assert.equal(sopWs['C1'].v, 'DOCUMENT IN POST', 'Cell C1 must contain document title');
-assert.equal(sopWs['G1'].v, 'N° VERSION', 'Cell G1 must contain version label');
-assert.equal(sopWs['H1'].v, '3', 'Cell H1 must contain version number');
+assert.equal(sopWs['A1'].v, 'AL MANAR PIPES FACTORY', 'Cell A1 must contain company name');
+assert.equal(sopWs['C1'].v, 'PVC PIPE EXTRUSION DAILY MONITORING REPORT', 'Cell C1 must contain document title');
+assert.equal(sopWs['G1'].v, 'Doc Code:', 'Cell G1 must contain doc code label');
+assert.equal(sopWs['H1'].v, 'DOC-Ext.-03', 'Cell H1 must contain doc code');
+assert.equal(sopWs['C2'].v, 'Production Execution & Quality Follow-Up', 'Cell C2 must contain document subtitle');
+assert.equal(sopWs['G2'].v, 'Revision:', 'Cell G2 must contain revision label');
+assert.equal(sopWs['H2'].v, '04', 'Cell H2 must contain revision number');
+assert.equal(sopWs['G3'].v, 'Date:', 'Cell G3 must contain date label');
+assert.ok(sopWs['H3'].v, 'Cell H3 must contain date value');
+assert.equal(sopWs['G5']?.v || '', '', 'Cell G5 must not contain secondary date');
 
 // 5b. Single Machine SOP Export
 const singleSopResult = exportSingleMachineSopToExcel(benchmark, derived, { autoSave: false });

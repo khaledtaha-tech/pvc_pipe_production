@@ -45,35 +45,36 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
         </colgroup>
 
         <tbody>
-          {/* Header Row 1 */}
-          <tr>
-            <td colSpan={2} className="sop-cell sop-doc-code">
-              {model.docCode}
+          {/* Professional Industrial Header Row */}
+          <tr className="sop-header-primary-row">
+            <td colSpan={2} className="sop-cell sop-header-company">
+              <div className="sop-company-title">
+                {model.plantName || 'AL MANAR PIPES FACTORY'}
+              </div>
             </td>
-            <td colSpan={4} className="sop-cell sop-doc-title">
-              DOCUMENT IN POST
+            <td colSpan={4} className="sop-cell sop-header-center">
+              <div className="sop-doc-main-title">
+                {model.reportTitle || 'PVC PIPE EXTRUSION DAILY MONITORING REPORT'}
+              </div>
+              <div className="sop-doc-subtitle">
+                {model.reportSubtitle || 'Production Execution & Quality Follow-Up'}
+              </div>
             </td>
-            <td className="sop-cell sop-lbl text-center">
-              N&deg; VERSION
-            </td>
-            <td colSpan={2} className="sop-cell sop-val-bold text-center">
-              {model.version}
-            </td>
-          </tr>
-
-          {/* Header Row 3 */}
-          <tr>
-            <td colSpan={2} className="sop-cell sop-brand">
-              {model.plantName}
-            </td>
-            <td colSpan={4} className="sop-cell sop-pfollow">
-              Production follow
-            </td>
-            <td className="sop-cell sop-lbl text-center">
-              Date
-            </td>
-            <td colSpan={2} className="sop-cell sop-val text-center">
-              {model.dateSpaces ? model.dateSpaces : (isUniversal || isBlankMode ? <span className="sop-blank-underline" /> : '')}
+            <td colSpan={3} className="sop-cell sop-header-meta">
+              <div className="sop-meta-row">
+                <span className="sop-meta-lbl">Doc Code:</span>
+                <span className="sop-meta-val">{model.docCode || 'DOC-Ext.-03'}</span>
+              </div>
+              <div className="sop-meta-row">
+                <span className="sop-meta-lbl">Revision:</span>
+                <span className="sop-meta-val">{model.version || '04'}</span>
+              </div>
+              <div className="sop-meta-row">
+                <span className="sop-meta-lbl">Date:</span>
+                <span className="sop-meta-val">
+                  {model.dateIso || model.targetDate || (isUniversal || isBlankMode ? <span className="sop-blank-underline short" /> : (model.dateDots || ''))}
+                </span>
+              </div>
             </td>
           </tr>
 
@@ -99,22 +100,13 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td colSpan={3} className="sop-cell sop-item-desc">
-              {isUniversal ? (
-                <div className="sop-blank-product-box">
-                  <span className="sop-blank-lbl">Product: </span>
-                  <span className="sop-blank-underline long" />
-                </div>
-              ) : model.displayProduct ? (
-                model.displayProduct
-              ) : model.productDescription ? (
-                model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription
-              ) : isBlankMode ? (
+              {(isUniversal || isBlankMode || model.isIdle || (!model.displayProduct && !model.productDescription)) ? (
                 <div className="sop-blank-product-box">
                   <span className="sop-blank-lbl">Product: </span>
                   <span className="sop-blank-underline long" />
                 </div>
               ) : (
-                model.itemCode ? `[${model.itemCode}] - ${model.productDescription || ''}` : (model.productDescription || '')
+                model.displayProduct || (model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription)
               )}
             </td>
             <td colSpan={3} className="sop-cell sop-empty"></td>
@@ -124,27 +116,30 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td className="sop-cell sop-ref-hdr text-center">
-              {isUniversal ? 'Ref 1: ____________' : (isBlankMode && !model.isMorningSop ? 'Ref 1: ____________' : '1st reference')}
+              {(isUniversal || isBlankMode || model.isIdle || !model.ref1Spec)
+                ? 'Ref 1: ____________'
+                : (model.ref1Spec || '1st reference')}
             </td>
             <td colSpan={2} className="sop-cell sop-ref-hdr text-center">
-              {isUniversal ? 'Ref 2: ____________' : (isBlankMode && !model.isMorningSop ? 'Ref 2: ____________' : '2nd reference')}
+              {(isUniversal || isBlankMode || model.isIdle || !model.ref2Spec)
+                ? 'Ref 2: ____________'
+                : (model.ref2Spec || '2nd reference')}
             </td>
-            <td className="sop-cell sop-lbl text-center">
-              DATE
-            </td>
-            <td colSpan={2} className="sop-cell sop-val text-center">
-              {model.dateDots ? model.dateDots : (isUniversal || isBlankMode ? <span className="sop-blank-underline" /> : '')}
-            </td>
+            <td colSpan={3} className="sop-cell sop-empty"></td>
           </tr>
 
           {/* Header Row 7 */}
           <tr>
             <td colSpan={3} className="sop-cell sop-empty"></td>
             <td className="sop-cell sop-speed text-center">
-              {isUniversal ? 'Speed: ______ M/Min' : (model.speed1 ? `${model.speed1} M/Min` : (isBlankMode ? 'Speed: ______ M/Min' : ''))}
+              {(isUniversal || isBlankMode || model.isIdle || !model.speed1)
+                ? 'Speed: ______ M/Min'
+                : `${model.speed1} M/Min`}
             </td>
             <td colSpan={2} className="sop-cell sop-speed text-center">
-              {isUniversal ? 'Speed: ______ M/Min' : (model.speed2 ? `${model.speed2} M/Min` : (isBlankMode ? 'Speed: ______ M/Min' : ''))}
+              {(isUniversal || isBlankMode || model.isIdle || !model.speed2)
+                ? 'Speed: ______ M/Min'
+                : `${model.speed2} M/Min`}
             </td>
             <td colSpan={3} className="sop-cell sop-empty"></td>
           </tr>

@@ -2633,6 +2633,84 @@
   color: #0f172a;
 }
 
+.sop-header-primary-row {
+  height: 50px;
+  background: #ffffff;
+}
+
+.sop-header-company {
+  text-align: center;
+  vertical-align: middle !important;
+  padding: 4px 6px !important;
+}
+
+.sop-company-title {
+  font-weight: 800;
+  font-size: 13.5px;
+  font-family: inherit;
+  font-style: normal;
+  text-transform: uppercase;
+  color: #1e3a8a;
+  letter-spacing: 0.5px;
+  line-height: 1.25;
+}
+
+.sop-header-center {
+  text-align: center;
+  vertical-align: middle !important;
+  padding: 4px 8px !important;
+}
+
+.sop-doc-main-title {
+  font-weight: 900;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #1e3a8a;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.sop-doc-subtitle {
+  font-weight: 600;
+  font-size: 10.5px;
+  color: #334155;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.sop-header-meta {
+  padding: 3px 6px !important;
+  vertical-align: middle !important;
+}
+
+.sop-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5px 0;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.sop-meta-row:last-child {
+  border-bottom: none;
+}
+
+.sop-meta-lbl {
+  font-weight: 700;
+  font-size: 9.5px;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.sop-meta-val {
+  font-weight: 800;
+  font-size: 11px;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
 .sop-doc-code {
   font-weight: 800;
   font-size: 13px;
@@ -2649,18 +2727,16 @@
 }
 
 .sop-brand {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
-  font-style: italic;
-  font-family: 'Times New Roman', Times, serif;
+  font-family: inherit;
   text-align: center;
   color: #1e3a8a;
 }
 
 .sop-pfollow {
-  font-size: 15px;
-  font-style: italic;
-  font-family: 'Times New Roman', Times, serif;
+  font-size: 14px;
+  font-family: inherit;
   text-align: center;
   color: #1e3a8a;
 }
@@ -2853,6 +2929,11 @@
 .sop-sheet-container.sop-blank-template .sop-doc-title,
 .sop-sheet-container.sop-blank-template .sop-brand,
 .sop-sheet-container.sop-blank-template .sop-pfollow,
+.sop-sheet-container.sop-blank-template .sop-company-title,
+.sop-sheet-container.sop-blank-template .sop-doc-main-title,
+.sop-sheet-container.sop-blank-template .sop-doc-subtitle,
+.sop-sheet-container.sop-blank-template .sop-header-meta .sop-meta-lbl,
+.sop-sheet-container.sop-blank-template .sop-header-meta .sop-meta-val,
 .sop-sheet-container.sop-blank-template .sop-prod-pieces,
 .sop-sheet-container.sop-blank-template .sop-ref-hdr,
 .sop-sheet-container.sop-blank-template .sop-lbl,
@@ -2868,6 +2949,10 @@
 .sop-sheet-container.sop-blank-template .sop-sig-name {
   color: #000000 !important;
   background: #ffffff !important;
+}
+
+.sop-sheet-container.sop-blank-template .sop-header-meta .sop-meta-row {
+  border-bottom-color: #000000 !important;
 }
 
 .sop-sheet-container.sop-blank-template .sop-th {
@@ -2891,6 +2976,10 @@
   height: 12px;
   vertical-align: middle;
   margin: 0 4px;
+}
+
+.sop-sheet-container.sop-blank-template .sop-blank-underline.short {
+  min-width: 60px;
 }
 
 .sop-sheet-container.sop-blank-template .sop-blank-underline.long {
@@ -5324,6 +5413,13 @@
   border-radius: 4px;
 }
 
+.print-sop-badge-default.idle {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  font-weight: 700;
+}
+
 .print-sop-badge-rate {
   background: #ecfdf5;
   color: #065f46;
@@ -5333,6 +5429,13 @@
   border-radius: 4px;
   border: 1px solid #a7f3d0;
   white-space: nowrap;
+}
+
+.print-sop-badge-rate.idle {
+  background: rgba(148, 163, 184, 0.15);
+  color: #475569;
+  border: 1px dashed #cbd5e1;
+  font-weight: 600;
 }
 
 .print-sop-badge-kgh {
@@ -5501,6 +5604,19 @@
   color: #047857;
 }
 
+.print-sop-calc-idle-box {
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.print-sop-calc-idle {
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-style: italic;
+}
+
 .print-sop-footer {
   justify-content: space-between;
   padding: 14px 24px 18px;
@@ -5649,15 +5765,55 @@
     letter-spacing: 0.5px !important;
   }
 
+  body.print-sop-batch .sop-batch-page .sop-header-primary-row {
+    height: 12mm !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-company-title {
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-doc-main-title {
+    font-size: 12.5px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-doc-subtitle {
+    font-size: 9.5px !important;
+    font-weight: 600 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-header-meta {
+    padding: 1mm 1.5mm !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-meta-row {
+    padding: 0.5px 0 !important;
+    border-bottom: 1px dashed #000000 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-meta-lbl {
+    font-size: 8.5px !important;
+    font-weight: 700 !important;
+  }
+
+  body.print-sop-batch .sop-batch-page .sop-meta-val {
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+  }
+
   body.print-sop-batch .sop-batch-page .sop-brand {
     font-size: 13px !important;
     font-weight: 800 !important;
-    font-style: italic !important;
   }
 
   body.print-sop-batch .sop-batch-page .sop-pfollow {
     font-size: 11px !important;
-    font-style: italic !important;
   }
 
   body.print-sop-batch .sop-batch-page .sop-prod-pieces {

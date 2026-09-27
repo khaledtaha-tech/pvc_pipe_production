@@ -53,7 +53,7 @@ export function formatFullMachineName(lineId, lineCustom, machineList = MACHINES
  */
 export function formatSopDates(dateStr) {
   if (!dateStr) {
-    return { dots: '17.09.2026', spaces: '17 9 2026' };
+    return { dots: '17.09.2026', spaces: '17 9 2026', iso: '2026-09-17' };
   }
   const str = String(dateStr).trim();
   const parts = str.split(/[-/.]/);
@@ -71,10 +71,11 @@ export function formatSopDates(dateStr) {
     const mm = String(month).padStart(2, '0');
     return {
       dots: `${dd}.${mm}.${year}`,
-      spaces: `${day} ${month} ${year}`
+      spaces: `${day} ${month} ${year}`,
+      iso: `${year}-${mm}-${dd}`
     };
   }
-  return { dots: str, spaces: str };
+  return { dots: str, spaces: str, iso: str };
 }
 
 /**
@@ -124,11 +125,11 @@ export function computeStandardHourlyPieces(report, ref) {
   }
   const lineId = report?.header?.lineId;
   const machine = lineId ? matchMachine(lineId) : null;
-  const stdWeight = Number(ref?.stdWeight);
+    const stdWeight = Number(ref?.stdWeight);
   if (machine && machine.capacityKgH > 0 && stdWeight > 0) {
     return Math.round(machine.capacityKgH / stdWeight);
   }
-  return 100;
+  return 0;
 }
 
 /**
@@ -159,12 +160,12 @@ export function buildSopModel(report, derived, options = {}) {
     ? (isBlank ? [] : (report?.slots || []))
     : derived.slots;
 
-  const dates = isBlank ? { dots: '', spaces: '' } : formatSopDates(header.date);
+  const dates = isBlank ? { dots: '', spaces: '', iso: '' } : formatSopDates(header.date);
 
-  const speed1 = Number(ref1.speed) > 0 ? Number(ref1.speed) : (isBlank ? '' : 10);
+  const speed1 = Number(ref1.speed) > 0 ? Number(ref1.speed) : '';
   const speed2 = Number(ref2.speed) > 0 ? Number(ref2.speed) : (isBlank ? '' : speed1);
   const pipeLen1 = Number(ref1.pipeLength) > 0 ? Number(ref1.pipeLength) : 6.0;
-  const unitWeight1 = Number(ref1.stdWeight) > 0 ? Number(ref1.stdWeight) : 1.0;
+  const unitWeight1 = Number(ref1.stdWeight) > 0 ? Number(ref1.stdWeight) : '';
   const pipeLen2 = Number(ref2.pipeLength) > 0 ? Number(ref2.pipeLength) : pipeLen1;
   const unitWeight2 = Number(ref2.stdWeight) > 0 ? Number(ref2.stdWeight) : unitWeight1;
 
@@ -179,13 +180,16 @@ export function buildSopModel(report, derived, options = {}) {
   const stdShift1 = [];
   const stdShift2 = [];
   for (let i = 1; i <= 12; i += 1) {
-    stdShift1.push(isCumulative ? i * hourlyRate1 : hourlyRate1);
+    const val = hourlyRate1 > 0 ? (isCumulative ? i * hourlyRate1 : hourlyRate1) : '';
+    stdShift1.push(val);
   }
   for (let i = 13; i <= 24; i += 1) {
-    const cumVal = isCumulative
-      ? (12 * hourlyRate1 + (i - 12) * hourlyRate2)
-      : hourlyRate2;
-    stdShift2.push(cumVal);
+    const rate1 = hourlyRate1 > 0 ? hourlyRate1 : 0;
+    const rate2 = hourlyRate2 > 0 ? hourlyRate2 : rate1;
+    const val = (rate1 > 0 || rate2 > 0)
+      ? (isCumulative ? (12 * rate1 + (i - 12) * rate2) : rate2)
+      : '';
+    stdShift2.push(val);
   }
 
   const shift1Rows = [];
@@ -298,13 +302,13 @@ export function buildSopModel(report, derived, options = {}) {
   const itemCode2 = ref2.itemCode || '';
   const combinedItemCodes = [itemCode1, itemCode2].filter(Boolean).join(' / ');
 
-  let productDescription = isBlank ? '' : (ref1.pipeSpec || 'HDPE 20 MM Code 930');
+  let productDescription = isBlank ? '' : (ref1.pipeSpec || '');
   if (!isBlank && ref2.pipeSpec && ref2.pipeSpec !== ref1.pipeSpec) {
-    productDescription = `${ref1.pipeSpec} / ${ref2.pipeSpec}`;
+    productDescription = ref1.pipeSpec ? `${ref1.pipeSpec} / ${ref2.pipeSpec}` : (ref2.pipeSpec || '');
   }
 
   const displayProduct = combinedItemCodes
-    ? `[${combinedItemCodes}] - ${productDescription}`
+    ? (productDescription ? `[${combinedItemCodes}] - ${productDescription}` : `[${combinedItemCodes}]`)
     : productDescription;
 
   const s1TotalGoodPcs = isBlank ? '' : (Number.isInteger(s1GoodPcsTotal) ? s1GoodPcsTotal : Math.round(s1GoodPcsTotal * 10) / 10);
@@ -314,9 +318,13 @@ export function buildSopModel(report, derived, options = {}) {
 
   return {
     docCode: 'DOC-Ext.-03',
-    version: '3',
+    version: '04',
     creationDate: '18-01-18',
-    plantName: (report?.header?.plantName || 'AL Manar'),
+    plantName: options?.plantName || 'AL MANAR PIPES FACTORY',
+    reportTitle: 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
+    reportSubtitle: 'Production Execution & Quality Follow-Up',
+    dateIso: dates.iso || '',
+    targetDate: dates.iso || '',
     dateDots: dates.dots,
     dateSpaces: dates.spaces,
     lineId: isBlank ? '' : fullMachineName,
@@ -326,6 +334,8 @@ export function buildSopModel(report, derived, options = {}) {
     itemCode: combinedItemCodes,
     productDescription,
     displayProduct,
+    ref1Spec: ref1.pipeSpec || '',
+    ref2Spec: ref2.pipeSpec || '',
     speed1: isBlank ? '' : speed1,
     speed2: isBlank ? '' : speed2,
     shift1Rows,
@@ -457,30 +467,25 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     };
   }
 
-  // Fallback defaults when no previous record exists
-  const defaultDesc = 'HDPE 20 MM Code 930';
-  const defaultCode = '930';
-  const defaultLen = 6.0;
-  const defaultSpeed = 10.0;
-  const defaultRate = Math.round((defaultSpeed * 60) / defaultLen);
-  const nominalCap = Number(machine.nominalCapacity) || Number(machine.capacityKgH) || 200;
-  const defaultRateKgH = Math.round(defaultRate * 0.15);
+  // Idle / unassigned machine line with no active or inherited production run
+  const nominalCap = Number(machine?.nominalCapacity) || Number(machine?.capacityKgH) || 200;
 
   return {
     machineId: cleanId,
     fullMachineName,
-    productDescription: defaultDesc,
-    itemCode: defaultCode,
-    od: '20',
+    productDescription: '',
+    itemCode: '',
+    od: '',
     wt: '',
-    pipeLength: defaultLen,
-    speed: defaultSpeed,
-    unitWeight: 0.15,
+    pipeLength: 6.0,
+    speed: '',
+    unitWeight: '',
     nominalCapacity: nominalCap,
-    targetRate: defaultRate,
-    calculatedRate: defaultRate,
-    calculatedRateKgH: defaultRateKgH,
-    previousRunDate: null
+    targetRate: '',
+    calculatedRate: '',
+    calculatedRateKgH: '',
+    previousRunDate: null,
+    isIdle: true
   };
 }
 
@@ -606,20 +611,33 @@ export function buildMorningSopModel(config = {}) {
   const itemCode = rawItemCode || extractEmbeddedItemCode(desc) || '';
   const displayProduct = itemCode ? `[${itemCode}] - ${desc}` : desc;
 
-  const speed = Number(config.speed) > 0 ? Number(config.speed) : 10;
+  const rawSpeed = config.speed !== undefined && config.speed !== null && config.speed !== ''
+    ? Number(config.speed)
+    : NaN;
+  const speed = !isNaN(rawSpeed) && rawSpeed > 0 ? rawSpeed : '';
   const pipeLength = Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0;
-  const unitWeight = Number(config.unitWeight) > 0 ? Number(config.unitWeight) : 1.0;
-  const hourlyStdRate = Math.round((speed * 60) / pipeLength);
-  const calculatedRateKgH = Math.round(hourlyStdRate * unitWeight);
+  const rawUnitWeight = config.unitWeight !== undefined && config.unitWeight !== null && config.unitWeight !== ''
+    ? Number(config.unitWeight)
+    : NaN;
+  const unitWeight = !isNaN(rawUnitWeight) && rawUnitWeight > 0 ? rawUnitWeight : '';
+
+  const isIdle = Boolean(config.isIdle || (!speed && !desc && !itemCode));
+
+  const hourlyStdRate = (speed && pipeLength) ? Math.round((speed * 60) / pipeLength) : '';
+  const calculatedRateKgH = (hourlyStdRate && unitWeight) ? Math.round(hourlyStdRate * unitWeight) : '';
   const nominalCapacity = Number(config.nominalCapacity) || 200;
-  const utilizationPct = nominalCapacity > 0 ? Math.round((calculatedRateKgH / nominalCapacity) * 100) : 0;
+  const utilizationPct = (calculatedRateKgH && nominalCapacity > 0)
+    ? Math.round((calculatedRateKgH / nominalCapacity) * 100)
+    : 0;
   const isCumulative = config.cumulative !== undefined
     ? Boolean(config.cumulative)
     : (config.isCumulative !== undefined ? Boolean(config.isCumulative) : true);
 
   const shift1Rows = SOP_SHIFT1_HOURS.map((hour, idx) => {
     const slotNum = idx + 1; // 1 to 12
-    const target = isCumulative ? hourlyStdRate * slotNum : hourlyStdRate;
+    const target = (!isIdle && hourlyStdRate > 0)
+      ? (isCumulative ? hourlyStdRate * slotNum : hourlyStdRate)
+      : '';
     return {
       hour,
       stdPcs: target,
@@ -634,7 +652,9 @@ export function buildMorningSopModel(config = {}) {
 
   const shift2Rows = SOP_SHIFT2_HOURS.map((hour, idx) => {
     const slotNum = idx + 13; // 13 to 24
-    const target = isCumulative ? hourlyStdRate * slotNum : hourlyStdRate;
+    const target = (!isIdle && hourlyStdRate > 0)
+      ? (isCumulative ? hourlyStdRate * slotNum : hourlyStdRate)
+      : '';
     return {
       hour,
       stdPcs: target,
@@ -649,9 +669,13 @@ export function buildMorningSopModel(config = {}) {
 
   return {
     docCode: 'DOC-Ext.-03',
-    version: '3',
+    version: '04',
     creationDate: '18-01-18',
-    plantName: config.plantName || 'AL Manar',
+    plantName: config.plantName || 'AL MANAR PIPES FACTORY',
+    reportTitle: 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
+    reportSubtitle: 'Production Execution & Quality Follow-Up',
+    dateIso: dates.iso || '',
+    targetDate: dates.iso || '',
     dateDots: dates.dots,
     dateSpaces: dates.spaces,
     lineId: fullMachineName || lineId,
@@ -661,6 +685,8 @@ export function buildMorningSopModel(config = {}) {
     itemCode,
     productDescription: desc,
     displayProduct,
+    ref1Spec: desc,
+    ref2Spec: '',
     speed1: speed,
     speed2: speed,
     pipeLength,
@@ -670,6 +696,7 @@ export function buildMorningSopModel(config = {}) {
     calculatedRateKgH,
     utilizationPct,
     isCumulative,
+    isIdle,
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs: '',
@@ -715,9 +742,13 @@ export function buildUniversalBlankSopModel(config = {}) {
 
   return {
     docCode: 'DOC-Ext.-03',
-    version: '3',
+    version: '04',
     creationDate: '18-01-18',
-    plantName: config.plantName || 'AL Manar',
+    plantName: config.plantName || 'AL MANAR PIPES FACTORY',
+    reportTitle: 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
+    reportSubtitle: 'Production Execution & Quality Follow-Up',
+    dateIso: '',
+    targetDate: '',
     dateDots: '',
     dateSpaces: '',
     lineId: '',
@@ -726,6 +757,8 @@ export function buildUniversalBlankSopModel(config = {}) {
     itemCode: '',
     productDescription: '',
     displayProduct: '',
+    ref1Spec: '',
+    ref2Spec: '',
     speed1: '',
     speed2: '',
     pipeLength: 6.0,

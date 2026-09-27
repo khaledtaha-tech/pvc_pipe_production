@@ -70,8 +70,10 @@ export default function PrintSopModal({
       const isCurrent = m?.id === currentMachineId;
       const hadRun = Boolean(prevRun);
       const nominalCapacity = Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || 200;
-      const unitWeight = Number(specs?.unitWeight) > 0 ? Number(specs.unitWeight) : 1.0;
-      const calculatedRateKgH = Math.round((Number(specs?.calculatedRate) || 0) * unitWeight);
+      const unitWeight = Number(specs?.unitWeight) > 0 ? Number(specs.unitWeight) : (hadRun ? 1.0 : '');
+      const calculatedRateKgH = specs?.calculatedRateKgH !== undefined && specs?.calculatedRateKgH !== ''
+        ? specs.calculatedRateKgH
+        : (unitWeight && specs?.calculatedRate ? Math.round(Number(specs.calculatedRate) * Number(unitWeight)) : '');
 
       return {
         machineId: m?.id || '',
@@ -83,12 +85,13 @@ export default function PrintSopModal({
         itemCode: specs?.itemCode || '',
         od: specs?.od || '',
         wt: specs?.wt || '',
-        speed: specs?.speed || 10,
+        speed: specs?.speed !== undefined && specs?.speed !== null ? specs.speed : '',
         pipeLength: specs?.pipeLength || 6.0,
-        calculatedRate: specs?.calculatedRate || 100,
+        calculatedRate: specs?.calculatedRate !== undefined && specs?.calculatedRate !== null ? specs.calculatedRate : '',
         unitWeight,
         nominalCapacity,
-        calculatedRateKgH
+        calculatedRateKgH,
+        isIdle: Boolean(specs?.isIdle || !hadRun)
       };
     });
 
@@ -131,18 +134,31 @@ export default function PrintSopModal({
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
 
+        if (!newCode) {
+          return {
+            ...item,
+            itemCode: '',
+            productDescription: '',
+            unitWeight: '',
+            speed: '',
+            calculatedRate: '',
+            calculatedRateKgH: '',
+            isIdle: true
+          };
+        }
+
         const matchedProduct = productCatalog.find(
           (p) => String(p.itemCode).trim().toUpperCase() === String(newCode).trim().toUpperCase()
         );
 
         const newDesc = matchedProduct?.description || item.productDescription;
-        const unitWeight = matchedProduct?.unitWeight || item.unitWeight || 1.0;
+        const unitWeight = matchedProduct?.unitWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
 
         const benchmark = calculateBenchmarkSpeedForProduct(
           { unitWeight },
           machineId,
           machineMaster,
-          item.pipeLength
+          item.pipeLength || 6.0
         );
 
         return {
@@ -152,7 +168,8 @@ export default function PrintSopModal({
           unitWeight,
           speed: benchmark.speed,
           calculatedRate: benchmark.calculatedRate,
-          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight)
+          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight),
+          isIdle: false
         };
       })
     );
@@ -164,17 +181,30 @@ export default function PrintSopModal({
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
 
+        if (!newDesc) {
+          return {
+            ...item,
+            itemCode: '',
+            productDescription: '',
+            unitWeight: '',
+            speed: '',
+            calculatedRate: '',
+            calculatedRateKgH: '',
+            isIdle: true
+          };
+        }
+
         const matchedProduct = productCatalog.find(
           (p) => p.description.toUpperCase() === newDesc.toUpperCase()
         );
         const itemCode = matchedProduct?.itemCode || item.itemCode || '';
-        const unitWeight = matchedProduct?.unitWeight || item.unitWeight || 1.0;
+        const unitWeight = matchedProduct?.unitWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
 
         const benchmark = calculateBenchmarkSpeedForProduct(
           { unitWeight },
           machineId,
           machineMaster,
-          item.pipeLength
+          item.pipeLength || 6.0
         );
 
         return {
@@ -184,7 +214,8 @@ export default function PrintSopModal({
           unitWeight,
           speed: benchmark.speed,
           calculatedRate: benchmark.calculatedRate,
-          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight)
+          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight),
+          isIdle: false
         };
       })
     );
@@ -192,17 +223,29 @@ export default function PrintSopModal({
 
   // Update linear speed (m/min) and recalculate standard pcs/h and output rate (kg/h)
   const handleSpeedChange = (machineId, speedVal) => {
-    const num = Math.max(0.1, Number(speedVal) || 0.1);
+    const rawVal = speedVal === '' ? '' : Number(speedVal);
+    const num = typeof rawVal === 'number' && !isNaN(rawVal) && rawVal > 0 ? rawVal : '';
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
-        const rate = Math.round((num * 60) / item.pipeLength);
+        if (num === '') {
+          return {
+            ...item,
+            speed: '',
+            calculatedRate: '',
+            calculatedRateKgH: '',
+            isIdle: !item.productDescription
+          };
+        }
+        const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
+        const rate = Math.round((num * 60) / pipeLen);
         const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
         return {
           ...item,
           speed: num,
           calculatedRate: rate,
-          calculatedRateKgH: Math.round(rate * unitWeight)
+          calculatedRateKgH: Math.round(rate * unitWeight),
+          isIdle: false
         };
       })
     );
@@ -214,13 +257,14 @@ export default function PrintSopModal({
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
-        const rate = Math.round((item.speed * 60) / num);
+        const speedNum = Number(item.speed) || 0;
+        const rate = speedNum > 0 ? Math.round((speedNum * 60) / num) : '';
         const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
         return {
           ...item,
           pipeLength: num,
           calculatedRate: rate,
-          calculatedRateKgH: Math.round(rate * unitWeight)
+          calculatedRateKgH: rate ? Math.round(rate * unitWeight) : ''
         };
       })
     );
@@ -243,6 +287,7 @@ export default function PrintSopModal({
         pipeLength: item.pipeLength,
         unitWeight: item.unitWeight,
         nominalCapacity: item.nominalCapacity,
+        isIdle: Boolean(item.isIdle || (!item.speed && !item.productDescription && !item.itemCode)),
         machineMaster
       })
     );
@@ -426,22 +471,35 @@ export default function PrintSopModal({
                           Inherited: {line.previousRunDate}
                         </span>
                       ) : (
-                        <span className="print-sop-badge-default">
-                          Default Preset
+                        <span className="print-sop-badge-default idle">
+                          Stopped / No Run
                         </span>
                       )}
-                      <span className="print-sop-badge-rate">
-                        {line.calculatedRate.toLocaleString()} Pcs / hr
-                      </span>
-                      <span className="print-sop-badge-kgh">
-                        Calculated: {calculatedKgH.toLocaleString()} kg/h
-                      </span>
-                      <span className="print-sop-badge-nominal">
-                        Nominal Target: {nominalKgH.toLocaleString()} kg/h
-                      </span>
-                      <span className="print-sop-badge-util">
-                        Utilization: {utilizationPct}%
-                      </span>
+                      {line.calculatedRate ? (
+                        <>
+                          <span className="print-sop-badge-rate">
+                            {Number(line.calculatedRate).toLocaleString()} Pcs / hr
+                          </span>
+                          <span className="print-sop-badge-kgh">
+                            Calculated: {calculatedKgH.toLocaleString()} kg/h
+                          </span>
+                          <span className="print-sop-badge-nominal">
+                            Nominal Target: {nominalKgH.toLocaleString()} kg/h
+                          </span>
+                          <span className="print-sop-badge-util">
+                            Utilization: {utilizationPct}%
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="print-sop-badge-rate idle">
+                            Idle / Blank Sheet
+                          </span>
+                          <span className="print-sop-badge-nominal">
+                            Nominal Target: {nominalKgH.toLocaleString()} kg/h
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -455,10 +513,11 @@ export default function PrintSopModal({
                         </label>
                         <select
                           className="print-sop-select print-sop-code-select"
-                          value={line.itemCode}
+                          value={line.itemCode || ''}
                           onChange={(e) => handleProductCodeChange(line.machineId, e.target.value)}
                           disabled={isGenerating || (scope === 'all' && !line.isSelected)}
                         >
+                          <option value="">-- No Product (Blank Sheet) --</option>
                           {line.itemCode && !distinctCodes.some((c) => c === line.itemCode) && (
                             <option value={line.itemCode}>
                               {line.itemCode} (Current)
@@ -482,12 +541,13 @@ export default function PrintSopModal({
                         </label>
                         <select
                           className="print-sop-select"
-                          value={line.productDescription}
+                          value={line.productDescription || ''}
                           onChange={(e) => handleProductChange(line.machineId, e.target.value)}
                           disabled={isGenerating || (scope === 'all' && !line.isSelected)}
                         >
+                          <option value="">-- Manual Pen Entry (Blank) --</option>
                           {/* Ensure currently selected product is represented */}
-                          {!productCatalog.some((p) => p.description === line.productDescription) && (
+                          {line.productDescription && !productCatalog.some((p) => p.description === line.productDescription) && (
                             <option value={line.productDescription}>
                               {line.itemCode ? `[${line.itemCode}] ` : ''}{line.productDescription} (Recorded)
                             </option>
@@ -508,10 +568,11 @@ export default function PrintSopModal({
                         <input
                           type="number"
                           step="0.1"
-                          min="0.1"
+                          min="0"
                           max="100"
                           className="print-sop-input"
-                          value={line.speed}
+                          value={line.speed !== undefined && line.speed !== null ? line.speed : ''}
+                          placeholder="Manual (Blank)"
                           onChange={(e) => handleSpeedChange(line.machineId, e.target.value)}
                           disabled={isGenerating || (scope === 'all' && !line.isSelected)}
                         />
@@ -532,28 +593,38 @@ export default function PrintSopModal({
                       </div>
 
                       <div className="print-sop-param print-sop-calc-summary">
-                        <div className="print-sop-calc-pcs-box">
-                          <span className="print-sop-calc-formula">
-                            ({line.speed} &times; 60) / {line.pipeLength}m
-                          </span>
-                          <span className="print-sop-calc-val">
-                            = <strong>{line.calculatedRate}</strong> pcs/h
-                          </span>
-                        </div>
-                        <span className="print-sop-calc-divider">|</span>
-                        <div className="print-sop-calc-kgh-box">
-                          <span className="print-sop-calc-item print-sop-calc-output">
-                            Calculated: <strong>{calculatedKgH.toLocaleString()} kg/h</strong>
-                          </span>
-                          <span className="print-sop-calc-bullet">&bull;</span>
-                          <span className="print-sop-calc-item print-sop-calc-nominal">
-                            Nominal Target: <strong>{nominalKgH.toLocaleString()} kg/h</strong>
-                          </span>
-                          <span className="print-sop-calc-bullet">&bull;</span>
-                          <span className="print-sop-calc-item print-sop-calc-util" title="Calculated / Nominal">
-                            Utilization: <strong>{utilizationPct}%</strong>
-                          </span>
-                        </div>
+                        {line.calculatedRate ? (
+                          <>
+                            <div className="print-sop-calc-pcs-box">
+                              <span className="print-sop-calc-formula">
+                                ({line.speed} &times; 60) / {line.pipeLength}m
+                              </span>
+                              <span className="print-sop-calc-val">
+                                = <strong>{line.calculatedRate}</strong> pcs/h
+                              </span>
+                            </div>
+                            <span className="print-sop-calc-divider">|</span>
+                            <div className="print-sop-calc-kgh-box">
+                              <span className="print-sop-calc-item print-sop-calc-output">
+                                Calculated: <strong>{calculatedKgH.toLocaleString()} kg/h</strong>
+                              </span>
+                              <span className="print-sop-calc-bullet">&bull;</span>
+                              <span className="print-sop-calc-item print-sop-calc-nominal">
+                                Nominal Target: <strong>{nominalKgH.toLocaleString()} kg/h</strong>
+                              </span>
+                              <span className="print-sop-calc-bullet">&bull;</span>
+                              <span className="print-sop-calc-item print-sop-calc-util" title="Calculated / Nominal">
+                                Utilization: <strong>{utilizationPct}%</strong>
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="print-sop-calc-idle-box">
+                            <span className="print-sop-calc-idle">
+                              No active speed / product set &bull; Blank sheet for floor pen recording
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

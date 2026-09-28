@@ -1,5 +1,9 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
-import { buildSopModel } from '../../logic/legacySopHelper.js';
+import {
+  buildSopModel,
+  resolveProductSpecification,
+  isCompoundingLineOrProduct
+} from '../../logic/legacySopHelper.js';
 
 export const LegacySopSheet = forwardRef(function LegacySopSheet(
   { report, derived, isExporting = false, isBlank = false, standardRate = null, model: propModel = null },
@@ -10,13 +14,20 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
 
   const model = propModel || buildSopModel(report, derived, { isBlank: Boolean(isBlank || report?.isBlank), standardRate });
   const isBlankMode = Boolean(isBlank || report?.isBlank || model?.isBlank);
-  const isUniversal = Boolean(model?.isUniversalBlank || (!model?.isMorningSop && isBlankMode));
+  const isUniversal = Boolean(model?.isUniversalBlank || (!model?.isMorningSop && isBlank && !report && !propModel));
 
-  const hasProduct = Boolean(!isUniversal && !isBlankMode && !model?.isIdle && (model?.displayProduct || model?.productDescription || model?.itemCode));
+  const isCompounding = Boolean(
+    model?.isCompounding ||
+    model?.isPelletizingLine ||
+    isCompoundingLineOrProduct(model)
+  );
+
+  const rawProductSpec = resolveProductSpecification(model);
+  const hasProduct = Boolean(!isUniversal && !model?.isIdle && (rawProductSpec || model?.displayProduct || model?.itemCode));
   const productDisplay = hasProduct
-    ? (model?.itemCode && model?.productDescription && !model?.productDescription.includes(model?.itemCode)
-        ? `[${model.itemCode}] — ${model.productDescription}`
-        : (model?.displayProduct || model?.productDescription || `[${model?.itemCode}]`))
+    ? (model?.itemCode && rawProductSpec && !rawProductSpec.toUpperCase().includes(model.itemCode.toUpperCase())
+        ? `[${model.itemCode}] - ${rawProductSpec}`
+        : (rawProductSpec || model?.displayProduct || `[${model?.itemCode}]`))
     : '';
 
   const hasLine = Boolean(!isUniversal && (model?.fullMachineName || model?.lineId));
@@ -136,18 +147,37 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                   <span className="sop-op-lbl">Line No:</span>{' '}
                   <span className="sop-op-val">{lineDisplay}</span>
                 </div>
-                <div className="sop-op-col">
-                  <span className="sop-op-lbl">Standard Speed:</span>{' '}
-                  <span className="sop-op-val">{speedDisplay}</span>
-                </div>
-                <div className="sop-op-col">
-                  <span className="sop-op-lbl">Cut Length:</span>{' '}
-                  <span className="sop-op-val">{lengthDisplay}</span>
-                </div>
-                <div className="sop-op-col">
-                  <span className="sop-op-lbl">Nominal Weight:</span>{' '}
-                  <span className="sop-op-val">{weightDisplay}</span>
-                </div>
+                {isCompounding ? (
+                  <>
+                    <div className="sop-op-col">
+                      <span className="sop-op-lbl">Target Capacity:</span>{' '}
+                      <span className="sop-op-val">{model?.targetCapacity ? `${model.targetCapacity} Kg/h` : (model?.hourlyStdRate ? `${model.hourlyStdRate} Kg/h` : '400 Kg/h')}</span>
+                    </div>
+                    <div className="sop-op-col">
+                      <span className="sop-op-lbl">Bag Packaging:</span>{' '}
+                      <span className="sop-op-val">{model?.bagPackaging || '25 Kg / Bag'}</span>
+                    </div>
+                    <div className="sop-op-col">
+                      <span className="sop-op-lbl">Line Type:</span>{' '}
+                      <span className="sop-op-val">Pelletizing / Compounding</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="sop-op-col">
+                      <span className="sop-op-lbl">Standard Speed:</span>{' '}
+                      <span className="sop-op-val">{speedDisplay}</span>
+                    </div>
+                    <div className="sop-op-col">
+                      <span className="sop-op-lbl">Cut Length:</span>{' '}
+                      <span className="sop-op-val">{lengthDisplay}</span>
+                    </div>
+                    <div className="sop-op-col">
+                      <span className="sop-op-lbl">Nominal Weight:</span>{' '}
+                      <span className="sop-op-val">{weightDisplay}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </td>
           </tr>
@@ -156,10 +186,10 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
           <tr className="sop-head-row">
             <th className="sop-th">Hour</th>
             <th className="sop-th">
-              Standard<br />Production (Pcs)
+              Standard<br />Production {isCompounding ? '(Kg)' : '(Pcs)'}
             </th>
             <th className="sop-th">
-              Good<br />Production (Pcs)
+              Good<br />Production {isCompounding ? '(Kg)' : '(Pcs)'}
             </th>
             <th className="sop-th">Cause</th>
             <th className="sop-th">
@@ -196,7 +226,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                 {i === 1 && (
                   <td colSpan={3} className="sop-summary-item">
                     <div className="sop-summary-item-wrap">
-                      <span className="sop-summary-lbl">Total Good (Pcs):</span>
+                      <span className="sop-summary-lbl">Total Good {isCompounding ? '(Kg)' : '(Pcs)'}:</span>
                       <span className="sop-summary-val">{renderMetric(model.s1TotalGoodPcs, '________')}</span>
                     </div>
                   </td>
@@ -281,7 +311,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                 {i === 1 && (
                   <td colSpan={3} className="sop-summary-item">
                     <div className="sop-summary-item-wrap">
-                      <span className="sop-summary-lbl">Total Good (Pcs):</span>
+                      <span className="sop-summary-lbl">Total Good {isCompounding ? '(Kg)' : '(Pcs)'}:</span>
                       <span className="sop-summary-val">{renderMetric(model.s2TotalGoodPcs, '________')}</span>
                     </div>
                   </td>

@@ -554,7 +554,7 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
       '',
       'Line No.',
       model.fullMachineName || model.lineId || '',
-      'PRODUCTION PIECES',
+      model.isCompounding ? 'PRODUCTION (KG)' : 'PRODUCTION PIECES',
       '',
       '',
       'Date:',
@@ -567,11 +567,11 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
       model.displayProduct || (model.itemCode ? `[${model.itemCode}] - ${model.productDescription}` : model.productDescription) || '',
       '', '', '', '', ''
     ],
-    // Row 5 (index 4): Reference specs (Secondary Date removed)
+    // Row 5 (index 4): Reference specs
     [
       '', '', '',
-      model.ref1Spec || '1st reference',
-      model.ref2Spec || '2nd reference',
+      model.isCompounding ? 'Target Capacity:' : (model.ref1Spec || '1st reference'),
+      model.isCompounding ? 'Bag Packaging:' : (model.ref2Spec || '2nd reference'),
       '',
       '',
       '',
@@ -580,15 +580,15 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     // Row 6 (index 5): Reference Speed Values
     [
       '', '', '',
-      model.speed1 ? `${model.speed1} M/Min` : '',
-      model.speed2 ? `${model.speed2} M/Min` : '',
+      model.isCompounding ? `${model.targetCapacity || model.hourlyStdRate || 400} Kg/h` : (model.speed1 ? `${model.speed1} M/Min` : ''),
+      model.isCompounding ? (model.bagPackaging || '25 Kg / Bag') : (model.speed2 ? `${model.speed2} M/Min` : ''),
       '', '', '', ''
     ],
     // Row 7 (index 6): Table Column Headers
     [
       'Hour',
-      'Standard Prod. (Pcs)',
-      'Good Prod. (Pcs)',
+      model.isCompounding ? 'Standard Prod. (Kg)' : 'Standard Prod. (Pcs)',
+      model.isCompounding ? 'Good Prod. (Kg)' : 'Good Prod. (Pcs)',
       'Cause of Stop / Remarks',
       'Stop Time (Min)',
       'Reject Production (KG)',
@@ -609,7 +609,7 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     if (i === 0) {
       sideLbl = 'Shift 1 Summary & Metrics';
     } else if (i === 1) {
-      sideLbl = 'Total Good (Pcs):';
+      sideLbl = model.isCompounding ? 'Total Good (Kg):' : 'Total Good (Pcs):';
       sideVal = model.s1TotalGoodPcs !== '' && model.s1TotalGoodPcs !== undefined ? model.s1TotalGoodPcs : '';
     } else if (i === 2) {
       sideLbl = 'Total Weight (Kg):';
@@ -671,7 +671,7 @@ export function buildLegacySopExcelSheet(report, derived, options = {}) {
     if (idx === 0) {
       sideLbl = 'Shift 2 Summary & Metrics';
     } else if (idx === 1) {
-      sideLbl = 'Total Good (Pcs):';
+      sideLbl = model.isCompounding ? 'Total Good (Kg):' : 'Total Good (Pcs):';
       sideVal = model.s2TotalGoodPcs !== '' && model.s2TotalGoodPcs !== undefined ? model.s2TotalGoodPcs : '';
     } else if (idx === 2) {
       sideLbl = 'Total Weight (Kg):';

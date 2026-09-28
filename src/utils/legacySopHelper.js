@@ -47,6 +47,118 @@ export function formatFullMachineName(lineId, lineCustom, machineList = MACHINES
 }
 
 /**
+ * Safely resolves the product specification string across diverse field aliases:
+ * itemDescription, description, productDescription, productSpec, spec, itemName, ref1Spec, pipeSpec.
+ */
+export function resolveProductSpecification(target, fallback = '') {
+  if (!target) return fallback;
+  if (typeof target === 'string') return target.trim();
+  const raw =
+    target.itemDescription ||
+    target.description ||
+    target.productDescription ||
+    target.productSpec ||
+    target.spec ||
+    target.itemName ||
+    target.ref1Spec ||
+    target.pipeSpec ||
+    fallback;
+  return typeof raw === 'string' ? raw.trim() : String(raw || '').trim();
+}
+
+/**
+ * Detect whether a machine profile, line configuration, or product is compounding / pelletizing.
+ * Targets: Line L-01, KTS 550, or descriptions containing COMPOUND, PELLETIZING, DRY BLEND, PELLETS.
+ */
+export function isCompoundingLineOrProduct(target, machineMaster = MACHINES) {
+  if (!target) return false;
+
+  if (target.isCompounding !== undefined && target.isCompounding !== null) {
+    return Boolean(target.isCompounding);
+  }
+
+  const productText = [
+    target.itemCode,
+    target.productCode,
+    target.productDescription,
+    target.itemDescription,
+    target.description,
+    target.productSpec,
+    target.spec,
+    target.itemName,
+    target.displayProduct,
+    target.ref1Spec,
+    target.pipeSpec
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toUpperCase();
+
+  // 1. If product explicitly specifies compounding or pelletizing
+  if (
+    productText.includes('COMPOUND') ||
+    productText.includes('PELLETIZING') ||
+    productText.includes('DRY BLEND') ||
+    productText.includes('PELLETS') ||
+    productText.includes('PELLET') ||
+    target.itemCode === 'COMP-01' ||
+    target.itemCode === 'COMP-02' ||
+    target.itemCode === 'PEL-01'
+  ) {
+    return true;
+  }
+
+  // 2. If product or config explicitly specifies an extruded pipe product
+  if (
+    productText.includes('PIPE') ||
+    productText.includes('HDPE') ||
+    productText.includes('UPVC') ||
+    productText.includes('PVC-U') ||
+    productText.includes('CORRUGATED') ||
+    productText.includes('PCS/H') ||
+    productText.includes('PCS') ||
+    /\b\d+\s*X\s*[\d.]+/i.test(productText) ||
+    /\b\d+\s*MM\b/i.test(productText) ||
+    (Number(target.pipeLength) > 0 && Number(target.speed) > 0)
+  ) {
+    return false;
+  }
+
+  // 3. Fall back to machine profile / line type
+  if (target.isPelletizingLine || target.isPelletizing) {
+    return true;
+  }
+
+  const lineId = String(target.lineId || target.lineCode || target.machineId || '').trim().toUpperCase();
+  if (lineId === 'L-01' || lineId === 'LINE-1' || lineId === 'LINE 1' || lineId === 'KTS-550' || lineId === 'KTS 550') {
+    return true;
+  }
+
+  const machineName = String(target.fullMachineName || target.machineName || target.lineCustom || '').trim().toUpperCase();
+  if (
+    machineName.includes('KTS 550') ||
+    machineName.includes('KTS-550') ||
+    machineName.includes('PELLETIZING') ||
+    machineName.includes('COMPOUND')
+  ) {
+    return true;
+  }
+
+  const matched = matchMachine(lineId || machineName, machineMaster);
+  if (
+    matched &&
+    (matched.isPelletizingLine ||
+      matched.lineType === 'Pelletizing Line' ||
+      matched.id === 'L-01' ||
+      String(matched.name).toUpperCase().includes('KTS 550'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Format date string into template formats:
  * - dots: "17.09.2026"
  * - spaces: "17 9 2026"
@@ -143,6 +255,7 @@ export const computeStandardHourlyMeters = computeStandardHourlyPieces;
  * and standard production in pieces based on cut length.
  */
 export function buildSopModel(report, derived, options = {}) {
+  const machineMaster = options?.machineMaster || MACHINES;
   const isBlank = Boolean(options.isBlank || report?.isBlank);
   const isCumulative = options.cumulative !== undefined
     ? Boolean(options.cumulative)
@@ -360,13 +473,21 @@ export function buildSopModel(report, derived, options = {}) {
     ? Math.min(100, Math.round((s2GoodPcsTotal / s2TargetTotal) * 100)) + '%'
     : (!isBlank && (720 - s2DowntimeTotal) > 0 && s2GoodPcsTotal > 0 ? Math.round(((720 - s2DowntimeTotal) / 720) * 100) + '%' : '');
 
+  const isCompounding = isCompoundingLineOrProduct({
+    lineId: header.lineId,
+    fullMachineName,
+    lineCustom: header.lineCustom,
+    productDescription,
+    itemCode: combinedItemCodes
+  }, machineMaster);
+
   return {
     docCode: 'DOC-Ext.-03',
     version: '04',
     creationDate: '18-01-18',
     plantName: options?.plantName || 'AL MANAR PIPES FACTORY',
-    reportTitle: 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
-    reportSubtitle: 'Production Execution & Quality Follow-Up',
+    reportTitle: isCompounding ? 'PVC COMPOUND / PELLETIZING DAILY MONITORING REPORT' : 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
+    reportSubtitle: isCompounding ? 'Compounding Execution & Quality Follow-Up' : 'Production Execution & Quality Follow-Up',
     dateIso: dates.iso || '',
     targetDate: dates.iso || '',
     dateDots: dates.dots,
@@ -377,6 +498,11 @@ export function buildSopModel(report, derived, options = {}) {
     fullMachineName,
     itemCode: combinedItemCodes,
     productDescription,
+    itemDescription: productDescription,
+    description: productDescription,
+    productSpec: productDescription,
+    spec: productDescription,
+    itemName: productDescription,
     displayProduct,
     ref1Spec: ref1.pipeSpec || '',
     ref2Spec: ref2.pipeSpec || '',
@@ -385,6 +511,10 @@ export function buildSopModel(report, derived, options = {}) {
     speed: isBlank ? '' : speed,
     pipeLength,
     unitWeight,
+    targetCapacity: isCompounding ? (Number(derived?.engineering?.nominalCapacityKgH) || 400) : null,
+    bagPackaging: '25 Kg / Bag',
+    isCompounding,
+    isPelletizingLine: isCompounding,
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs,
@@ -544,17 +674,52 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
   const cleanId = String(lineId || '').trim();
   const machine = matchMachine(cleanId, machineMaster) || { id: cleanId, name: cleanId, capacityKgH: 250 };
   const fullMachineName = formatFullMachineName(cleanId, '', machineMaster);
+  const isLineCompounding = isCompoundingLineOrProduct({ lineId: cleanId, fullMachineName }, machineMaster);
+  const nominalCap = Number(record?.nominalCapacityKgH) || Number(machine?.nominalCapacity) || Number(machine?.capacityKgH) || (isLineCompounding ? 400 : 200);
 
   if (record) {
     const item = (Array.isArray(record.items) && record.items.length > 0) ? record.items[0] : record;
-    const desc = (item.description || item.itemCode || 'HDPE 20 MM Code 930').trim();
-    const rawCode = item.itemCode ? String(item.itemCode).trim() : '';
-    const itemCode = rawCode || extractEmbeddedItemCode(desc) || '';
-    const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(record.unitWeight) || 1.0);
-    const specs = parseProductSpecs(desc, unitWeight);
-    const pipeLength = Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0;
+    const defaultDesc = isLineCompounding ? 'PVC COMPOUND DRY BLEND GREY (25KG)' : 'HDPE 20 MM Code 930';
+    const desc = resolveProductSpecification(item, resolveProductSpecification(record, defaultDesc));
+    const rawCode = (item.itemCode || record.itemCode || '').trim();
+    const itemCode = rawCode || extractEmbeddedItemCode(desc) || (isLineCompounding ? 'COMP-01' : '');
+    const isCompounding = isCompoundingLineOrProduct({
+      lineId: cleanId,
+      fullMachineName,
+      productDescription: desc,
+      itemCode
+    }, machineMaster);
 
-    const nominalCap = Number(record.nominalCapacityKgH) || Number(machine.nominalCapacity) || Number(machine.capacityKgH) || 200;
+    const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(record.unitWeight) || (isCompounding ? 25.0 : 1.0));
+    const specs = parseProductSpecs(desc, unitWeight);
+    const pipeLength = isCompounding ? 0 : (Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0);
+
+    if (isCompounding) {
+      const targetRate = nominalCap > 0 ? nominalCap : 400;
+      return {
+        machineId: cleanId,
+        fullMachineName,
+        productDescription: desc,
+        itemDescription: desc,
+        description: desc,
+        productSpec: desc,
+        spec: desc,
+        itemName: desc,
+        itemCode,
+        od: '',
+        wt: '',
+        pipeLength: 0,
+        speed: '',
+        unitWeight: 25.0,
+        nominalCapacity: nominalCap,
+        targetRate,
+        calculatedRate: targetRate,
+        calculatedRateKgH: targetRate,
+        isCompounding: true,
+        previousRunDate: record.date || null
+      };
+    }
+
     let targetRate = 0;
     if (nominalCap > 0 && unitWeight > 0) {
       targetRate = Math.round(nominalCap / unitWeight);
@@ -573,6 +738,11 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       machineId: cleanId,
       fullMachineName,
       productDescription: desc,
+      itemDescription: desc,
+      description: desc,
+      productSpec: desc,
+      spec: desc,
+      itemName: desc,
       itemCode,
       od: specs.od || '',
       wt: specs.wt || '',
@@ -583,17 +753,48 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       targetRate: calculatedRate,
       calculatedRate,
       calculatedRateKgH,
+      isCompounding: false,
       previousRunDate: record.date || null
     };
   }
 
   // Idle / unassigned machine line with no active or inherited production run
-  const nominalCap = Number(machine?.nominalCapacity) || Number(machine?.capacityKgH) || 200;
+  if (isLineCompounding) {
+    const targetRate = nominalCap > 0 ? nominalCap : 400;
+    return {
+      machineId: cleanId,
+      fullMachineName,
+      productDescription: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+      itemDescription: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+      description: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+      productSpec: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+      spec: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+      itemName: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+      itemCode: 'COMP-01',
+      od: '',
+      wt: '',
+      pipeLength: 0,
+      speed: '',
+      unitWeight: 25.0,
+      nominalCapacity: nominalCap,
+      targetRate,
+      calculatedRate: targetRate,
+      calculatedRateKgH: targetRate,
+      isCompounding: true,
+      previousRunDate: null,
+      isIdle: false
+    };
+  }
 
   return {
     machineId: cleanId,
     fullMachineName,
     productDescription: '',
+    itemDescription: '',
+    description: '',
+    productSpec: '',
+    spec: '',
+    itemName: '',
     itemCode: '',
     od: '',
     wt: '',
@@ -604,6 +805,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     targetRate: '',
     calculatedRate: '',
     calculatedRateKgH: '',
+    isCompounding: false,
     previousRunDate: null,
     isIdle: true
   };
@@ -618,6 +820,9 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
 
   // 1. Factory Standard Presets with official item codes
   const factoryPresets = [
+    { itemCode: 'COMP-01', description: 'PVC COMPOUND DRY BLEND GREY (25KG)', unitWeight: 25.0, pipeLength: 0, isCompounding: true },
+    { itemCode: 'COMP-02', description: 'PVC COMPOUND RIGID WHITE (25KG)', unitWeight: 25.0, pipeLength: 0, isCompounding: true },
+    { itemCode: 'PEL-01', description: 'PVC PELLETIZING COMPOUND BLACK (25KG)', unitWeight: 25.0, pipeLength: 0, isCompounding: true },
     { itemCode: '930', description: 'HDPE 20 MM Code 930', unitWeight: 0.15, pipeLength: 6.0 },
     { itemCode: '249', description: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2', unitWeight: 2.65, pipeLength: 6.0 },
     { itemCode: '247 R', description: 'uPVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R', unitWeight: 5.60, pipeLength: 6.0 },
@@ -726,29 +931,55 @@ export function buildMorningSopModel(config = {}) {
   const targetDate = config.date || config.targetDate || '';
   const dates = formatSopDates(targetDate);
 
+  const desc = resolveProductSpecification(config);
   const rawItemCode = (config.itemCode || config.productCode || '').trim();
-  const desc = (config.productDescription || '').trim();
   const itemCode = rawItemCode || extractEmbeddedItemCode(desc) || '';
-  const displayProduct = itemCode ? `[${itemCode}] - ${desc}` : desc;
+  const displayProduct = itemCode
+    ? (desc ? (desc.toUpperCase().includes(itemCode.toUpperCase()) ? desc : `[${itemCode}] - ${desc}`) : `[${itemCode}]`)
+    : desc;
+
+  const isCompounding = isCompoundingLineOrProduct({
+    ...config,
+    lineId,
+    fullMachineName,
+    itemCode,
+    productDescription: desc
+  }, machineMaster);
 
   const rawSpeed = config.speed !== undefined && config.speed !== null && config.speed !== ''
     ? Number(config.speed)
     : NaN;
   const speed = !isNaN(rawSpeed) && rawSpeed > 0 ? rawSpeed : '';
-  const pipeLength = Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0;
+  const pipeLength = isCompounding ? 0 : (Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0);
   const rawUnitWeight = config.unitWeight !== undefined && config.unitWeight !== null && config.unitWeight !== ''
     ? Number(config.unitWeight)
     : NaN;
-  const unitWeight = !isNaN(rawUnitWeight) && rawUnitWeight > 0 ? rawUnitWeight : '';
+  const unitWeight = !isNaN(rawUnitWeight) && rawUnitWeight > 0 ? rawUnitWeight : (isCompounding ? 25.0 : '');
 
-  const isIdle = Boolean(config.isIdle || (!speed && !desc && !itemCode));
+  const isIdle = Boolean(
+    config.isIdle ||
+    (isCompounding
+      ? (!desc && !itemCode && !config.targetRate && !config.targetCapacity)
+      : (!speed && !desc && !itemCode))
+  );
 
-  const hourlyStdRate = (speed && pipeLength) ? Math.round((speed * 60) / pipeLength) : '';
-  const calculatedRateKgH = (hourlyStdRate && unitWeight) ? Math.round(hourlyStdRate * unitWeight) : '';
-  const nominalCapacity = Number(config.nominalCapacity) || 200;
+  const nominalCapacity = Number(config.nominalCapacity) || Number(config.capacityKgH) || (isCompounding ? 400 : 200);
+
+  let hourlyStdRate = '';
+  if (isCompounding) {
+    hourlyStdRate = Number(config.targetRate) || Number(config.targetCapacity) || nominalCapacity || 400;
+  } else if (speed && pipeLength) {
+    hourlyStdRate = Math.round((speed * 60) / pipeLength);
+  }
+
+  const calculatedRateKgH = isCompounding
+    ? hourlyStdRate
+    : ((hourlyStdRate && unitWeight) ? Math.round(hourlyStdRate * unitWeight) : '');
+
   const utilizationPct = (calculatedRateKgH && nominalCapacity > 0)
     ? Math.round((calculatedRateKgH / nominalCapacity) * 100)
     : 0;
+
   const isCumulative = config.cumulative !== undefined
     ? Boolean(config.cumulative)
     : (config.isCumulative !== undefined ? Boolean(config.isCumulative) : true);
@@ -792,8 +1023,8 @@ export function buildMorningSopModel(config = {}) {
     version: '04',
     creationDate: '18-01-18',
     plantName: config.plantName || 'AL MANAR PIPES FACTORY',
-    reportTitle: 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
-    reportSubtitle: 'Production Execution & Quality Follow-Up',
+    reportTitle: isCompounding ? 'PVC COMPOUND / PELLETIZING DAILY MONITORING REPORT' : 'PVC PIPE EXTRUSION DAILY MONITORING REPORT',
+    reportSubtitle: isCompounding ? 'Compounding Execution & Quality Follow-Up' : 'Production Execution & Quality Follow-Up',
     dateIso: dates.iso || '',
     targetDate: dates.iso || '',
     dateDots: dates.dots,
@@ -804,6 +1035,11 @@ export function buildMorningSopModel(config = {}) {
     fullMachineName: fullMachineName || lineId,
     itemCode,
     productDescription: desc,
+    itemDescription: desc,
+    description: desc,
+    productSpec: desc,
+    spec: desc,
+    itemName: desc,
     displayProduct,
     ref1Spec: desc,
     ref2Spec: '',
@@ -813,11 +1049,15 @@ export function buildMorningSopModel(config = {}) {
     pipeLength,
     unitWeight,
     nominalCapacity,
+    targetCapacity: isCompounding ? hourlyStdRate : nominalCapacity,
+    bagPackaging: config.bagPackaging || '25 Kg / Bag',
     hourlyStdRate,
     calculatedRateKgH,
     utilizationPct,
     isCumulative,
     isIdle,
+    isCompounding,
+    isPelletizingLine: isCompounding,
     shift1Rows,
     shift2Rows,
     s1TotalGoodPcs: '',

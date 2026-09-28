@@ -18,6 +18,8 @@ import {
   calculateBenchmarkSpeedForProduct,
   buildMorningSopModel,
   buildUniversalBlankSopModel,
+  resolveProductSpecification,
+  isCompoundingLineOrProduct,
   SOP_SHIFT1_HOURS,
   SOP_SHIFT2_HOURS
 } from '../../src/logic/legacySopHelper.js';
@@ -559,6 +561,46 @@ assert.equal(universalBlankModel.s2Efficiency, '');
 assert.equal(universalBlankModel.speed, '');
 
 console.log('Shift Summary metrics & operational fields: OK');
+
+// 19. Product Specification Resolution across Aliases
+assert.equal(resolveProductSpecification({ itemDescription: 'PIPE 110mm' }), 'PIPE 110mm');
+assert.equal(resolveProductSpecification({ description: 'PIPE 160mm' }), 'PIPE 160mm');
+assert.equal(resolveProductSpecification({ productDescription: 'PIPE 200mm' }), 'PIPE 200mm');
+assert.equal(resolveProductSpecification({ productSpec: 'PIPE 250mm' }), 'PIPE 250mm');
+assert.equal(resolveProductSpecification({ spec: 'PIPE 315mm' }), 'PIPE 315mm');
+assert.equal(resolveProductSpecification({ itemName: 'PIPE 400mm' }), 'PIPE 400mm');
+assert.equal(resolveProductSpecification({ ref1Spec: 'PIPE 500mm' }), 'PIPE 500mm');
+assert.equal(resolveProductSpecification({ pipeSpec: 'PIPE 630mm' }), 'PIPE 630mm');
+assert.equal(resolveProductSpecification({}, 'FALLBACK'), 'FALLBACK');
+console.log('Product specification alias resolution: OK');
+
+// 20. Compounding Line & Product Detection
+assert.equal(isCompoundingLineOrProduct({ lineId: 'L-01' }), true);
+assert.equal(isCompoundingLineOrProduct({ fullMachineName: 'L-01 - KTS 550' }), true);
+assert.equal(isCompoundingLineOrProduct({ itemCode: 'COMP-01' }), true);
+assert.equal(isCompoundingLineOrProduct({ description: 'PVC COMPOUND DRY BLEND' }), true);
+assert.equal(isCompoundingLineOrProduct({ description: 'PELLETIZING COMPOUND BLACK' }), true);
+assert.equal(isCompoundingLineOrProduct({ lineId: 'L-03', description: 'uPVC PIPE 110x5.3 PN-12.5' }), false);
+console.log('Compounding line & product detection: OK');
+
+// 21. Compounding Morning SOP Sheet Model
+const compoundMorningModel = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: 'COMP-01',
+  productSpec: 'PVC COMPOUND DRY BLEND GREY (25KG)',
+  date: '2026-09-28'
+});
+assert.equal(compoundMorningModel.isCompounding, true);
+assert.equal(compoundMorningModel.reportTitle, 'PVC COMPOUND / PELLETIZING DAILY MONITORING REPORT');
+assert.equal(compoundMorningModel.reportSubtitle, 'Compounding Execution & Quality Follow-Up');
+assert.equal(compoundMorningModel.targetCapacity, 400);
+assert.equal(compoundMorningModel.bagPackaging, '25 Kg / Bag');
+assert.equal(compoundMorningModel.hourlyStdRate, 400);
+assert.equal(compoundMorningModel.pipeLength, 0);
+assert.equal(compoundMorningModel.speed, '');
+assert.ok(!compoundMorningModel.productDescription.includes('---'), 'Should not render placeholder dashes');
+assert.equal(compoundMorningModel.productDescription, 'PVC COMPOUND DRY BLEND GREY (25KG)');
+console.log('Compounding Morning SOP Sheet Model: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

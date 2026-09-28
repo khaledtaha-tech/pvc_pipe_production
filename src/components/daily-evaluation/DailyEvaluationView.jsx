@@ -1368,6 +1368,9 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             {PLANT_NAME} &middot; {SOP_REF} &middot; Version {DOC_VERSION} &middot; Standardized
           </div>
         </div>
+        <div className="app-header-bismillah" aria-label="Bismillah">
+          {'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064E\u0647\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0652\u0645\u064E\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0650\u064A\u0645\u0650'}
+        </div>
         <div className="app-actions">
           <button
             type="button"

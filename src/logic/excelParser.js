@@ -305,9 +305,29 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
 
   const headers = rawRows[headerIndex].map((h) => String(h).trim());
 
+  let itemCodeCol = headers.findIndex((h) => /item\s*code|product\s*code|^code|^item\b|mat(?:erial)?\s*code/i.test(h));
+  if (itemCodeCol === -1 && headers.length > 1) {
+    // Fallback: check if column index 1 is not date/machine/qty and has code-like alphanumeric content
+    const sampleLimit = Math.min(headerIndex + 6, rawRows.length);
+    let codeMatches = 0;
+    let validSampleCount = 0;
+    for (let s = headerIndex + 1; s < sampleLimit; s++) {
+      const val = rawRows[s]?.[1];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        validSampleCount++;
+        if (/^[A-Za-z0-9\-_./\s]{1,20}$/.test(String(val).trim())) {
+          codeMatches++;
+        }
+      }
+    }
+    if (validSampleCount > 0 && codeMatches / validSampleCount >= 0.5) {
+      itemCodeCol = 1;
+    }
+  }
+
   const colIdx = {
     date: headers.findIndex((h) => /^date/i.test(h)),
-    itemCode: headers.findIndex((h) => /item\s*code|^code/i.test(h)),
+    itemCode: itemCodeCol,
     desc: headers.findIndex((h) => /desc|product|spec/i.test(h)),
     machine: headers.findIndex((h) => /machine|line|extruder/i.test(h)),
     qty: headers.findIndex((h) => /prod.*qty|quantity|^qty|fg/i.test(h)),
@@ -773,7 +793,8 @@ export function convertLogRowToReport(row, options = {}) {
       date: dateStr,
       lineId: matched.id,
       lineCustom: machineCustomName,
-      plantName: PLANT_NAME
+      plantName: PLANT_NAME,
+      itemCode: row.itemCode || item1?.itemCode || ''
     },
     refs: {
       1: specs1,

@@ -17,6 +17,7 @@ export const round1 = (n) => Math.round(n * 10) / 10;
 
 export function makeRefSpec() {
   return {
+    itemCode: '',
     od: '',
     wt: '',
     pipeLength: '',

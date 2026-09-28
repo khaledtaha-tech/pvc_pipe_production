@@ -568,6 +568,29 @@
   gap: 6px;
 }
 
+.item-code-badge-group {
+  margin-inline-start: 4px;
+}
+
+.item-code-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: #f8fafc;
+  border: 1.5px solid #0284c7;
+  border-radius: 6px;
+  font-family: 'Roboto Mono', monospace, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0369a1;
+  box-shadow: 0 1px 2px rgba(2, 132, 199, 0.08);
+  letter-spacing: 0.3px;
+}
+
+.item-code-badge-tag {
+  color: #0284c7;
+}
+
 .sheet-selector-label {
   font-size: 11.5px;
   font-weight: 700;

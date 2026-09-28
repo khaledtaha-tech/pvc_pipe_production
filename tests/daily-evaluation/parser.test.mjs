@@ -175,6 +175,7 @@ console.log('Workbook log rows extraction & engineering metrics: OK');
 const report1 = convertLogRowToReport(r1);
 
 assert.equal(report1.header.lineId, 'L-06');
+assert.equal(report1.header.itemCode, '991', 'Report header must store itemCode');
 assert.equal(report1.summary.totalOutput, '140');
 assert.equal(report1.summary.totalPurgeKg, '40');
 // Scrap pipes: 40 / 16 = 2.5 -> Math.round(2.5) = 3
@@ -214,6 +215,7 @@ const reportSwitched = convertLogRowToReport(targetRow);
 assert.equal(reportSwitched.header.date, '2026-09-08');
 assert.equal(reportSwitched.header.lineId, 'L-08');
 assert.equal(reportSwitched.header.lineCustom, 'KTS 350 TDH');
+assert.ok(reportSwitched.header.itemCode, 'Multi-item header must contain itemCode');
 assert.equal(reportSwitched.sourceRecordId, targetRow.id);
 assert.equal(reportSwitched.slots.length, 24);
 assert.ok(reportSwitched.refs['1'].pipeSpec, 'Ref 1 spec must exist for 1st item');

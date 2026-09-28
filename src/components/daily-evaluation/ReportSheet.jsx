@@ -153,18 +153,27 @@ const ReportSheet = forwardRef(function ReportSheet(
       {[
         { key: 1, label: 'Reference 1', spec: ref1 },
         { key: 2, label: 'Reference 2', spec: ref2 }
-      ].map(({ key, label, spec }) => (
-        <div className="ref-row" key={key}>
-          <div className="tcell reflabel">{label}</div>
-          <div className="tcell refval">{spec.pipeSpec}</div>
-          <div className="tcell refval">{spec.cls || ''}</div>
-          <div className="tcell refnum">{num(spec.speed)}</div>
-          <div className="tcell refnum">{num(spec.cutTime, 1)}</div>
-          <div className="tcell refnum refnum-hl">{num(spec.targetRate)}</div>
-          <div className="tcell refnum">{num(spec.stdWeight, 2)}</div>
-          <div className="tcell refval">{key === 1 ? summary.shift1Lead : summary.shift2Lead}</div>
-        </div>
-      ))}
+      ].map(({ key, label, spec }) => {
+        const itemCode = (spec?.itemCode || (key === 1 ? header?.itemCode : '') || '').trim();
+        const displayLabel = itemCode ? `[${itemCode}] ${label}` : label;
+        const rawSpec = spec?.pipeSpec || '';
+        const displaySpec = itemCode && rawSpec && !rawSpec.toUpperCase().includes(itemCode.toUpperCase())
+          ? `[${itemCode}] - ${rawSpec}`
+          : (rawSpec || (itemCode ? `[${itemCode}]` : ''));
+
+        return (
+          <div className="ref-row" key={key}>
+            <div className="tcell reflabel">{displayLabel}</div>
+            <div className="tcell refval">{displaySpec}</div>
+            <div className="tcell refval">{spec?.cls || ''}</div>
+            <div className="tcell refnum">{num(spec?.speed)}</div>
+            <div className="tcell refnum">{num(spec?.cutTime, 1)}</div>
+            <div className="tcell refnum refnum-hl">{num(spec?.targetRate)}</div>
+            <div className="tcell refnum">{num(spec?.stdWeight, 2)}</div>
+            <div className="tcell refval">{key === 1 ? summary.shift1Lead : summary.shift2Lead}</div>
+          </div>
+        );
+      })}
 
       {/* 4. Counters Row */}
       <div className="counters-row">

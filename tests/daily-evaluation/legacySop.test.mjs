@@ -102,32 +102,52 @@ assert.equal(model.lineId, 'L-03 - KTS 700');
 assert.equal(model.shift1Rows.length, 12);
 assert.equal(model.shift2Rows.length, 12);
 
-// Cumulative progressive rate in pieces verification:
-// Shift 1: Speed 15 m/min, pipeLength 6.0m -> (15 * 60) / 6.0 = 150 pcs/h
-// Hour 1: 150, Hour 2: 300, Hour 12: 1800
-assert.equal(model.shift1Rows[0].stdPcs, 150);
-assert.equal(model.shift1Rows[1].stdPcs, 300);
-assert.equal(model.shift1Rows[11].stdPcs, 1800);
-assert.equal(model.shift1Rows[0].stdM, 150); // Backward compatibility alias
+// Decoupled nominal capacity standard rate in pieces verification:
+// Shift 1: L-03 Capacity 500 kg/h / stdWeight 3.2 kg/pc = 156.25 -> 156 pcs/h
+// Hour 1: 156, Hour 2: 312, Hour 12: 1872
+assert.equal(model.shift1Rows[0].stdPcs, 156);
+assert.equal(model.shift1Rows[1].stdPcs, 312);
+assert.equal(model.shift1Rows[11].stdPcs, 1872);
+assert.equal(model.shift1Rows[0].stdM, 156); // Backward compatibility alias
 
-// Shift 2: Speed 12 m/min, pipeLength 6.0m -> (12 * 60) / 6.0 = 120 pcs/h
-// Hour 13: 1800 + 120 = 1920, Hour 24: 1800 + 12 * 120 = 3240
-assert.equal(model.shift2Rows[0].stdPcs, 1920);
-assert.equal(model.shift2Rows[11].stdPcs, 3240);
-assert.equal(model.shift2Rows[0].stdM, 1920);
+// Shift 2: L-03 Capacity 500 kg/h / stdWeight 6.4 kg/pc = 78.125 -> 78 pcs/h
+// Hour 13: 1872 + 78 = 1950, Hour 24: 1872 + 12 * 78 = 2808
+assert.equal(model.shift2Rows[0].stdPcs, 1950);
+assert.equal(model.shift2Rows[11].stdPcs, 2808);
+assert.equal(model.shift2Rows[0].stdM, 1950);
 
 // Explicit non-cumulative override verification
 const flatModel = buildSopModel(benchmark, derived, { cumulative: false });
-assert.equal(flatModel.shift1Rows[0].stdPcs, 150);
-assert.equal(flatModel.shift1Rows[11].stdPcs, 150);
-assert.equal(flatModel.shift2Rows[0].stdPcs, 120);
-assert.equal(flatModel.shift2Rows[11].stdPcs, 120);
+assert.equal(flatModel.shift1Rows[0].stdPcs, 156);
+assert.equal(flatModel.shift1Rows[11].stdPcs, 156);
+assert.equal(flatModel.shift2Rows[0].stdPcs, 78);
+assert.equal(flatModel.shift2Rows[11].stdPcs, 78);
+
+// Fallback verification when stdWeight is missing: (speed * 60) / pipeLength
+const fallbackReport = {
+  ...benchmark,
+  refs: {
+    1: { ...benchmark.refs['1'], stdWeight: 0, speed: 15, pipeLength: 6.0 },
+    2: { ...benchmark.refs['2'], stdWeight: 0, speed: 12, pipeLength: 6.0 }
+  }
+};
+assert.equal(computeStandardHourlyPieces(fallbackReport, fallbackReport.refs['1']), 150);
+assert.equal(computeStandardHourlyPieces(fallbackReport, fallbackReport.refs['2']), 120);
+
+// Secondary priority verification: explicit targetRate overrides speed fallback
+const targetRateReport = {
+  ...benchmark,
+  refs: {
+    1: { ...benchmark.refs['1'], stdWeight: 0, targetRate: 175, speed: 15 }
+  }
+};
+assert.equal(computeStandardHourlyPieces(targetRateReport, targetRateReport.refs['1']), 175);
 
 // Both Actual and Standard are present side-by-side in filled view
 assert.ok(model.shift1Rows[0].goodPcs !== undefined);
 assert.ok(model.s1TotalGoodPcs >= 0);
 assert.equal(model.s1TotalGoodM, model.s1TotalGoodPcs);
-console.log('Model generation with cumulative standard pieces rate (Filled View): OK');
+console.log('Model generation with decoupled standard pieces rate (Filled View): OK');
 
 // 6. Blank SOP Template Model Building (DOC-Ext.-03)
 const blankModel = buildBlankSopModel({ standardRate: 20 });

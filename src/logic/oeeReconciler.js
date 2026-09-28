@@ -422,7 +422,8 @@ export function blankReportForMachine(date, machineId, machineMaster = MACHINES)
       date: normalizeExcelDate(date) || (typeof date === 'string' ? date : '2026-09-01'),
       lineId: mid,
       lineCustom: mName,
-      plantName: PLANT_NAME
+      plantName: PLANT_NAME,
+      itemCode: ''
     },
     refs: {
       1: makeRefSpec(),

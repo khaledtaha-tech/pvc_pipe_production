@@ -83,7 +83,7 @@ function blankReport() {
     id: newId(),
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    header: { date: todayISO(), lineId: MACHINES[0].id, lineCustom: '', plantName: PLANT_NAME },
+    header: { date: todayISO(), lineId: MACHINES[0].id, lineCustom: '', plantName: PLANT_NAME, itemCode: '' },
     refs: { 1: makeRefSpec(), 2: makeRefSpec() },
     summary: {
       startCounter: '',
@@ -1540,6 +1540,21 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                       )}
                     </div>
                   </div>
+
+                  {(() => {
+                    const code1 = (report.header?.itemCode || report.refs?.['1']?.itemCode || '').trim();
+                    const code2 = (report.refs?.['2']?.itemCode || '').trim();
+                    const activeCode = [code1, code2].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' / ');
+                    if (!activeCode) return null;
+                    return (
+                      <div className="sheet-selector-group item-code-badge-group">
+                        <label className="sheet-selector-label">Item Code:</label>
+                        <div className="item-code-badge-pill" title={`Active Item Code: ${activeCode}`}>
+                          <span className="item-code-badge-tag">[{activeCode}]</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <span className="kicker-note">
                   Auto-distributed 24-hour log. Hourly cells are editable; subtotals and OEE recompute live.

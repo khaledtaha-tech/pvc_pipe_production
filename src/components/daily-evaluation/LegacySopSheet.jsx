@@ -40,10 +40,10 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
     : null;
   const speedDisplay = speedVal ? `${speedVal} M/Min` : '______ M/Min';
 
-  const lengthVal = (!isUniversal && (model?.pipeLength || model?.ref1PipeLength))
-    ? Number(model?.pipeLength || model?.ref1PipeLength || 6.0)
-    : (!isUniversal && !model?.isIdle ? 6.0 : null);
-  const lengthDisplay = lengthVal ? `${lengthVal.toFixed(1)} M` : '______ M';
+  const capacityVal = (!isUniversal && !model?.isIdle && (model?.nominalCapacityKgH || model?.targetCapacity || model?.nominalCapacity || model?.capacityKgH))
+    ? Number(model?.nominalCapacityKgH || model?.targetCapacity || model?.nominalCapacity || model?.capacityKgH)
+    : null;
+  const capacityDisplay = capacityVal ? `${capacityVal} Kg/h` : '______ Kg/h';
 
   const weightVal = (!isUniversal && !model?.isIdle && (model?.unitWeight || model?.unitWeight1))
     ? Number(model?.unitWeight || model?.unitWeight1)
@@ -169,8 +169,8 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                       <span className="sop-op-val">{speedDisplay}</span>
                     </div>
                     <div className="sop-op-col">
-                      <span className="sop-op-lbl">Cut Length:</span>{' '}
-                      <span className="sop-op-val">{lengthDisplay}</span>
+                      <span className="sop-op-lbl">Nominal Capacity:</span>{' '}
+                      <span className="sop-op-val">{capacityDisplay}</span>
                     </div>
                     <div className="sop-op-col">
                       <span className="sop-op-lbl">Nominal Weight:</span>{' '}

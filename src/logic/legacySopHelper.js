@@ -226,21 +226,29 @@ export function calculateStandardHourly(speedMPerMin, count = 12, pipeLength = 6
  * target pcs/h = (speed m/min * 60) / pipe length
  */
 export function computeStandardHourlyPieces(report, ref) {
-  const pipeLen = Number(ref?.pipeLength) > 0 ? Number(ref?.pipeLength) : 6.0;
-  const explicitSpeed = Number(ref?.speed);
-  if (explicitSpeed > 0 && pipeLen > 0) {
-    return Math.round((explicitSpeed * 60) / pipeLen);
+  const lineId = report?.header?.lineId;
+  const machine = lineId ? matchMachine(lineId) : null;
+  const capacityKgH = Number(report?.engineering?.nominalCapacityKgH || machine?.capacityKgH || machine?.nominalCapacity || 0);
+  const stdWeight = Number(ref?.stdWeight || ref?.unitWeight || 0);
+
+  // 1. Primary: Extrusion throughput benchmark from Nominal Capacity (Kg/h) / Unit Weight (Kg/pc)
+  if (capacityKgH > 0 && stdWeight > 0) {
+    return Math.round(capacityKgH / stdWeight);
   }
+
+  // 2. Secondary: Explicit target rate
   const targetRate = Number(ref?.targetRate);
   if (targetRate > 0) {
     return Math.round(targetRate);
   }
-  const lineId = report?.header?.lineId;
-  const machine = lineId ? matchMachine(lineId) : null;
-    const stdWeight = Number(ref?.stdWeight);
-  if (machine && machine.capacityKgH > 0 && stdWeight > 0) {
-    return Math.round(machine.capacityKgH / stdWeight);
+
+  // 3. Fallback only: Linear speed and cut length when unit weight is absent
+  const explicitSpeed = Number(ref?.speed);
+  const pipeLen = Number(ref?.pipeLength) > 0 ? Number(ref?.pipeLength) : 6.0;
+  if (explicitSpeed > 0 && pipeLen > 0) {
+    return Math.round((explicitSpeed * 60) / pipeLen);
   }
+
   return 0;
 }
 
@@ -432,6 +440,12 @@ export function buildSopModel(report, derived, options = {}) {
   const unitWeight = Number(unitWeight1) > 0 ? Number(unitWeight1) : (Number(unitWeight2) > 0 ? Number(unitWeight2) : '');
   const pipeLength = Number(pipeLen1) > 0 ? Number(pipeLen1) : (Number(pipeLen2) > 0 ? Number(pipeLen2) : 6.0);
   const speed = speed1 || speed2 || '';
+  const nominalCapacityKgH = isBlank
+    ? ''
+    : (Number(derived?.engineering?.nominalCapacityKgH) ||
+       Number(report?.engineering?.nominalCapacityKgH) ||
+       Number(matchMachine(header.lineId, machineMaster)?.capacityKgH) ||
+       '');
 
   let s1DowntimeTotal = 0;
   for (let i = 0; i < 12; i += 1) {
@@ -511,7 +525,9 @@ export function buildSopModel(report, derived, options = {}) {
     speed: isBlank ? '' : speed,
     pipeLength,
     unitWeight,
-    targetCapacity: isCompounding ? (Number(derived?.engineering?.nominalCapacityKgH) || 400) : null,
+    nominalCapacityKgH,
+    nominalCapacity: nominalCapacityKgH,
+    targetCapacity: isCompounding ? (Number(derived?.engineering?.nominalCapacityKgH) || 400) : nominalCapacityKgH,
     bagPackaging: '25 Kg / Bag',
     isCompounding,
     isPelletizingLine: isCompounding,
@@ -970,6 +986,10 @@ export function buildMorningSopModel(config = {}) {
     hourlyStdRate = Number(config.targetRate) || Number(config.targetCapacity) || nominalCapacity || 400;
   } else if (speed && pipeLength) {
     hourlyStdRate = Math.round((speed * 60) / pipeLength);
+  } else if (nominalCapacity > 0 && Number(unitWeight) > 0) {
+    hourlyStdRate = Math.round(nominalCapacity / Number(unitWeight));
+  } else if (config.targetRate) {
+    hourlyStdRate = Number(config.targetRate);
   }
 
   const calculatedRateKgH = isCompounding
@@ -1048,6 +1068,7 @@ export function buildMorningSopModel(config = {}) {
     speed: speed,
     pipeLength,
     unitWeight,
+    nominalCapacityKgH: nominalCapacity,
     nominalCapacity,
     targetCapacity: isCompounding ? hourlyStdRate : nominalCapacity,
     bagPackaging: config.bagPackaging || '25 Kg / Bag',

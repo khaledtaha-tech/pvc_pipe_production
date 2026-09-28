@@ -1,5 +1,5 @@
-import { MACHINES, matchMachine } from '../config/machines.js';
-export { MACHINES, matchMachine };
+import { MACHINES, matchMachine, sanitizeMachineMaster } from '../config/machines.js';
+export { MACHINES, matchMachine, sanitizeMachineMaster };
 import { parseProductSpecs } from './excelParser.js';
 
 /**
@@ -10,40 +10,39 @@ export const SOP_SHIFT1_HOURS = ['06:30', '07:30', '08:30', '09:30', '10:30', '1
 export const SOP_SHIFT2_HOURS = ['18:30', '19:30', '20:30', '21:30', '22:30', '23:30', '00:30', '01:30', '02:30', '03:30', '04:30', '05:30'];
 
 /**
- * Cleanly format full machine name (e.g. "L-07 - KTS 170")
+ * Cleanly format full machine name (e.g. "L-08 - KTS 550")
  * Resolves model from lineCustom or dynamically matches against machine master catalog,
- * and sanitizes duplicate line ID prefixes.
+ * and enforces official canonical line ID by machine model.
  */
 export function formatFullMachineName(lineId, lineCustom, machineList = MACHINES) {
-  const id = (lineId || '').trim();
+  const rawId = (lineId || '').trim();
   let custom = (lineCustom || '').trim();
 
   // If custom is identical to id, treat custom as empty so catalog name can be matched
-  if (id && custom.toUpperCase() === id.toUpperCase()) {
+  if (rawId && custom.toUpperCase() === rawId.toUpperCase()) {
     custom = '';
   }
 
-  // If custom is empty, try to match by lineId in machine catalog
-  if (!custom && id) {
-    const matched = matchMachine(id, machineList);
-    if (matched && matched.name) {
-      custom = matched.name.trim();
-    }
+  // 1. IMMUTABLE CANONICAL RESOLUTION: Check if custom or rawId specifies a machine model
+  const matched = matchMachine(custom || rawId, machineList) || matchMachine(rawId, machineList);
+  if (matched && matched.name) {
+    // Model strictly dictates canonical Line ID and name
+    return `${matched.id} - ${matched.name}`;
   }
 
-  // If still no custom name found, return id
-  if (!custom) return id || 'WIND1';
+  // 2. If no match and no custom, return rawId or fallback
+  if (!custom) return rawId || 'WIND1';
 
-  // Sanitize if custom already starts with id (e.g. "L-07 - KTS 170" or "L-07: KTS 170")
-  if (id && custom.toUpperCase().startsWith(id.toUpperCase())) {
-    custom = custom.slice(id.length).replace(/^[\s-:–—]+/, '').trim();
+  // 3. Sanitize if custom already starts with rawId
+  if (rawId && custom.toUpperCase().startsWith(rawId.toUpperCase())) {
+    custom = custom.slice(rawId.length).replace(/^[\s-:–—]+/, '').trim();
   }
-  // Sanitize if custom ends with id (e.g. "KTS 170 - L-07")
-  if (id && custom.toUpperCase().endsWith(id.toUpperCase())) {
-    custom = custom.slice(0, -id.length).replace(/[\s-:–—]+$/, '').trim();
+  // Sanitize if custom ends with rawId
+  if (rawId && custom.toUpperCase().endsWith(rawId.toUpperCase())) {
+    custom = custom.slice(0, -rawId.length).replace(/[\s-:–—]+$/, '').trim();
   }
 
-  return custom ? (id ? `${id} - ${custom}` : custom) : id;
+  return custom ? (rawId ? `${rawId} - ${custom}` : custom) : rawId;
 }
 
 /**
@@ -687,10 +686,13 @@ export function extractEmbeddedItemCode(description) {
  * Extract operational pipe specs, speed, and cut length from a run record or fall back to machine master defaults.
  */
 export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHINES) {
+  const master = sanitizeMachineMaster(machineMaster);
   const cleanId = String(lineId || '').trim();
-  const machine = matchMachine(cleanId, machineMaster) || { id: cleanId, name: cleanId, capacityKgH: 250 };
-  const fullMachineName = formatFullMachineName(cleanId, '', machineMaster);
-  const isLineCompounding = isCompoundingLineOrProduct({ lineId: cleanId, fullMachineName }, machineMaster);
+  const machineHint = record?.machineRaw || record?.machineName || record?.machine || cleanId;
+  const machine = matchMachine(machineHint, master) || matchMachine(cleanId, master) || { id: cleanId, name: cleanId, capacityKgH: 250 };
+  const finalLineId = machine.id || cleanId;
+  const fullMachineName = formatFullMachineName(finalLineId, machine.name, master);
+  const isLineCompounding = isCompoundingLineOrProduct({ lineId: finalLineId, fullMachineName }, master);
   const nominalCap = Number(record?.nominalCapacityKgH) || Number(machine?.nominalCapacity) || Number(machine?.capacityKgH) || (isLineCompounding ? 400 : 200);
 
   if (record) {
@@ -700,11 +702,11 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     const rawCode = (item.itemCode || record.itemCode || '').trim();
     const itemCode = rawCode || extractEmbeddedItemCode(desc) || (isLineCompounding ? 'COMP-01' : '');
     const isCompounding = isCompoundingLineOrProduct({
-      lineId: cleanId,
+      lineId: finalLineId,
       fullMachineName,
       productDescription: desc,
       itemCode
-    }, machineMaster);
+    }, master);
 
     const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(record.unitWeight) || (isCompounding ? 25.0 : 1.0));
     const specs = parseProductSpecs(desc, unitWeight);
@@ -713,7 +715,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     if (isCompounding) {
       const targetRate = nominalCap > 0 ? nominalCap : 400;
       return {
-        machineId: cleanId,
+        machineId: finalLineId,
         fullMachineName,
         productDescription: desc,
         itemDescription: desc,
@@ -751,7 +753,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     const calculatedRateKgH = Math.round(calculatedRate * unitWeight);
 
     return {
-      machineId: cleanId,
+      machineId: finalLineId,
       fullMachineName,
       productDescription: desc,
       itemDescription: desc,
@@ -778,7 +780,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
   if (isLineCompounding) {
     const targetRate = nominalCap > 0 ? nominalCap : 400;
     return {
-      machineId: cleanId,
+      machineId: finalLineId,
       fullMachineName,
       productDescription: 'PVC COMPOUND DRY BLEND GREY (25KG)',
       itemDescription: 'PVC COMPOUND DRY BLEND GREY (25KG)',
@@ -803,7 +805,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
   }
 
   return {
-    machineId: cleanId,
+    machineId: finalLineId,
     fullMachineName,
     productDescription: '',
     itemDescription: '',
@@ -940,21 +942,38 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
  * Clears: Good pieces, causes, downtime, reject kg, and summary cards for on-floor recording.
  */
 export function buildMorningSopModel(config = {}) {
-  const lineId = (config.lineId || config.lineCode || 'L-01').trim();
-  const lineCustom = (config.lineCustom || '').trim();
-  const machineMaster = config.machineMaster || MACHINES;
-  const fullMachineName = config.fullMachineName || formatFullMachineName(lineId, lineCustom, machineMaster);
-  const targetDate = config.date || config.targetDate || '';
-  const dates = formatSopDates(targetDate);
+  const rawLineId = (config.lineId || config.lineCode || '').trim();
+  const rawLineCustom = (config.lineCustom || config.fullMachineName || '').trim();
+  const machineMaster = config.machineMaster ? sanitizeMachineMaster(config.machineMaster) : MACHINES;
 
   const desc = resolveProductSpecification(config);
   const rawItemCode = (config.itemCode || config.productCode || '').trim();
   const itemCode = rawItemCode || extractEmbeddedItemCode(desc) || '';
+
+  const isExplicitCompounding = Boolean(
+    config.isCompounding ||
+    (config.productSpec && /COMPOUND|PELLET/i.test(config.productSpec)) ||
+    (config.productDescription && /COMPOUND|PELLET/i.test(config.productDescription)) ||
+    (desc && /COMPOUND|PELLET/i.test(desc)) ||
+    itemCode === 'COMP-01' ||
+    itemCode === 'COMP-02' ||
+    itemCode === 'PEL-01'
+  );
+
+  const machineHint = rawLineCustom || (isExplicitCompounding ? 'KTS 550' : rawLineId);
+  const matchedMachine = matchMachine(machineHint, machineMaster) || matchMachine(rawLineId, machineMaster) || (isExplicitCompounding ? MACHINES.find(m => m.id === 'L-08') : MACHINES.find(m => m.id === 'L-01'));
+
+  const lineId = matchedMachine ? matchedMachine.id : (rawLineId || (isExplicitCompounding ? 'L-08' : 'L-01'));
+  const lineCustom = matchedMachine ? matchedMachine.name : rawLineCustom;
+  const fullMachineName = formatFullMachineName(lineId, lineCustom, machineMaster);
+  const targetDate = config.date || config.targetDate || '';
+  const dates = formatSopDates(targetDate);
+
   const displayProduct = itemCode
     ? (desc ? (desc.toUpperCase().includes(itemCode.toUpperCase()) ? desc : `[${itemCode}] - ${desc}`) : `[${itemCode}]`)
     : desc;
 
-  const isCompounding = isCompoundingLineOrProduct({
+  const isCompounding = isExplicitCompounding || isCompoundingLineOrProduct({
     ...config,
     lineId,
     fullMachineName,

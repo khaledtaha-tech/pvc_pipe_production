@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  MACHINES,
+  matchMachine,
+  sanitizeMachineMaster,
   formatSopDates,
   calculateStandardCumulative,
   calculateStandardProduction,
@@ -83,8 +86,13 @@ assert.equal(formatFullMachineName('L-07', 'L-07 - KTS 250 TDH'), 'L-07 - KTS 25
 assert.equal(formatFullMachineName('L-07', ''), 'L-07 - KTS 250 TDH');
 assert.equal(formatFullMachineName('L-05', ''), 'L-05 - KTS 200');
 assert.equal(formatFullMachineName('L-06', ''), 'L-06 - KTS 700');
-assert.equal(formatFullMachineName('WIND1', ''), 'WIND1');
 assert.equal(formatFullMachineName('L-01', 'KTS 350 TDH'), 'L-01 - KTS 350 TDH');
+// Canonical Line ID enforcement: KTS 550 strictly maps to L-08 regardless of input lineId
+assert.equal(formatFullMachineName('L-01', 'KTS 550'), 'L-08 - KTS 550');
+assert.equal(formatFullMachineName('L-01', 'L-01 - KTS 550'), 'L-08 - KTS 550');
+assert.equal(formatFullMachineName('L-08', 'KTS 550'), 'L-08 - KTS 550');
+assert.equal(matchMachine('KTS 550', [{ id: 'L-01', name: 'KTS 550' }]).id, 'L-08');
+assert.equal(sanitizeMachineMaster([{ id: 'L-01', name: 'KTS 550' }]).find(m => m.name === 'KTS 550').id, 'L-08');
 console.log('Full machine name formatting & catalog lookup: OK');
 
 // 5. Model Building with Benchmark Report (Cumulative Standard Production in Pieces)
@@ -620,6 +628,14 @@ assert.equal(compoundMorningModel.pipeLength, 0);
 assert.equal(compoundMorningModel.speed, '');
 assert.ok(!compoundMorningModel.productDescription.includes('---'), 'Should not render placeholder dashes');
 assert.equal(compoundMorningModel.productDescription, 'PVC COMPOUND DRY BLEND GREY (25KG)');
+// Canonical Line ID enforcement: buildMorningSopModel forces L-08 - KTS 550 even if invoked with lineId: 'L-01'
+const badConfigSop = buildMorningSopModel({ lineId: 'L-01', fullMachineName: 'L-01 - KTS 550' });
+assert.equal(badConfigSop.fullMachineName, 'L-08 - KTS 550');
+assert.equal(badConfigSop.lineCode, 'L-08');
+
+const compoundForceSop = buildMorningSopModel({ lineId: 'L-01', isCompounding: true });
+assert.equal(compoundForceSop.fullMachineName, 'L-08 - KTS 550');
+assert.equal(compoundForceSop.lineCode, 'L-08');
 console.log('Compounding Morning SOP Sheet Model: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');

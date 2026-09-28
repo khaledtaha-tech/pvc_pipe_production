@@ -156,6 +156,70 @@ export function normalizeMachineKey(str) {
 }
 
 /**
+ * Hard-locks an array of machine configurations to strictly adhere to the official factory master.
+ * Overwrites any erroneous Line ID mappings from legacy uploads or stale localStorage objects.
+ */
+export function sanitizeMachineMaster(list = []) {
+  const masterList = Array.isArray(list) && list.length > 0 ? list : MACHINES;
+  const canonicalEntries = [];
+  const processedCanonIds = new Set();
+
+  for (const canon of MACHINES) {
+    const dynMatch = masterList.find((m) => {
+      if (!m) return false;
+      const key = normalizeMachineKey(m.name || m.id);
+      if (canon.id === 'L-01' && key.includes('350') && key.includes('TDH')) return true;
+      if (canon.id === 'L-02' && key.includes('170')) return true;
+      if (canon.id === 'L-03' && (key.includes('KABRA') || key.includes('K90'))) return true;
+      if (canon.id === 'L-04' && key.includes('350') && !key.includes('TDH')) return true;
+      if (canon.id === 'L-05' && key.includes('200') && !key.includes('TDH')) return true;
+      if (canon.id === 'L-06' && key.includes('700')) return true;
+      if (canon.id === 'L-07' && key.includes('250')) return true;
+      if (canon.id === 'L-08' && (key.includes('550') || key.includes('PELLET') || key.includes('COMPOUND'))) return true;
+      return m.id === canon.id;
+    });
+
+    const capacityKgH = dynMatch && Number(dynMatch.capacityKgH) > 0 ? Number(dynMatch.capacityKgH) : canon.capacityKgH;
+    const nominalCapacity = dynMatch && Number(dynMatch.nominalCapacity) > 0 ? Number(dynMatch.nominalCapacity) : canon.nominalCapacity;
+
+    canonicalEntries.push({
+      ...canon,
+      ...(dynMatch || {}),
+      id: canon.id,
+      name: canon.name,
+      capacityKgH,
+      nominalCapacity,
+      detail: capacityKgH > 0 ? `${capacityKgH} kg/h` : canon.detail,
+      isPelletizingLine: canon.isPelletizingLine,
+      lineType: canon.lineType
+    });
+    processedCanonIds.add(canon.id);
+  }
+
+  for (const m of masterList) {
+    if (!m) continue;
+    const key = normalizeMachineKey(m.name || m.id);
+    if (key.includes('BAUSANO') && !processedCanonIds.has('L-09')) {
+      canonicalEntries.push({
+        id: 'L-09',
+        name: 'Bausano',
+        capacityKgH: Number(m.capacityKgH) || 1100,
+        nominalCapacity: Number(m.nominalCapacity) || 1100,
+        detail: '1100 kg/h',
+        minDiameter: 160,
+        maxDiameter: 500,
+        isPelletizingLine: false,
+        lineType: 'Pipe Extrusion Line',
+        matchKeys: ['BAUSANO', 'L-09', 'LINE 9']
+      });
+      processedCanonIds.add('L-09');
+    }
+  }
+
+  return canonicalEntries.sort((a, b) => (a.id || '').localeCompare(b.id || '', undefined, { numeric: true }));
+}
+
+/**
  * Standardize incoming line identifier to canonical Line ID (e.g. "KTS 700" -> "L-06")
  */
 export function normalizeLineId(str, masterList = MACHINES) {
@@ -165,64 +229,92 @@ export function normalizeLineId(str, masterList = MACHINES) {
 }
 
 /**
- * Robust machine matching ignoring case, hyphens, spaces, and punctuation
+ * Robust machine matching ignoring case, hyphens, spaces, and punctuation.
+ * Hard-locks canonical model names to their official factory Line IDs.
  */
 export function matchMachine(str, dynamicList = MACHINES) {
   if (!str) return null;
   const list = dynamicList && dynamicList.length > 0 ? dynamicList : MACHINES;
   const rawNorm = normalizeMachineKey(str);
 
-  // 1. Direct model & TDH variants match to official factory configuration
-  if (rawNorm.includes('KTS350') && rawNorm.includes('TDH')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS350') && normalizeMachineKey(m.name).includes('TDH')) ||
-      list.find((m) => m.id === 'L-01') || MACHINES.find((m) => m.id === 'L-01') || null;
+  // IMMUTABLE MODEL RULES: Machine model strictly dictates canonical Line ID
+  // 1. KTS 350 TDH -> L-01
+  if ((rawNorm.includes('KTS350') || rawNorm.includes('350')) && rawNorm.includes('TDH')) {
+    const canon = MACHINES.find((m) => m.id === 'L-01');
+    const dyn = list.find((m) => m.id === 'L-01' || (normalizeMachineKey(m.name).includes('350') && normalizeMachineKey(m.name).includes('TDH')));
+    return { ...canon, ...(dyn || {}), id: 'L-01', name: canon.name };
   }
-  if (rawNorm.includes('KTS170')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS170')) ||
-      list.find((m) => m.id === 'L-02') || MACHINES.find((m) => m.id === 'L-02') || null;
+  // 2. KTS 170 -> L-02
+  if (rawNorm.includes('KTS170') || rawNorm.includes('170')) {
+    const canon = MACHINES.find((m) => m.id === 'L-02');
+    const dyn = list.find((m) => m.id === 'L-02' || normalizeMachineKey(m.name).includes('170'));
+    return { ...canon, ...(dyn || {}), id: 'L-02', name: canon.name };
   }
-  if (rawNorm.includes('KABRA') || rawNorm.includes('K90')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KABRA') || normalizeMachineKey(m.name).includes('K90')) ||
-      list.find((m) => m.id === 'L-03') || MACHINES.find((m) => m.id === 'L-03') || null;
+  // 3. Kabra 90 -> L-03
+  if (rawNorm.includes('KABRA') || rawNorm.includes('K90') || rawNorm.includes('KABRA90') || rawNorm === '90') {
+    const canon = MACHINES.find((m) => m.id === 'L-03');
+    const dyn = list.find((m) => m.id === 'L-03' || normalizeMachineKey(m.name).includes('KABRA') || normalizeMachineKey(m.name).includes('K90'));
+    return { ...canon, ...(dyn || {}), id: 'L-03', name: canon.name };
   }
-  if (rawNorm.includes('KTS350')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS350') && !normalizeMachineKey(m.name).includes('TDH')) ||
-      list.find((m) => m.id === 'L-04') || MACHINES.find((m) => m.id === 'L-04') || null;
+  // 4. KTS 350 (without TDH) -> L-04
+  if ((rawNorm.includes('KTS350') || rawNorm.includes('350')) && !rawNorm.includes('TDH')) {
+    const canon = MACHINES.find((m) => m.id === 'L-04');
+    const dyn = list.find((m) => m.id === 'L-04' || (normalizeMachineKey(m.name).includes('350') && !normalizeMachineKey(m.name).includes('TDH')));
+    return { ...canon, ...(dyn || {}), id: 'L-04', name: canon.name };
   }
-  if (rawNorm.includes('KTS200')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS200')) ||
-      list.find((m) => m.id === 'L-05') || MACHINES.find((m) => m.id === 'L-05') || null;
+  // 5. KTS 200 (without TDH) -> L-05
+  if ((rawNorm.includes('KTS200') || rawNorm.includes('200')) && !rawNorm.includes('TDH')) {
+    const canon = MACHINES.find((m) => m.id === 'L-05');
+    const dyn = list.find((m) => m.id === 'L-05' || (normalizeMachineKey(m.name).includes('200') && !normalizeMachineKey(m.name).includes('TDH')));
+    return { ...canon, ...(dyn || {}), id: 'L-05', name: canon.name };
   }
-  if (rawNorm.includes('KTS700')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS700')) ||
-      list.find((m) => m.id === 'L-06') || MACHINES.find((m) => m.id === 'L-06') || null;
+  // 6. KTS 700 -> L-06
+  if (rawNorm.includes('KTS700') || rawNorm.includes('700')) {
+    const canon = MACHINES.find((m) => m.id === 'L-06');
+    const dyn = list.find((m) => m.id === 'L-06' || normalizeMachineKey(m.name).includes('700'));
+    return { ...canon, ...(dyn || {}), id: 'L-06', name: canon.name };
   }
-  if (rawNorm.includes('KTS250')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS250')) ||
-      list.find((m) => m.id === 'L-07') || MACHINES.find((m) => m.id === 'L-07') || null;
+  // 7. KTS 250 TDH / KTS 250 -> L-07
+  if (rawNorm.includes('KTS250') || rawNorm.includes('250')) {
+    const canon = MACHINES.find((m) => m.id === 'L-07');
+    const dyn = list.find((m) => m.id === 'L-07' || normalizeMachineKey(m.name).includes('250'));
+    return { ...canon, ...(dyn || {}), id: 'L-07', name: canon.name };
   }
-  if (rawNorm.includes('KTS550')) {
-    return list.find((m) => normalizeMachineKey(m.name).includes('KTS550')) ||
-      list.find((m) => m.id === 'L-08') || MACHINES.find((m) => m.id === 'L-08') || null;
+  // 8. KTS 550 / 550 / Pelletizing / Compounding -> L-08
+  if (rawNorm.includes('KTS550') || rawNorm.includes('550') || rawNorm.includes('PELLET') || rawNorm.includes('COMPOUND')) {
+    const canon = MACHINES.find((m) => m.id === 'L-08');
+    const dyn = list.find((m) => m.id === 'L-08' || normalizeMachineKey(m.name).includes('550') || normalizeMachineKey(m.name).includes('PELLET') || normalizeMachineKey(m.name).includes('COMPOUND'));
+    return { ...canon, ...(dyn || {}), id: 'L-08', name: canon.name, isPelletizingLine: true };
   }
+  // 9. Bausano -> L-09
   if (rawNorm.includes('BAUSANO')) {
-    return list.find((m) => m.id === 'L-09' || normalizeMachineKey(m.name).includes('BAUSANO')) || null;
+    const canon = MACHINES.find((m) => m.id === 'L-09') || { id: 'L-09', name: 'Bausano', capacityKgH: 1100, nominalCapacity: 1100 };
+    return { ...canon, id: 'L-09', name: 'Bausano' };
   }
 
-  // 2. Direct Line ID match (e.g. "L-01", "L01")
-  const idMatch = list.find((m) => normalizeMachineKey(m.id) === rawNorm) || MACHINES.find((m) => normalizeMachineKey(m.id) === rawNorm);
-  if (idMatch) return idMatch;
+  // 2. Direct Line ID match (e.g. "L-08", "L08", "LINE 8", "LINE-8")
+  const idMatch = MACHINES.find((m) => normalizeMachineKey(m.id) === rawNorm);
+  if (idMatch) {
+    const dyn = list.find((m) => m.id === idMatch.id);
+    return { ...idMatch, ...(dyn || {}), id: idMatch.id, name: idMatch.name };
+  }
 
-  // 3. Direct Name match
-  const nameMatch = list.find((m) => normalizeMachineKey(m.name) === rawNorm) || MACHINES.find((m) => normalizeMachineKey(m.name) === rawNorm);
-  if (nameMatch) return nameMatch;
-
-  // 4. Prefix match e.g. "LINE 1", "L-1", "L1"
+  // 3. Prefix match e.g. "LINE 1", "L-1", "L1"
   const mMatch = rawNorm.match(/^L(?:INE)?0?(\d)$/);
   if (mMatch) {
     const targetId = `L-0${mMatch[1]}`;
-    const found = list.find((m) => m.id === targetId) || MACHINES.find((m) => m.id === targetId);
-    if (found) return found;
+    const canon = MACHINES.find((m) => m.id === targetId);
+    if (canon) {
+      const dyn = list.find((m) => m.id === targetId);
+      return { ...canon, ...(dyn || {}), id: canon.id, name: canon.name };
+    }
+  }
+
+  // 4. Fallback search inside dynamic list
+  const fallback = list.find((m) => normalizeMachineKey(m.id) === rawNorm || normalizeMachineKey(m.name) === rawNorm);
+  if (fallback) {
+    const canon = MACHINES.find((m) => m.id === fallback.id);
+    return canon ? { ...canon, ...fallback, id: canon.id, name: canon.name } : fallback;
   }
 
   return null;

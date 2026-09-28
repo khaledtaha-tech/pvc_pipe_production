@@ -1,4 +1,5 @@
 import { makeRefSpec } from '../logic/engine.js';
+import { MACHINES, matchMachine, sanitizeMachineMaster } from '../config/machines.js';
 
 export const STORAGE_KEYS = {
   REPORTS: 'pvc_dmr_reports_v1',
@@ -23,12 +24,124 @@ export function newId() {
   return 'rep_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
 }
 
+/**
+ * Sanitizes a report object header against canonical machine definitions.
+ * Fixes misaligned Line ID and name combinations (e.g. L-01 - KTS 550 -> L-08 - KTS 550).
+ */
+export function sanitizeStoredReport(report) {
+  if (!report || typeof report !== 'object') return report;
+  const updated = { ...report };
+  if (updated.header) {
+    const custom = (updated.header.lineCustom || '').trim();
+    const rawId = (updated.header.lineId || '').trim();
+    const matchedCustom = custom ? matchMachine(custom, MACHINES) : null;
+    const matchedId = rawId ? matchMachine(rawId, MACHINES) : null;
+    const matched = matchedCustom || matchedId;
+
+    if (matched) {
+      updated.header = {
+        ...updated.header,
+        lineId: matched.id,
+        lineCustom: matchedCustom ? matched.name : (custom || matched.name)
+      };
+    }
+  }
+  return updated;
+}
+
+/**
+ * Sanitizes a single persisted production record to guarantee canonical Line ID and machine name.
+ */
+export function sanitizeStoredRecord(rec) {
+  if (!rec || typeof rec !== 'object') return rec;
+  const rawKey = rec.machineRaw || rec.machineName || rec.machineId || '';
+  const matched = matchMachine(rawKey, MACHINES) || matchMachine(rec.machineId, MACHINES);
+  if (matched) {
+    const machineName = `${matched.id} - ${matched.name}`;
+    const nominalCapacityKgH = matched.capacityKgH || rec.nominalCapacityKgH || 0;
+    return {
+      ...rec,
+      machineId: matched.id,
+      machineName,
+      matchedMachine: matched,
+      nominalCapacityKgH
+    };
+  }
+  return rec;
+}
+
+/**
+ * Sanitizes an array of persisted production records.
+ */
+export function sanitizeStoredRecords(records) {
+  if (!Array.isArray(records)) return [];
+  return records.map(sanitizeStoredRecord);
+}
+
+/**
+ * Migrates and synchronizes all legacy localStorage datasets to official canonical machine definitions.
+ */
+export function migrateStoredLineMappings() {
+  const storage = getStorage();
+  if (!storage) return;
+
+  try {
+    // 1. Sanitize Machine Master
+    const rawMaster = storage.getItem(STORAGE_KEYS.MACHINE_MASTER);
+    if (rawMaster) {
+      const parsedMaster = JSON.parse(rawMaster);
+      if (Array.isArray(parsedMaster)) {
+        const sanitized = sanitizeMachineMaster(parsedMaster);
+        storage.setItem(STORAGE_KEYS.MACHINE_MASTER, JSON.stringify(sanitized));
+      }
+    }
+
+    // 2. Sanitize Active Report
+    const rawActive = storage.getItem(STORAGE_KEYS.ACTIVE_REPORT);
+    if (rawActive) {
+      const parsedActive = JSON.parse(rawActive);
+      if (parsedActive) {
+        const sanitized = sanitizeStoredReport(parsedActive);
+        storage.setItem(STORAGE_KEYS.ACTIVE_REPORT, JSON.stringify(sanitized));
+      }
+    }
+
+    // 3. Sanitize Saved Reports List
+    const rawReports = storage.getItem(STORAGE_KEYS.REPORTS);
+    if (rawReports) {
+      const parsedReports = JSON.parse(rawReports);
+      if (Array.isArray(parsedReports)) {
+        const sanitized = parsedReports.map(sanitizeStoredReport);
+        storage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(sanitized));
+      }
+    }
+
+    // 4. Sanitize Production Records
+    const rawRecords = storage.getItem(STORAGE_KEYS.RECORDS);
+    if (rawRecords) {
+      const parsedRecords = JSON.parse(rawRecords);
+      if (Array.isArray(parsedRecords)) {
+        const sanitized = sanitizeStoredRecords(parsedRecords);
+        storage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(sanitized));
+      }
+    }
+  } catch (err) {
+    console.error('Failed to migrate stored line mappings:', err);
+  }
+}
+
+// Automatically trigger migration in browser environments
+if (typeof window !== 'undefined') {
+  migrateStoredLineMappings();
+}
+
 export function loadAll() {
   const storage = getStorage();
   if (!storage) return [];
   try {
     const raw = storage.getItem(STORAGE_KEYS.REPORTS);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(sanitizeStoredReport) : [];
   } catch (err) {
     console.error('Failed to load local history:', err);
     return [];
@@ -40,8 +153,9 @@ export function saveReport(report) {
   if (!storage) return report;
   try {
     const items = loadAll();
-    const idx = items.findIndex((r) => r.id === report.id);
-    const updated = { ...report, updatedAt: Date.now() };
+    const sanitized = sanitizeStoredReport(report);
+    const idx = items.findIndex((r) => r.id === sanitized.id);
+    const updated = { ...sanitized, updatedAt: Date.now() };
     if (idx >= 0) {
       items[idx] = updated;
     } else {
@@ -80,7 +194,7 @@ export function loadPersistedRecords() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return { status: 'loaded', records: parsed };
+        return { status: 'loaded', records: sanitizeStoredRecords(parsed) };
       }
     }
     return { status: 'empty', records: [] };
@@ -95,7 +209,7 @@ export function savePersistedRecords(records, meta = {}) {
   if (!storage) return;
   try {
     storage.removeItem(STORAGE_KEYS.CLEARED);
-    storage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records || []));
+    storage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(sanitizeStoredRecords(records || [])));
     if (meta.machineMaster && Array.isArray(meta.machineMaster)) {
       storage.setItem(STORAGE_KEYS.MACHINE_MASTER, JSON.stringify(meta.machineMaster));
     }
@@ -136,7 +250,7 @@ export function loadPersistedActiveReport() {
       return null;
     }
     const raw = storage.getItem(STORAGE_KEYS.ACTIVE_REPORT);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? sanitizeStoredReport(JSON.parse(raw)) : null;
   } catch (err) {
     console.error('Failed to load active report:', err);
     return null;
@@ -148,7 +262,7 @@ export function savePersistedActiveReport(report) {
   if (!storage) return;
   try {
     if (report) {
-      storage.setItem(STORAGE_KEYS.ACTIVE_REPORT, JSON.stringify(report));
+      storage.setItem(STORAGE_KEYS.ACTIVE_REPORT, JSON.stringify(sanitizeStoredReport(report)));
     } else {
       storage.removeItem(STORAGE_KEYS.ACTIVE_REPORT);
     }

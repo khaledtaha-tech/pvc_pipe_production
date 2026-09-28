@@ -6,7 +6,8 @@ import {
   clearPersistedRecords,
   loadPersistedActiveReport,
   savePersistedActiveReport,
-  loadPersistedMeta
+  loadPersistedMeta,
+  migrateStoredLineMappings
 } from '../../src/data/store.js';
 
 console.log('--- Starting Storage & Persistence Unit Tests ---');
@@ -87,5 +88,36 @@ assert.equal(reloaded.status, 'loaded', 'Status should be loaded after new uploa
 assert.equal(reloaded.records.length, 2);
 assert.equal(mockLocalStorage.getItem(STORAGE_KEYS.CLEARED), null, 'Cleared flag must be removed');
 console.log('Re-uploading and unsetting cleared flag: OK');
+
+// Test 6: migrateStoredLineMappings sanitizes stale L-01 - KTS 550 mappings
+mockLocalStorage.setItem(STORAGE_KEYS.MACHINE_MASTER, JSON.stringify([
+  { id: 'L-01', name: 'KTS 550', capacityKgH: 400 }
+]));
+mockLocalStorage.setItem(STORAGE_KEYS.ACTIVE_REPORT, JSON.stringify({
+  header: { date: '2026-09-17', lineId: 'L-01', lineCustom: 'KTS 550' }
+}));
+mockLocalStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify([
+  { id: 'rep_old_1', header: { date: '2026-09-17', lineId: 'L-01', lineCustom: 'L-01 - KTS 550' } }
+]));
+mockLocalStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify([
+  { machineId: 'L-01', machineRaw: 'KTS 550', machineName: 'L-01 - KTS 550' }
+]));
+
+migrateStoredLineMappings();
+
+const migratedMaster = JSON.parse(mockLocalStorage.getItem(STORAGE_KEYS.MACHINE_MASTER));
+const kts550 = migratedMaster.find(m => m.name === 'KTS 550');
+assert.equal(kts550.id, 'L-08', 'KTS 550 in machine master must migrate to L-08');
+
+const migratedActive = JSON.parse(mockLocalStorage.getItem(STORAGE_KEYS.ACTIVE_REPORT));
+assert.equal(migratedActive.header.lineId, 'L-08', 'Active report with KTS 550 must migrate to L-08');
+
+const migratedReports = JSON.parse(mockLocalStorage.getItem(STORAGE_KEYS.REPORTS));
+assert.equal(migratedReports[0].header.lineId, 'L-08', 'Stored report with KTS 550 must migrate to L-08');
+
+const migratedRecords = JSON.parse(mockLocalStorage.getItem(STORAGE_KEYS.RECORDS));
+assert.equal(migratedRecords[0].machineId, 'L-08', 'Stored records with KTS 550 must migrate to L-08');
+assert.equal(migratedRecords[0].machineName, 'L-08 - KTS 550');
+console.log('migrateStoredLineMappings sanitizes stale cache to canonical L-08: OK');
 
 console.log('All Storage & Persistence unit tests passed successfully!');

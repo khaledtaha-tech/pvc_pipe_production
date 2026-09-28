@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { MACHINES, matchMachine } from '../../config/machines.js';
+import { MACHINES, matchMachine, sanitizeMachineMaster } from '../../config/machines.js';
 import {
   formatFullMachineName,
   findPreviousRunForMachine,
@@ -43,9 +43,9 @@ export default function PrintSopModal({
   // Compute immediate previous calendar day (YYYY-MM-DD)
   const previousDate = useMemo(() => getPreviousDay(targetDate), [targetDate]);
 
-  // Active machine master list
+  // Active machine master list sanitized to official canonical mapping
   const activeMaster = useMemo(() => {
-    return Array.isArray(machineMaster) && machineMaster.length > 0 ? machineMaster : MACHINES;
+    return sanitizeMachineMaster(machineMaster);
   }, [machineMaster]);
 
   // Count of machines strictly running on immediate previous day

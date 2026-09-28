@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
-import { MACHINES, matchMachine, normalizeLineId, PLANT_NAME } from '../config/machines.js';
-export { normalizeLineId };
+import { MACHINES, matchMachine, normalizeLineId, sanitizeMachineMaster, PLANT_NAME } from '../config/machines.js';
+export { normalizeLineId, sanitizeMachineMaster };
 import {
   makeRefSpec,
   generateReport,
@@ -251,14 +251,17 @@ export function parseMachineMaster(wb) {
       cap = numMatch ? Number(numMatch[0]) : 0;
     }
 
-    const canonical = matchMachine(name, MACHINES);
+    // IMMUTABLE CANONICAL OVERRIDE: Machine model strictly dictates Line ID
+    const canonical = matchMachine(name, MACHINES) || matchMachine(id, MACHINES);
     const finalId = canonical ? canonical.id : id;
+    const finalName = canonical ? canonical.name : name;
 
     master.push({
       id: finalId,
-      name,
-      capacityKgH: cap,
-      detail: cap > 0 ? `${cap} kg/h` : ''
+      name: finalName,
+      capacityKgH: cap > 0 ? cap : (canonical ? canonical.capacityKgH : 0),
+      nominalCapacity: cap > 0 ? cap : (canonical ? canonical.nominalCapacity : 0),
+      detail: (cap > 0 || (canonical && canonical.capacityKgH > 0)) ? `${cap || canonical.capacityKgH} kg/h` : ''
     });
   }
 

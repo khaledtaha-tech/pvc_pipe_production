@@ -2,7 +2,8 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 import {
   buildSopModel,
   resolveProductSpecification,
-  isCompoundingLineOrProduct
+  isCompoundingLineOrProduct,
+  formatFullMachineName
 } from '../../logic/legacySopHelper.js';
 
 export const LegacySopSheet = forwardRef(function LegacySopSheet(
@@ -28,12 +29,14 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
     ? (model?.itemCode && rawProductSpec && !rawProductSpec.toUpperCase().includes(model.itemCode.toUpperCase())
         ? `[${model.itemCode}] - ${rawProductSpec}`
         : (rawProductSpec || model?.displayProduct || `[${model?.itemCode}]`))
-    : '';
+  : '';
 
   const hasLine = Boolean(!isUniversal && (model?.fullMachineName || model?.lineId));
+  const rawLine = model?.fullMachineName || model?.lineId || '';
+  const canonicalLine = formatFullMachineName(model?.lineId, rawLine);
   const lineDisplay = hasLine
-    ? (model?.fullMachineName || model?.lineId)
-    : (isUniversal ? '________________' : (model?.fullMachineName || model?.lineId || '________________'));
+    ? (canonicalLine || rawLine)
+    : (isUniversal ? '________________' : (canonicalLine || '________________'));
 
   const speedVal = (!isUniversal && !model?.isIdle && (model?.speed || model?.speed1))
     ? Number(model?.speed || model?.speed1)

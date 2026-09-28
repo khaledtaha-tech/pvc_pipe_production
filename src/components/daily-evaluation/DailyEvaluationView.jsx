@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import html2pdf from 'html2pdf.js';
-import { MACHINES, matchMachine, machineLabel, PLANT_NAME, SOP_REF, DOC_VERSION } from '../../config/machines.js';
+import { MACHINES, matchMachine, machineLabel, sanitizeMachineMaster, PLANT_NAME, SOP_REF, DOC_VERSION } from '../../config/machines.js';
 import { makeRefSpec, generateReport, buildAll } from '../../logic/engine.js';
 import {
   newId,
@@ -13,7 +13,8 @@ import {
   clearPersistedRecords,
   loadPersistedActiveReport,
   savePersistedActiveReport,
-  loadPersistedMeta
+  loadPersistedMeta,
+  migrateStoredLineMappings
 } from '../../data/store.js';
 import {
   parseExcelWorkbook,
@@ -114,7 +115,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   });
   const [machineMaster, setMachineMaster] = useState(() => {
     const meta = loadPersistedMeta();
-    return meta.machineMaster && meta.machineMaster.length > 0 ? meta.machineMaster : MACHINES;
+    return sanitizeMachineMaster(meta.machineMaster);
   });
   const [report, setReport] = useState(() => {
     const persisted = loadPersistedRecords();
@@ -172,6 +173,11 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
 
+  // Migrate legacy and stale line mappings in local storage upon mount
+  useEffect(() => {
+    migrateStoredLineMappings();
+  }, []);
+
   // Seed demo data ONLY on the very first visit (when storage has no records and is not marked cleared)
   useEffect(() => {
     const persisted = loadPersistedRecords();
@@ -186,11 +192,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         const res = parseExcelWorkbook(buf);
         if (res.rows && res.rows.length > 0) {
           setRecords(res.rows);
-          if (res.machineMaster && res.machineMaster.length > 0) {
-            setMachineMaster(res.machineMaster);
+          const sanitizedMaster = sanitizeMachineMaster(res.machineMaster);
+          if (sanitizedMaster && sanitizedMaster.length > 0) {
+            setMachineMaster(sanitizedMaster);
           }
           savePersistedRecords(res.rows, {
-            machineMaster: res.machineMaster,
+            machineMaster: sanitizedMaster,
             fileName: 'Master_Upload.xlsx',
             sheetName: res.sheetName || 'Daily Production Log'
           });
@@ -222,10 +229,11 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return;
     }
     if (Array.isArray(rows)) {
-      const consolidated = consolidateDailyMachineRecords(rows, newMaster || machineMaster);
+      const activeMaster = sanitizeMachineMaster(newMaster || machineMaster);
+      const consolidated = consolidateDailyMachineRecords(rows, activeMaster);
       setRecords(consolidated);
       savePersistedRecords(consolidated, {
-        machineMaster: newMaster || machineMaster,
+        machineMaster: activeMaster,
         fileName: fileName || '',
         sheetName: sheetName || ''
       });
@@ -237,7 +245,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       }
     }
     if (newMaster && newMaster.length > 0) {
-      setMachineMaster(newMaster);
+      setMachineMaster(sanitizeMachineMaster(newMaster));
     }
   }, [machineMaster]);
 
@@ -1365,7 +1373,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="btn btn-supervisor-header-quick"
             onClick={() => setIsPrintChoiceModalOpen(true)}
-            title={isAr ? "مشرف الإنتاج: طباعة وتوليد شيت الصباح الفارغ لخطوط المصنع (DOC-Ext.-03)" : "Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"}
+            title="Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ marginInlineEnd: 4 }}>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1373,7 +1381,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <line x1="16" y1="13" x2="8" y2="13" />
               <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
-            {isAr ? 'شيت الصباح الفارغ (مشرف الإنتاج)' : 'Morning Blank SOP (Supervisor)'}
+            Morning Blank SOP (Supervisor)
           </button>
           <a
             href="./Master_Upload.xlsx"
@@ -1454,17 +1462,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <div className="supervisor-hero-info">
                 <div className="supervisor-hero-badge">
                   <span className="supervisor-hero-pulse" />
-                  {isAr ? 'بوابة مشرف الإنتاج اليومية | Production Supervisor Daily SOP' : 'Production Supervisor Daily SOP'}
+                  Production Supervisor Daily SOP
                 </div>
                 <h2 className="supervisor-hero-title">
-                  {isAr
-                    ? 'طباعة وتوليد شيت الصباح الفارغ لخطوط الإنتاج (DOC-Ext.-03)'
-                    : 'Generate & Print Morning Blank SOP (DOC-Ext.-03)'}
+                  Generate & Print Morning Blank SOP (DOC-Ext.-03)
                 </h2>
                 <p className="supervisor-hero-desc">
-                  {isAr
-                    ? 'إعداد وتجهيز نماذج المتابعة الميدانية ودفاتر تشغيل الورديات اليومية فارغة مع ربط أكواد المنتجات (Product Code) ومواصفات كل ماكينة قبل بدء دورة العمل.'
-                    : 'Prepare empty daily shift log sheets with automated Product Code binding and machine nominal specs prior to shift operational start.'}
+                  Prepare empty daily shift log sheets with automated Product Code binding and machine nominal specs prior to shift operational start.
                 </p>
               </div>
               <div className="supervisor-hero-actions">
@@ -1472,7 +1476,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   type="button"
                   className="btn btn-supervisor-hero"
                   onClick={() => setIsPrintChoiceModalOpen(true)}
-                  title={isAr ? "فتح وحدة إعداد وتجهيز شيت الصباح الفارغ لجميع خطوط الإنتاج" : "Open Morning Blank SOP Generator & Batch Print Module"}
+                  title="Open Morning Blank SOP Generator & Batch Print Module"
                 >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" style={{ marginInlineEnd: 8 }}>
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1481,7 +1485,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <line x1="16" y1="17" x2="8" y2="17" />
                     <polyline points="10 9 9 9 8 9" />
                   </svg>
-                  <span>{isAr ? 'طباعة شيت الصباح الفارغ (DOC-Ext.-03)' : 'Print Blank Morning SOP (DOC-Ext.-03)'}</span>
+                  <span>Print Blank Morning SOP (DOC-Ext.-03)</span>
                 </button>
               </div>
             </div>
@@ -1663,7 +1667,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   type="button"
                   className="btn btn-ghost btn-print"
                   onClick={() => {
-                    notify(isAr ? 'تأكد من اختيار الاتجاه الأفقي (Landscape) وحجم A4 للحصول على أفضل طباعة' : 'Ensure Landscape orientation and A4 size in the print dialog for best fit.');
+                    notify('Ensure Landscape orientation and A4 size in the print dialog for best fit.');
                     setTimeout(() => window.print(), 150);
                   }}
                   disabled={activeLinesForDate.length === 0}

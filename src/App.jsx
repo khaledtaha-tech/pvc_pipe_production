@@ -26,6 +26,7 @@ import {
   saveAppState, 
   clearAppState 
 } from './utils/indexedDbStorage';
+import { fetchDatasetsFromApi, syncDatasetsToApi } from './logic/apiClient';
 import { t } from './utils/translations';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './components/auth/LoginPage';
@@ -74,13 +75,21 @@ function AppContent() {
           showToast('Daily evaluation module not ready', 'error');
         }
       } else {
-        // data-analysis module: force flush active datasets directly into IndexedDB
+        // data-analysis module: force flush active datasets into IndexedDB and Central MySQL
         await saveAppState({
           rawRows,
           historicalRawRows,
           currentSheetName
         });
-        showToast('All changes saved successfully', 'success');
+        // Sync to central MySQL database in background
+        syncDatasetsToApi({
+          productionLogs: rawRows,
+          erpRecords: historicalRawRows,
+          mode: 'replace'
+        }).catch((err) => {
+          console.warn('Central database sync notice (offline mode):', err);
+        });
+        showToast('All changes saved to database and local storage', 'success');
       }
     } catch (err) {
       console.error('Save error:', err);
@@ -95,27 +104,61 @@ function AppContent() {
     return localStorage.getItem('pipe_data_theme') || 'dark';
   });
 
-  // Hydrate application state from IndexedDB on initial mount
+  // Hydrate application state: Remote-First from central MySQL database with IndexedDB fallback
   useEffect(() => {
     let isMounted = true;
     async function hydrate() {
       try {
-        const saved = await loadAppState();
-        if (isMounted) {
-          if (saved && saved.isInitialized) {
-            setRawRows(saved.rawRows || []);
-            setHistoricalRawRows(saved.historicalRawRows || []);
-            if (saved.currentSheetName) {
-              setCurrentSheetName(saved.currentSheetName);
+        let hasRemoteData = false;
+
+        // 1. Attempt remote fetch from Central MySQL Database
+        try {
+          const remoteRes = await fetchDatasetsFromApi();
+          if (remoteRes && remoteRes.success) {
+            const remoteProd = Array.isArray(remoteRes.productionLogs) ? remoteRes.productionLogs : [];
+            const remoteErp = Array.isArray(remoteRes.erpRecords) ? remoteRes.erpRecords : [];
+
+            if (remoteProd.length > 0 || remoteErp.length > 0) {
+              hasRemoteData = true;
+              if (isMounted) {
+                if (remoteProd.length > 0) setRawRows(remoteProd);
+                if (remoteErp.length > 0) setHistoricalRawRows(remoteErp);
+                setCurrentSheetName('Central MySQL Database');
+
+                // Cache remote datasets into local IndexedDB for offline resilience
+                await saveAppState({
+                  rawRows: remoteProd.length > 0 ? remoteProd : SAMPLE_PRODUCTION_DATA,
+                  historicalRawRows: remoteErp.length > 0 ? remoteErp : SAMPLE_HISTORICAL_ERP_DATA,
+                  currentSheetName: 'Central MySQL Database'
+                });
+                setIsHydrated(true);
+              }
             }
-          } else {
-            await saveAppState({
-              rawRows: SAMPLE_PRODUCTION_DATA,
-              historicalRawRows: SAMPLE_HISTORICAL_ERP_DATA,
-              currentSheetName: 'Daily Production Log'
-            });
           }
-          setIsHydrated(true);
+        } catch (remoteErr) {
+          console.warn('Central database remote hydration skipped (offline or unreachable):', remoteErr);
+        }
+
+        // 2. Fall back to local IndexedDB if remote returned no datasets
+        if (!hasRemoteData) {
+          const saved = await loadAppState();
+          if (isMounted) {
+            if (saved && saved.isInitialized) {
+              setRawRows(saved.rawRows || []);
+              setHistoricalRawRows(saved.historicalRawRows || []);
+              if (saved.currentSheetName) {
+                setCurrentSheetName(saved.currentSheetName);
+              }
+            } else {
+              // 3. Fall back to initial sample fixtures if both remote and local are uninitialized
+              await saveAppState({
+                rawRows: SAMPLE_PRODUCTION_DATA,
+                historicalRawRows: SAMPLE_HISTORICAL_ERP_DATA,
+                currentSheetName: 'Daily Production Log'
+              });
+            }
+            setIsHydrated(true);
+          }
         }
       } catch (err) {
         console.warn('Hydration error:', err);

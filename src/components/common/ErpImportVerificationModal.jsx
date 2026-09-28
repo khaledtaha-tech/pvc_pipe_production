@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { parseSheetToJsonWithDynamicHeader } from '../../utils/dataCleaner.js';
 import { analyzeErpImport } from '../../utils/inferenceEngine.js';
+import { syncDatasetsToApi } from '../../logic/apiClient.js';
 
 export default function ErpImportVerificationModal({
   isOpen,
@@ -103,6 +104,14 @@ export default function ErpImportVerificationModal({
           }
         }
         return cleanRow;
+      });
+
+      // Background synchronization to central MySQL database
+      syncDatasetsToApi({
+        erpRecords: sanitizedRows,
+        batchId: `erp_${Date.now()}`
+      }).catch((syncErr) => {
+        console.warn('Background ERP sync notice from modal (offline mode):', syncErr);
       });
 
       onConfirm(sanitizedRows, selectedSheet);

@@ -44,6 +44,7 @@ import {
   clearPersistedRecords
 } from '../../data/store.js';
 import { saveAppState } from '../../utils/indexedDbStorage.js';
+import { syncDatasetsToApi } from '../../logic/apiClient.js';
 import ErpImportVerificationModal from '../common/ErpImportVerificationModal.jsx';
 
 export default function DataExchangeCenter({
@@ -190,6 +191,18 @@ export default function DataExchangeCenter({
       setRawRows(jsonData);
       if (setCurrentSheetName) setCurrentSheetName(sheetName);
       notify(`Loaded ${jsonData.length} production rows from "${sheetName}"`);
+
+      // Trigger background synchronization to central MySQL database
+      syncDatasetsToApi({
+        productionLogs: jsonData,
+        batchId: `prod_${Date.now()}`
+      }).then((syncRes) => {
+        if (syncRes && syncRes.success) {
+          notify(`Persisted ${jsonData.length} production rows to Central Database`);
+        }
+      }).catch((syncErr) => {
+        console.warn('Background database sync notice (offline mode):', syncErr);
+      });
     } catch (err) {
       console.error(err);
       setDailyError('Failed to extract rows from sheet.');
@@ -262,6 +275,18 @@ export default function DataExchangeCenter({
         currentSheetName: currentSheetName || 'Daily Production Log'
       }).catch((err) => {
         console.error('Failed to persist historical ERP state in DataExchangeCenter:', err);
+      });
+
+      // Trigger background synchronization to central MySQL database
+      syncDatasetsToApi({
+        erpRecords: sanitizedRows,
+        batchId: `erp_${Date.now()}`
+      }).then((syncRes) => {
+        if (syncRes && syncRes.success) {
+          notify(`Persisted ${sanitizedRows.length} ERP records to Central Database`);
+        }
+      }).catch((syncErr) => {
+        console.warn('Background ERP database sync notice (offline mode):', syncErr);
       });
 
       // 3. Close the modal immediately and clear staged input

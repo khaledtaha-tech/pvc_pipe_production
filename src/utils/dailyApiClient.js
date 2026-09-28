@@ -132,3 +132,49 @@ export async function deleteReportFromApi(id) {
     body: JSON.stringify({ id })
   });
 }
+
+/**
+ * Synchronize bulk production logs and/or ERP records to the central MySQL database
+ * @param {Object} payload - { productionLogs, erpRecords, batchId, mode }
+ */
+export async function syncDatasetsToApi(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return { success: false, message: 'Invalid payload for dataset synchronization' };
+  }
+
+  const productionLogs = payload.productionLogs || payload.rawRows || [];
+  const erpRecords = payload.erpRecords || payload.historicalRawRows || payload.historicalRows || [];
+
+  if (productionLogs.length === 0 && erpRecords.length === 0) {
+    return { success: true, count: 0, message: 'No records to synchronize' };
+  }
+
+  const body = {
+    productionLogs,
+    erpRecords,
+    batchId: payload.batchId || `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    mode: payload.mode || 'append'
+  };
+
+  return apiRequest('sync_datasets.php', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+}
+
+/**
+ * Fetch centralized production logs and historical ERP records from central database
+ * @param {Object} [options] - { limit, startDate, endDate, type }
+ */
+export async function fetchDatasetsFromApi(options = {}) {
+  const params = new URLSearchParams();
+  if (options.limit) params.set('limit', String(options.limit));
+  if (options.startDate) params.set('startDate', String(options.startDate));
+  if (options.endDate) params.set('endDate', String(options.endDate));
+  if (options.type) params.set('type', String(options.type));
+
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return apiRequest(`get_datasets.php${query}`, {
+    method: 'GET'
+  });
+}

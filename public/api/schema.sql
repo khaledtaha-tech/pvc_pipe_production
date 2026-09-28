@@ -109,3 +109,46 @@ CREATE TABLE IF NOT EXISTS `users` (
   INDEX `idx_role` (`role`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ==============================================================================
+-- Central Production Log & Historical ERP Dataset Persistence
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS `production_log_records` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `record_date` DATE NOT NULL,
+  `line_machine` VARCHAR(100) NOT NULL,
+  `shift` VARCHAR(50) DEFAULT NULL,
+  `item_code` VARCHAR(100) DEFAULT NULL,
+  `description` VARCHAR(255) DEFAULT NULL,
+  `outer_diameter` VARCHAR(50) DEFAULT NULL,
+  `wall_thickness` VARCHAR(50) DEFAULT NULL,
+  `actual_output_kg` DECIMAL(12,2) DEFAULT 0.00,
+  `scrap_kg` DECIMAL(10,2) DEFAULT 0.00,
+  `operating_hours` DECIMAL(5,2) DEFAULT 0.00,
+  `downtime_hours` DECIMAL(5,2) DEFAULT 0.00,
+  `raw_row_json` LONGTEXT NULL,
+  `upload_batch_id` VARCHAR(64) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_prod_date_line` (`record_date`, `line_machine`),
+  INDEX `idx_prod_item` (`item_code`),
+  INDEX `idx_prod_batch` (`upload_batch_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `historical_erp_records` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `doc_date` DATE NOT NULL,
+  `line_machine` VARCHAR(100) NOT NULL,
+  `item_code` VARCHAR(100) DEFAULT NULL,
+  `description` VARCHAR(255) DEFAULT NULL,
+  `total_weight_kg` DECIMAL(14,2) DEFAULT 0.00,
+  `total_length_m` DECIMAL(14,2) DEFAULT 0.00,
+  `scrap_weight_kg` DECIMAL(12,2) DEFAULT 0.00,
+  `raw_row_json` LONGTEXT NULL,
+  `upload_batch_id` VARCHAR(64) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_erp_date` (`doc_date`),
+  INDEX `idx_erp_line` (`line_machine`),
+  INDEX `idx_erp_item` (`item_code`),
+  INDEX `idx_erp_batch` (`upload_batch_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

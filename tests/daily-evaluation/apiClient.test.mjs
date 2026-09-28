@@ -6,7 +6,9 @@ import {
   saveReportToApi,
   fetchReportFromApi,
   fetchHistoryFromApi,
-  deleteReportFromApi
+  deleteReportFromApi,
+  syncDatasetsToApi,
+  fetchDatasetsFromApi
 } from '../../src/logic/apiClient.js';
 import { getBenchmarkReport } from '../../src/data/store.js';
 import { generateReport } from '../../src/logic/engine.js';
@@ -24,11 +26,14 @@ const schemaContent = fs.readFileSync(schemaPath, 'utf8');
 
 assert.ok(schemaContent.includes('CREATE TABLE IF NOT EXISTS `daily_reports`'), 'schema.sql must create daily_reports table');
 assert.ok(schemaContent.includes('CREATE TABLE IF NOT EXISTS `hourly_records`'), 'schema.sql must create hourly_records table');
+assert.ok(schemaContent.includes('CREATE TABLE IF NOT EXISTS `production_log_records`'), 'schema.sql must create production_log_records table');
+assert.ok(schemaContent.includes('CREATE TABLE IF NOT EXISTS `historical_erp_records`'), 'schema.sql must create historical_erp_records table');
 assert.ok(schemaContent.includes('UNIQUE KEY `uk_date_line` (`report_date`, `line_machine`)'), 'schema.sql must include unique constraint on (report_date, line_machine)');
 assert.ok(schemaContent.includes('REFERENCES `daily_reports` (`id`) ON DELETE CASCADE'), 'schema.sql must include foreign key cascade');
 assert.ok(schemaContent.includes('`operating_hours`'), 'schema.sql must include operating_hours KPI column');
 assert.ok(schemaContent.includes('`oee_pct`'), 'schema.sql must include oee_pct KPI column');
 assert.ok(schemaContent.includes('`raw_json`'), 'schema.sql must include raw_json column for lossless restoration');
+assert.ok(schemaContent.includes('`raw_row_json`'), 'schema.sql must include raw_row_json column for lossless dataset restoration');
 console.log('schema.sql structure & foreign keys: OK');
 
 // 2. Verify PHP API endpoint files exist
@@ -38,7 +43,9 @@ const requiredApiFiles = [
   'save_report.php',
   'get_report.php',
   'get_history.php',
-  'delete_report.php'
+  'delete_report.php',
+  'sync_datasets.php',
+  'get_datasets.php'
 ];
 
 for (const file of requiredApiFiles) {
@@ -83,6 +90,13 @@ async function testApiClientValidation() {
   const deleteWithoutId = await deleteReportFromApi('');
   assert.strictEqual(deleteWithoutId.success, false, 'deleteReportFromApi should reject empty id');
 
+  const emptySyncRes = await syncDatasetsToApi(null);
+  assert.strictEqual(emptySyncRes.success, false, 'syncDatasetsToApi should reject null payload');
+
+  const noRecordsSyncRes = await syncDatasetsToApi({ productionLogs: [], erpRecords: [] });
+  assert.strictEqual(noRecordsSyncRes.success, true, 'syncDatasetsToApi should handle empty payload gracefully');
+  assert.strictEqual(noRecordsSyncRes.count, 0, 'syncDatasetsToApi count should be 0 for empty payload');
+
   console.log('API Client input validations: OK');
 }
 
@@ -107,6 +121,19 @@ async function testOfflineResilience() {
   assert.strictEqual(typeof histRes, 'object', 'fetchHistoryFromApi must return an object');
   assert.strictEqual(histRes.success, false, 'fetchHistoryFromApi should be false when server is not running');
   assert.ok(histRes.offline || histRes.message, 'fetchHistoryFromApi must report offline status');
+
+  const syncRes = await syncDatasetsToApi({
+    productionLogs: [{ date: '2026-03-01', itemCode: '1001', totalWeight: 500 }],
+    erpRecords: [{ Date: '2026-03-01', 'Item Code': '1001', 'Total Weight (kg)': 500 }]
+  });
+  assert.strictEqual(typeof syncRes, 'object', 'syncDatasetsToApi must return an object');
+  assert.strictEqual(syncRes.success, false, 'syncDatasetsToApi should be false when server is not running in Node');
+  assert.ok(syncRes.offline || syncRes.message, 'syncDatasetsToApi must report offline status');
+
+  const getDatasetsRes = await fetchDatasetsFromApi();
+  assert.strictEqual(typeof getDatasetsRes, 'object', 'fetchDatasetsFromApi must return an object');
+  assert.strictEqual(getDatasetsRes.success, false, 'fetchDatasetsFromApi should be false when server is not running in Node');
+  assert.ok(getDatasetsRes.offline || getDatasetsRes.message, 'fetchDatasetsFromApi must report offline status');
 
   console.log('API Client offline resilience & error catching: OK');
 }

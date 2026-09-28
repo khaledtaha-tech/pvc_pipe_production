@@ -323,6 +323,45 @@ export default function PrintSopModal({
     );
   };
 
+  // Update target rate (pcs/h for extrusion, kg/h for compounding) and live-recalculate metrics
+  const handleRateChange = (machineId, rateVal) => {
+    const rawVal = rateVal === '' ? '' : Number(rateVal);
+    const num = typeof rawVal === 'number' && !isNaN(rawVal) && rawVal > 0 ? rawVal : '';
+    setLinesState((prev) =>
+      prev.map((item) => {
+        if (item.machineId !== machineId) return item;
+        if (num === '') {
+          return {
+            ...item,
+            calculatedRate: '',
+            calculatedRateKgH: '',
+            speed: '',
+            isIdle: !item.productDescription
+          };
+        }
+        if (item.isCompounding) {
+          return {
+            ...item,
+            calculatedRate: num,
+            calculatedRateKgH: num,
+            isIdle: false
+          };
+        }
+        const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
+        const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
+        const calcKgH = Math.round(num * unitWeight * 10) / 10;
+        const harmonizedSpeed = pipeLen > 0 ? Math.round(((num * pipeLen) / 60) * 100) / 100 : item.speed;
+        return {
+          ...item,
+          calculatedRate: num,
+          calculatedRateKgH: calcKgH,
+          speed: harmonizedSpeed,
+          isIdle: false
+        };
+      })
+    );
+  };
+
   // Update linear speed (m/min) and recalculate standard pcs/h and output rate (kg/h)
   const handleSpeedChange = (machineId, speedVal) => {
     const rawVal = speedVal === '' ? '' : Number(speedVal);
@@ -346,7 +385,7 @@ export default function PrintSopModal({
           ...item,
           speed: num,
           calculatedRate: rate,
-          calculatedRateKgH: Math.round(rate * unitWeight),
+          calculatedRateKgH: Math.round(rate * unitWeight * 10) / 10,
           isIdle: false
         };
       })
@@ -383,7 +422,7 @@ export default function PrintSopModal({
           ...item,
           pipeLength: num,
           calculatedRate: rate,
-          calculatedRateKgH: rate ? Math.round(rate * unitWeight) : ''
+          calculatedRateKgH: rate ? Math.round(rate * unitWeight * 10) / 10 : ''
         };
       })
     );
@@ -407,6 +446,7 @@ export default function PrintSopModal({
         unitWeight: item.unitWeight,
         nominalCapacity: item.nominalCapacity,
         targetRate: item.calculatedRate,
+        calculatedRateKgH: item.calculatedRateKgH,
         targetCapacity: item.calculatedRate,
         isCompounding: item.isCompounding,
         isIdle: Boolean(item.isIdle || (!item.isCompounding && !item.speed && !item.productDescription && !item.itemCode)),
@@ -591,7 +631,9 @@ export default function PrintSopModal({
                 : (!isLineComp && speed > 0 && pipeLength > 0 ? Math.round((speed * 60) / pipeLength) : 0);
               const calculatedKgH = isLineComp
                 ? (Number(line?.calculatedRate) || nominalKgH)
-                : Math.round(pcsPerHour * unitWeight);
+                : (line?.calculatedRateKgH !== undefined && line?.calculatedRateKgH !== null && line?.calculatedRateKgH !== ''
+                    ? Number(line.calculatedRateKgH)
+                    : Math.round(pcsPerHour * unitWeight * 10) / 10);
 
               const utilizationPct = nominalKgH > 0 ? Math.round((calculatedKgH / nominalKgH) * 100) : 0;
 
@@ -626,9 +668,20 @@ export default function PrintSopModal({
                       )}
                       {isLineComp ? (
                         <>
-                          <span className="print-sop-badge-rate">
-                            {Number(line.calculatedRate || nominalKgH).toLocaleString()} Kg / hr
-                          </span>
+                          <div className="print-sop-badge-rate print-sop-badge-rate-editable" title="Target Capacity (Kg/hr)">
+                            <input
+                              type="number"
+                              step="10"
+                              min="10"
+                              max="2000"
+                              className="print-sop-inline-rate-input"
+                              value={line.calculatedRate !== undefined && line.calculatedRate !== null ? line.calculatedRate : ''}
+                              placeholder="0"
+                              onChange={(e) => handleCapacityChange(line.machineId, e.target.value)}
+                              disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            />
+                            <span className="print-sop-inline-rate-unit">Kg / hr</span>
+                          </div>
                           <span className="print-sop-badge-nominal">
                             Bag Packaging: 25 Kg / Bag
                           </span>
@@ -642,9 +695,19 @@ export default function PrintSopModal({
                       ) : (
                         line.calculatedRate ? (
                           <>
-                            <span className="print-sop-badge-rate">
-                              {Number(line.calculatedRate).toLocaleString()} Pcs / hr
-                            </span>
+                            <div className="print-sop-badge-rate print-sop-badge-rate-editable" title="Live-editable Target Rate (Pcs/hr)">
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                max="10000"
+                                className="print-sop-inline-rate-input"
+                                value={line.calculatedRate}
+                                onChange={(e) => handleRateChange(line.machineId, e.target.value)}
+                                disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                              />
+                              <span className="print-sop-inline-rate-unit">Pcs / hr</span>
+                            </div>
                             <span className="print-sop-badge-kgh">
                               Calculated: {calculatedKgH.toLocaleString()} kg/h
                             </span>
@@ -657,6 +720,20 @@ export default function PrintSopModal({
                           </>
                         ) : (
                           <>
+                            <div className="print-sop-badge-rate print-sop-badge-rate-editable" title="Enter Target Rate (Pcs/hr)">
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                max="10000"
+                                className="print-sop-inline-rate-input"
+                                value=""
+                                placeholder="--"
+                                onChange={(e) => handleRateChange(line.machineId, e.target.value)}
+                                disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                              />
+                              <span className="print-sop-inline-rate-unit">Pcs / hr</span>
+                            </div>
                             <span className="print-sop-badge-rate idle">
                               Idle / Blank Sheet
                             </span>
@@ -675,7 +752,7 @@ export default function PrintSopModal({
                       {/* 1. Product Code Dropdown */}
                       <div className="print-sop-form-group print-sop-code-group">
                         <label className="print-sop-label">
-                          {isAr ? 'كود المنتج (Product Code):' : 'Product Code:'}
+                          Product Code:
                         </label>
                         <select
                           className="print-sop-select print-sop-code-select"
@@ -794,6 +871,21 @@ export default function PrintSopModal({
                     ) : (
                       <div className="print-sop-params-row">
                         <div className="print-sop-param">
+                          <label className="print-sop-label">Target (Pcs/h):</label>
+                          <input
+                            type="number"
+                            step="1"
+                            min="1"
+                            max="10000"
+                            className="print-sop-input"
+                            value={line.calculatedRate !== undefined && line.calculatedRate !== null ? line.calculatedRate : ''}
+                            placeholder="Target (Pcs/h)"
+                            onChange={(e) => handleRateChange(line.machineId, e.target.value)}
+                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                          />
+                        </div>
+
+                        <div className="print-sop-param">
                           <label className="print-sop-label">Speed (M/Min):</label>
                           <input
                             type="number"
@@ -827,7 +919,7 @@ export default function PrintSopModal({
                             <>
                               <div className="print-sop-calc-pcs-box">
                                 <span className="print-sop-calc-formula">
-                                  ({line.speed} &times; 60) / {line.pipeLength}m
+                                  {line.speed > 0 ? `(${line.speed} \u00d7 60) / ${line.pipeLength}m` : 'Target Standard'}
                                 </span>
                                 <span className="print-sop-calc-val">
                                   = <strong>{line.calculatedRate}</strong> pcs/h

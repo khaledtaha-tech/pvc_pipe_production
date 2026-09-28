@@ -1,6 +1,6 @@
 import { MACHINES, matchMachine } from '../config/machines.js';
 export { MACHINES, matchMachine };
-import { parseProductSpecs } from './excelParser.js';
+import { parseProductSpecs } from './dailyExcelParser.js';
 
 /**
  * Helper logic for Legacy Plant SOP (DOC-Ext.-03: PRODUCTION PIECES / Production follow)
@@ -982,19 +982,23 @@ export function buildMorningSopModel(config = {}) {
   const nominalCapacity = Number(config.nominalCapacity) || Number(config.capacityKgH) || (isCompounding ? 400 : 200);
 
   let hourlyStdRate = '';
-  if (isCompounding) {
-    hourlyStdRate = Number(config.targetRate) || Number(config.targetCapacity) || nominalCapacity || 400;
+  if (config.targetRate !== undefined && config.targetRate !== null && config.targetRate !== '' && Number(config.targetRate) > 0) {
+    hourlyStdRate = Number(config.targetRate);
+  } else if (isCompounding) {
+    hourlyStdRate = Number(config.targetCapacity) || nominalCapacity || 400;
   } else if (speed && pipeLength) {
     hourlyStdRate = Math.round((speed * 60) / pipeLength);
   } else if (nominalCapacity > 0 && Number(unitWeight) > 0) {
     hourlyStdRate = Math.round(nominalCapacity / Number(unitWeight));
-  } else if (config.targetRate) {
-    hourlyStdRate = Number(config.targetRate);
+  } else if (config.targetCapacity) {
+    hourlyStdRate = Number(config.targetCapacity);
   }
 
   const calculatedRateKgH = isCompounding
     ? hourlyStdRate
-    : ((hourlyStdRate && unitWeight) ? Math.round(hourlyStdRate * unitWeight) : '');
+    : (config.calculatedRateKgH !== undefined && config.calculatedRateKgH !== null && config.calculatedRateKgH !== ''
+        ? Number(config.calculatedRateKgH)
+        : ((hourlyStdRate && unitWeight) ? Math.round(hourlyStdRate * unitWeight) : ''));
 
   const utilizationPct = (calculatedRateKgH && nominalCapacity > 0)
     ? Math.round((calculatedRateKgH / nominalCapacity) * 100)

@@ -198,7 +198,7 @@ export function getBenchmarkReport() {
     updatedAt: Date.now(),
     header: {
       date: '2026-09-16',
-      lineId: 'L-03',
+      lineId: 'L-06',
       lineCustom: '',
       plantName: 'PVC PIPE EXTRUSION PLANT'
     },

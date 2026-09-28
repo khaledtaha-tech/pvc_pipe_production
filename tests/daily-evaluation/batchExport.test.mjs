@@ -123,16 +123,16 @@ if (fs.existsSync(masterPath)) {
   }
   console.log(`Master_Upload.xlsx real records filtering & derivation: OK (${realOp07.length} lines on 2026-09-07)`);
 
-  // Test multi-item machine date 2026-09-08 (where L-08 ran 2 items: 716 and 717)
+  // Test multi-item machine date 2026-09-08 (where L-01 ran 2 items: 716 and 717)
   const realOp08 = getOperatingRecordsForDate(parsed.rows, '2026-09-08');
   assert.equal(realOp08.length, 5, 'Must have exactly 5 operating machines on 2026-09-08 (not 6 duplicate sheets)');
-  const l08Row = realOp08.find((r) => r.machineId === 'L-08');
-  assert.ok(l08Row, 'L-08 must be included on 2026-09-08');
-  assert.ok(l08Row.items && l08Row.items.length === 2, 'L-08 must have 2 consolidated items');
-  const l08Report = convertLogRowToReport(l08Row);
-  assert.ok(l08Report.refs['1'].pipeSpec, 'L-08 report must have Ref 1');
-  assert.ok(l08Report.refs['2'].pipeSpec, 'L-08 report must have Ref 2');
-  assert.equal(l08Report.slots.length, 24, 'L-08 report must have 24 hourly slots');
+  const l01Row = realOp08.find((r) => r.machineId === 'L-01');
+  assert.ok(l01Row, 'L-01 must be included on 2026-09-08');
+  assert.ok(l01Row.items && l01Row.items.length === 2, 'L-01 must have 2 consolidated items');
+  const l01Report = convertLogRowToReport(l01Row);
+  assert.ok(l01Report.refs['1'].pipeSpec, 'L-01 report must have Ref 1');
+  assert.ok(l01Report.refs['2'].pipeSpec, 'L-01 report must have Ref 2');
+  assert.equal(l01Report.slots.length, 24, 'L-01 report must have 24 hourly slots');
   console.log('Multi-item machine consolidation in batch export: OK (5 lines on 2026-09-08)');
 }
 

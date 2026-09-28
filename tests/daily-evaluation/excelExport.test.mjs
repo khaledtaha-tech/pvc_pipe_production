@@ -68,14 +68,14 @@ if (fs.existsSync(masterPath)) {
   const sheetNames = allResult.workbook.SheetNames;
   assert.ok(sheetNames.includes('Plant_Summary'), 'Combined workbook must include Plant_Summary sheet');
   assert.equal(sheetNames.length, 6, 'Should have 1 summary sheet + 5 individual machine sheets');
-  assert.ok(sheetNames.includes('L-05'), 'Must include L-05 sheet');
-  assert.ok(sheetNames.includes('L-06'), 'Must include L-06 sheet');
+  assert.ok(sheetNames.includes('L-04'), 'Must include L-04 sheet');
+  assert.ok(sheetNames.includes('L-03'), 'Must include L-03 sheet');
 
   // Verify live engineering metrics in Row 4 (C4 and E4) for individual machine sheets
-  const l05Sheet = allResult.workbook.Sheets['L-05'];
-  assert.ok(l05Sheet, 'L-05 worksheet should exist in workbook');
-  assert.ok(l05Sheet['C4'] && !l05Sheet['C4'].v.includes(': 0 kg/h') && !l05Sheet['C4'].v.includes(': 0.0 kg/h'), 'L-05 Cell C4 must have positive actual rate');
-  assert.ok(l05Sheet['E4'] && !l05Sheet['E4'].v.includes(': 0%') && !l05Sheet['E4'].v.includes(': 0.0%'), 'L-05 Cell E4 must have positive utilization');
+  const l04Sheet = allResult.workbook.Sheets['L-04'];
+  assert.ok(l04Sheet, 'L-04 worksheet should exist in workbook');
+  assert.ok(l04Sheet['C4'] && !l04Sheet['C4'].v.includes(': 0 kg/h') && !l04Sheet['C4'].v.includes(': 0.0 kg/h'), 'L-04 Cell C4 must have positive actual rate');
+  assert.ok(l04Sheet['E4'] && !l04Sheet['E4'].v.includes(': 0%') && !l04Sheet['E4'].v.includes(': 0.0%'), 'L-04 Cell E4 must have positive utilization');
 
   // Test empty date scenario
   const emptyResult = exportAllMachinesToExcel(parsed.rows, '2099-01-01', parsed.machineMaster, { autoSave: false });
@@ -89,7 +89,7 @@ if (fs.existsSync(masterPath)) {
 const mockKts350Row = {
   id: 'test-kts-350-row',
   date: '2026-09-19',
-  machineId: 'L-05',
+  machineId: 'L-04',
   machineName: 'KTS 350',
   nominalCapacityKgH: 330,
   itemCode: '991',
@@ -123,12 +123,12 @@ console.log('Live engineering output & capacity utilization in Excel export: OK'
 
 // 5. Legacy SOP (DOC-Ext.-03) Excel Worksheet & Export Verification
 assert.equal(
-  formatSopExcelFilename('2026-09-19', 'L-05', 'KTS 350'),
-  'SOP_Report_2026-09-19_L-05_KTS_350.xlsx'
+  formatSopExcelFilename('2026-09-19', 'L-04', 'KTS 350'),
+  'SOP_Report_2026-09-19_L-04_KTS_350.xlsx'
 );
 assert.equal(
-  formatSopExcelFilename('2026-09-19', 'L-05'),
-  'SOP_Report_2026-09-19_L-05.xlsx'
+  formatSopExcelFilename('2026-09-19', 'L-04'),
+  'SOP_Report_2026-09-19_L-04.xlsx'
 );
 assert.equal(
   formatAllMachinesSopExcelFilename('2026-09-19'),
@@ -168,8 +168,8 @@ if (fs.existsSync(masterPath)) {
   assert.equal(allSopResult.count, 5, 'Should have 5 operating lines for SOP workbook on 2026-09-07');
   assert.equal(allSopResult.filename, 'SOP_Reports_2026-09-07_All_Operating_Machines.xlsx');
   assert.equal(allSopResult.workbook.SheetNames.length, 5, 'Should contain 5 individual SOP sheets');
-  assert.ok(allSopResult.workbook.SheetNames.includes('L-05'));
-  assert.ok(allSopResult.workbook.SheetNames.includes('L-06'));
+  assert.ok(allSopResult.workbook.SheetNames.includes('L-04'));
+  assert.ok(allSopResult.workbook.SheetNames.includes('L-03'));
 
   const emptySopResult = exportAllMachinesSopToExcel(parsed.rows, '2099-01-01', parsed.machineMaster, { autoSave: false });
   assert.equal(emptySopResult.success, false);

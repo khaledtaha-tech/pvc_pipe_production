@@ -78,13 +78,13 @@ assert.equal(SOP_SHIFT2_HOURS[11], '05:30');
 console.log('Shift hour sequences (06:30 start): OK');
 
 // 4. Full Machine Name Formatting
-assert.equal(formatFullMachineName('L-07', 'KTS 170'), 'L-07 - KTS 170');
-assert.equal(formatFullMachineName('L-07', 'L-07 - KTS 170'), 'L-07 - KTS 170');
-assert.equal(formatFullMachineName('L-07', ''), 'L-07 - KTS 170');
-assert.equal(formatFullMachineName('L-05', ''), 'L-05 - KTS 350');
-assert.equal(formatFullMachineName('L-03', ''), 'L-03 - KTS 700');
+assert.equal(formatFullMachineName('L-07', 'KTS 250 TDH'), 'L-07 - KTS 250 TDH');
+assert.equal(formatFullMachineName('L-07', 'L-07 - KTS 250 TDH'), 'L-07 - KTS 250 TDH');
+assert.equal(formatFullMachineName('L-07', ''), 'L-07 - KTS 250 TDH');
+assert.equal(formatFullMachineName('L-05', ''), 'L-05 - KTS 200');
+assert.equal(formatFullMachineName('L-06', ''), 'L-06 - KTS 700');
 assert.equal(formatFullMachineName('WIND1', ''), 'WIND1');
-assert.equal(formatFullMachineName('L-08', 'KTS 350 TDH'), 'L-08 - KTS 350 TDH');
+assert.equal(formatFullMachineName('L-01', 'KTS 350 TDH'), 'L-01 - KTS 350 TDH');
 console.log('Full machine name formatting & catalog lookup: OK');
 
 // 5. Model Building with Benchmark Report (Cumulative Standard Production in Pieces)
@@ -97,8 +97,8 @@ assert.equal(model.version, '04');
 assert.equal(model.plantName, 'AL MANAR PIPES FACTORY');
 assert.equal(model.reportTitle, 'PVC PIPE EXTRUSION DAILY MONITORING REPORT');
 assert.equal(model.reportSubtitle, 'Production Execution & Quality Follow-Up');
-assert.equal(model.fullMachineName, 'L-03 - KTS 700');
-assert.equal(model.lineId, 'L-03 - KTS 700');
+assert.equal(model.fullMachineName, 'L-06 - KTS 700');
+assert.equal(model.lineId, 'L-06 - KTS 700');
 assert.equal(model.shift1Rows.length, 12);
 assert.equal(model.shift2Rows.length, 12);
 
@@ -335,13 +335,13 @@ const codeBoundModel = buildMorningSopModel({
 assert.equal(codeBoundModel.itemCode, '249');
 assert.equal(codeBoundModel.productDescription, 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2');
 assert.equal(codeBoundModel.displayProduct, '[249] - uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2');
-assert.equal(codeBoundModel.lineId, 'L-01 - KTS 550');
+assert.equal(codeBoundModel.lineId, 'L-01 - KTS 350 TDH');
 assert.equal(codeBoundModel.hourlyStdRate, 150); // (15 * 60) / 6.0 = 150
 assert.equal(codeBoundModel.shift1Rows[0].stdPcs, 150);
 console.log('Product Code binding & [Code] - [Description] header formatting: OK');
 
 // 14. Output Rate (kg/h), Nominal Capacity & Capacity Utilization Logic (DOC-Ext.-03)
-assert.equal(extracted.nominalCapacity, 400); // L-01 KTS 550 nominal capacity
+assert.equal(extracted.nominalCapacity, 300); // L-01 KTS 350 TDH nominal capacity
 assert.equal(extracted.calculatedRateKgH, Math.round(extracted.calculatedRate * extracted.unitWeight));
 
 const sopModelKgh = buildMorningSopModel({
@@ -595,8 +595,8 @@ assert.equal(resolveProductSpecification({}, 'FALLBACK'), 'FALLBACK');
 console.log('Product specification alias resolution: OK');
 
 // 20. Compounding Line & Product Detection
-assert.equal(isCompoundingLineOrProduct({ lineId: 'L-01' }), true);
-assert.equal(isCompoundingLineOrProduct({ fullMachineName: 'L-01 - KTS 550' }), true);
+assert.equal(isCompoundingLineOrProduct({ lineId: 'L-08' }), true);
+assert.equal(isCompoundingLineOrProduct({ fullMachineName: 'L-08 - KTS 550' }), true);
 assert.equal(isCompoundingLineOrProduct({ itemCode: 'COMP-01' }), true);
 assert.equal(isCompoundingLineOrProduct({ description: 'PVC COMPOUND DRY BLEND' }), true);
 assert.equal(isCompoundingLineOrProduct({ description: 'PELLETIZING COMPOUND BLACK' }), true);
@@ -605,7 +605,7 @@ console.log('Compounding line & product detection: OK');
 
 // 21. Compounding Morning SOP Sheet Model
 const compoundMorningModel = buildMorningSopModel({
-  lineId: 'L-01',
+  lineId: 'L-08',
   itemCode: 'COMP-01',
   productSpec: 'PVC COMPOUND DRY BLEND GREY (25KG)',
   date: '2026-09-28'

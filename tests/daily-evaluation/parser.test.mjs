@@ -21,18 +21,27 @@ const __dirname = path.dirname(__filename);
 console.log('--- Starting Excel Parser & Machine Master Tests ---');
 
 // 1. Static Machine Master & Matching Tests
-assert.equal(MACHINES.length, 9, 'Should have exactly 9 factory extrusion lines');
-assert.equal(matchMachine('KTS-350')?.id, 'L-05');
-assert.equal(matchMachine('KABRA-90')?.id, 'L-06');
-assert.equal(matchMachine('KTS-350 TDH')?.id, 'L-08');
-assert.equal(matchMachine('KTS-170')?.id, 'L-07');
-assert.equal(matchMachine('KTS-200')?.id, 'L-04');
-assert.equal(matchMachine('KTS 550')?.id, 'L-01');
-assert.equal(matchMachine('KTS 250')?.id, 'L-02');
-assert.equal(matchMachine('KTS 250 TDH')?.id, 'L-02');
-assert.equal(matchMachine('KTS 700')?.id, 'L-03');
-assert.equal(matchMachine('Bausano')?.id, 'L-09');
+assert.equal(MACHINES.length, 8, 'Should have exactly 8 factory extrusion and compounding lines');
+assert.equal(matchMachine('KTS-350 TDH')?.id, 'L-01');
+assert.equal(matchMachine('KTS 350 TDH')?.id, 'L-01');
+assert.equal(matchMachine('KTS-170')?.id, 'L-02');
+assert.equal(matchMachine('KTS 170')?.id, 'L-02');
+assert.equal(matchMachine('KABRA-90')?.id, 'L-03');
+assert.equal(matchMachine('Kabra 90')?.id, 'L-03');
+assert.equal(matchMachine('KTS-350')?.id, 'L-04');
+assert.equal(matchMachine('KTS 350')?.id, 'L-04');
+assert.equal(matchMachine('KTS-200')?.id, 'L-05');
+assert.equal(matchMachine('KTS 200')?.id, 'L-05');
+assert.equal(matchMachine('KTS 700')?.id, 'L-06');
+assert.equal(matchMachine('KTS-700')?.id, 'L-06');
+assert.equal(matchMachine('KTS 250')?.id, 'L-07');
+assert.equal(matchMachine('KTS 250 TDH')?.id, 'L-07');
+assert.equal(matchMachine('KTS-250 TDH')?.id, 'L-07');
+assert.equal(matchMachine('KTS 550')?.id, 'L-08');
+assert.equal(matchMachine('KTS-550')?.id, 'L-08');
+assert.equal(matchMachine('L-01')?.id, 'L-01');
 assert.equal(matchMachine('L-06')?.id, 'L-06');
+assert.equal(matchMachine('L-08')?.id, 'L-08');
 console.log('Static machine master matching: OK');
 
 // 2. Product Specs Extraction Tests
@@ -64,14 +73,14 @@ const dynamicMaster = parseMachineMaster(wb);
 assert.equal(dynamicMaster.length, 9, 'Dynamic machine master must have 9 lines');
 
 const expectedCapacities = {
-  'L-01': 400,
-  'L-02': 200,
-  'L-03': 500,
-  'L-04': 180,
-  'L-05': 290,
-  'L-06': 380,
-  'L-07': 135,
-  'L-08': 300,
+  'L-01': 300,
+  'L-02': 135,
+  'L-03': 380,
+  'L-04': 290,
+  'L-05': 180,
+  'L-06': 500,
+  'L-07': 200,
+  'L-08': 400,
   'L-09': 1100
 };
 
@@ -89,14 +98,14 @@ const mockBilingualWb = {
   Sheets: {
     Machine_Master: XLSX.utils.aoa_to_sheet([
       ['(Line ID)', '(Machine Name)', 'kg/h (Nominal Capacity)'],
-      ['L-01', 'KTS 550', 400],
-      ['L-02', 'KTS 250 TDH', 200]
+      ['L-08', 'KTS 550', 400],
+      ['L-07', 'KTS 250 TDH', 200]
     ])
   }
 };
 const parsedBilingual = parseMachineMaster(mockBilingualWb);
 assert.equal(parsedBilingual.length, 2);
-assert.equal(parsedBilingual[0].id, 'L-01');
+assert.equal(parsedBilingual[0].id, 'L-08');
 assert.equal(parsedBilingual[1].name, 'KTS 250 TDH');
 
 const mockRow3Wb = {
@@ -106,14 +115,14 @@ const mockRow3Wb = {
       ['Factory Extrusion Lines Master'],
       ['Confidential - For Internal Use Only'],
       ['Line ID', 'Machine Name', 'Nominal Capacity (kg/h)'],
-      ['L-01', 'KTS 550', 400],
+      ['L-08', 'KTS 550', 400],
       ['L-09', 'Bausano', 1100]
     ])
   }
 };
 const parsedRow3 = parseMachineMaster(mockRow3Wb);
 assert.equal(parsedRow3.length, 2);
-assert.equal(parsedRow3[0].id, 'L-01');
+assert.equal(parsedRow3[0].id, 'L-08');
 assert.equal(parsedRow3[1].id, 'L-09');
 assert.equal(parsedRow3[1].capacityKgH, 1100);
 
@@ -122,13 +131,13 @@ const mockFallbackWb = {
   Sheets: {
     Machine_Master: XLSX.utils.aoa_to_sheet([
       ['Unrecognized Header A', 'Unrecognized Header B', 'Unrecognized Header C'],
-      ['L-01', 'KTS 550', 400]
+      ['L-08', 'KTS 550', 400]
     ])
   }
 };
 const parsedFallback = parseMachineMaster(mockFallbackWb);
 assert.equal(parsedFallback.length, 1);
-assert.equal(parsedFallback[0].id, 'L-01');
+assert.equal(parsedFallback[0].id, 'L-08');
 assert.equal(parsedFallback[0].name, 'KTS 550');
 assert.equal(parsedFallback[0].capacityKgH, 400);
 
@@ -145,7 +154,7 @@ assert.equal(parsed.machineMaster.length, 9, 'Parsed workbook should include 9 m
 const r0 = parsed.rows[0];
 assert.equal(r0.date, '2026-09-07');
 assert.equal(r0.itemCode, '249');
-assert.equal(r0.machineId, 'L-05');
+assert.equal(r0.machineId, 'L-04');
 assert.equal(r0.nominalCapacityKgH, 290);
 assert.equal(r0.productionQty, 392);
 assert.equal(r0.totalWeight, 6782);
@@ -158,7 +167,7 @@ assert.equal(r0.capacityUtilizationPct, 97.4, 'Utilization should be 282.6 / 290
 const r1 = parsed.rows[1];
 assert.equal(r1.date, '2026-09-07');
 assert.equal(r1.itemCode, '991');
-assert.equal(r1.machineId, 'L-06');
+assert.equal(r1.machineId, 'L-03');
 assert.equal(r1.nominalCapacityKgH, 380);
 assert.equal(r1.productionQty, 140);
 assert.equal(r1.unitWeight, 16);
@@ -174,7 +183,7 @@ console.log('Workbook log rows extraction & engineering metrics: OK');
 // 5. Log Row to 24-Hour Follow Sheet Conversion
 const report1 = convertLogRowToReport(r1);
 
-assert.equal(report1.header.lineId, 'L-06');
+assert.equal(report1.header.lineId, 'L-03');
 assert.equal(report1.header.itemCode, '991', 'Report header must store itemCode');
 assert.equal(report1.summary.totalOutput, '140');
 assert.equal(report1.summary.totalPurgeKg, '40');
@@ -208,12 +217,12 @@ assert.equal(report1.sourceRecordId, r1.id, 'Report should track source record I
 assert.equal(report1.header.lineCustom, 'Kabra 90', 'Header should store matched machine name');
 
 // Test reactive switching by date and line
-const targetRow = parsed.rows.find((r) => r.date === '2026-09-08' && r.machineId === 'L-08');
-assert.ok(targetRow, 'Target row for 2026-09-08 and L-08 must exist');
-assert.ok(targetRow.items && targetRow.items.length === 2, 'L-08 on 2026-09-08 ran 2 items');
+const targetRow = parsed.rows.find((r) => r.date === '2026-09-08' && r.machineId === 'L-01');
+assert.ok(targetRow, 'Target row for 2026-09-08 and L-01 must exist');
+assert.ok(targetRow.items && targetRow.items.length === 2, 'L-01 on 2026-09-08 ran 2 items');
 const reportSwitched = convertLogRowToReport(targetRow);
 assert.equal(reportSwitched.header.date, '2026-09-08');
-assert.equal(reportSwitched.header.lineId, 'L-08');
+assert.equal(reportSwitched.header.lineId, 'L-01');
 assert.equal(reportSwitched.header.lineCustom, 'KTS 350 TDH');
 assert.ok(reportSwitched.header.itemCode, 'Multi-item header must contain itemCode');
 assert.equal(reportSwitched.sourceRecordId, targetRow.id);
@@ -238,7 +247,7 @@ assert.equal(genReport.engineering.capacityUtilizationPct, 49.1);
 const kts350Row = {
   id: 'test_kts_350',
   date: '2026-09-17',
-  machineId: 'L-05',
+  machineId: 'L-04',
   nominalCapacityKgH: 330,
   description: 'PVC 4" PIPE SDR 26 ASTMD 2241 (Item 991)',
   unitWeight: 16,
@@ -286,7 +295,7 @@ const mockPipeWb = {
   Sheets: {
     Machine_Master: XLSX.utils.aoa_to_sheet([
       ['Line ID', 'Machine Name', 'Nominal Capacity (kg/h)'],
-      ['L-05', 'KTS 350', 290]
+      ['L-04', 'KTS 350', 290]
     ]),
     'Pipe Production': XLSX.utils.aoa_to_sheet([
       ['Date', 'Item Code', 'Product Description & Specs', 'Machine', 'Production Qty (FG)', 'Unit Weight (kg)', 'Total Weight (kg)', 'Scrap / Rejection (kg)', 'Operating Hours', 'Reason of Stop'],
@@ -302,7 +311,7 @@ assert.equal(parsedPipe.rows.length, 2, 'Should exclude Grand Total row');
 assert.equal(parsedPipe.rows[0].date, '2026-09-16');
 assert.equal(parsedPipe.rows[1].date, '2026-09-17');
 assert.equal(parsedPipe.rows[1].productionQty, 420);
-assert.equal(parsedPipe.rows[1].machineId, 'L-05');
+assert.equal(parsedPipe.rows[1].machineId, 'L-04');
 
 const alManarPath = path.resolve(__dirname, '../public/AlManar_2.xlsx');
 if (fs.existsSync(alManarPath)) {

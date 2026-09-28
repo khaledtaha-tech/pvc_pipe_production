@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { MACHINES, matchMachine, PLANT_NAME } from '../config/machines.js';
+import { MACHINES, matchMachine, normalizeLineId, PLANT_NAME } from '../config/machines.js';
+export { normalizeLineId };
 import {
   makeRefSpec,
   generateReport,
@@ -250,8 +251,11 @@ export function parseMachineMaster(wb) {
       cap = numMatch ? Number(numMatch[0]) : 0;
     }
 
+    const canonical = matchMachine(name, MACHINES);
+    const finalId = canonical ? canonical.id : id;
+
     master.push({
-      id,
+      id: finalId,
       name,
       capacityKgH: cap,
       detail: cap > 0 ? `${cap} kg/h` : ''

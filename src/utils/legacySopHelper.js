@@ -68,7 +68,7 @@ export function resolveProductSpecification(target, fallback = '') {
 
 /**
  * Detect whether a machine profile, line configuration, or product is compounding / pelletizing.
- * Targets: Line L-01, KTS 550, or descriptions containing COMPOUND, PELLETIZING, DRY BLEND, PELLETS.
+ * Targets: Line L-08, KTS 550, or descriptions containing COMPOUND, PELLETIZING, DRY BLEND, PELLETS.
  */
 export function isCompoundingLineOrProduct(target, machineMaster = MACHINES) {
   if (!target) return false;
@@ -130,7 +130,7 @@ export function isCompoundingLineOrProduct(target, machineMaster = MACHINES) {
   }
 
   const lineId = String(target.lineId || target.lineCode || target.machineId || '').trim().toUpperCase();
-  if (lineId === 'L-01' || lineId === 'LINE-1' || lineId === 'LINE 1' || lineId === 'KTS-550' || lineId === 'KTS 550') {
+  if (lineId === 'L-08' || lineId === 'LINE-8' || lineId === 'LINE 8' || lineId === 'KTS-550' || lineId === 'KTS 550') {
     return true;
   }
 
@@ -149,7 +149,7 @@ export function isCompoundingLineOrProduct(target, machineMaster = MACHINES) {
     matched &&
     (matched.isPelletizingLine ||
       matched.lineType === 'Pelletizing Line' ||
-      matched.id === 'L-01' ||
+      matched.id === 'L-08' ||
       String(matched.name).toUpperCase().includes('KTS 550'))
   ) {
     return true;

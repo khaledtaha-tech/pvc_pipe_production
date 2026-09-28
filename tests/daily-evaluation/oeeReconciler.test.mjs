@@ -172,11 +172,11 @@ assert.equal(isDateMatch('26/09/2026', '2026-09-26'), true, 'DD/MM/YYYY should m
 assert.equal(isDateMatch('2026-09-26', '2026-09-27'), false, 'Different dates must not match');
 
 // Machine matching
-assert.equal(isMachineMatch('L-03', 'L-03 - KTS 700'), true, 'Line ID L-03 should match L-03 - KTS 700');
-assert.equal(isMachineMatch('KTS 700', 'L-03'), true, 'KTS 700 should match L-03');
-assert.equal(isMachineMatch('KTS-700', 'L-03'), true, 'KTS-700 should match L-03');
-assert.equal(isMachineMatch('KTS 350 TDH', 'L-08'), true, 'KTS 350 TDH should match L-08');
-assert.equal(isMachineMatch('KTS 350 TDH', 'L-05'), false, 'KTS 350 TDH must NOT match standard L-05');
+assert.equal(isMachineMatch('L-06', 'L-06 - KTS 700'), true, 'Line ID L-06 should match L-06 - KTS 700');
+assert.equal(isMachineMatch('KTS 700', 'L-06'), true, 'KTS 700 should match L-06');
+assert.equal(isMachineMatch('KTS-700', 'L-06'), true, 'KTS-700 should match L-06');
+assert.equal(isMachineMatch('KTS 350 TDH', 'L-01'), true, 'KTS 350 TDH should match L-01');
+assert.equal(isMachineMatch('KTS 350 TDH', 'L-04'), false, 'KTS 350 TDH must NOT match standard L-04');
 assert.equal(isMachineMatch('L-01', 'L-02'), false, 'Different machines must not match');
 console.log('Date & Machine Matching: OK');
 
@@ -185,7 +185,7 @@ const erpSampleRow = {
   'Date': '2026-09-26',
   'Item Code': '1140',
   'Product Description & Specs': 'UPVC PIPE 110x5.3 PN-12.5 SASO-ISO',
-  'Machine': 'L-03 - KTS 700',
+  'Machine': 'L-06 - KTS 700',
   'Production Qty (FG)': 4800,
   'Unit Weight (kg)': 17.30,
   'Total Weight (kg)': 83040,
@@ -197,11 +197,11 @@ const erpSampleRow = {
 const normalized = normalizeProductionRow(erpSampleRow);
 assert.equal(normalized.date, '2026-09-26', 'Normalized date should match 2026-09-26');
 assert.equal(normalized.itemCode, '1140', 'Item code should be normalized');
-assert.equal(normalized.machineId, 'L-03', 'Machine ID should resolve to L-03');
+assert.equal(normalized.machineId, 'L-06', 'Machine ID should resolve to L-06');
 assert.equal(normalized.productionQty, 4800, 'Production Qty should parse to 4800');
 assert.equal(normalized.unitWeight, 17.3, 'Unit weight should parse to 17.3');
 assert.equal(normalized.totalWeight, 83040, 'Total weight should parse to 83040');
-assert.equal(normalized.nominalCapacityKgH, 500, 'L-03 nominal capacity should be 500 kg/h');
+assert.equal(normalized.nominalCapacityKgH, 500, 'L-06 nominal capacity should be 500 kg/h');
 assert.ok(normalized.actualRateKgH > 0, 'Actual rate should be positive');
 console.log('Row Normalization: OK');
 
@@ -222,7 +222,7 @@ const testErpDataset = [
     'Date': '2026-09-27',
     'Item Code': '1141',
     'Product Description & Specs': 'PVC PRESSURE PIPE 3/4 SCH 40',
-    'Machine': 'L-03 - KTS 700',
+    'Machine': 'L-06 - KTS 700',
     'Production Qty (FG)': 3200,
     'Unit Weight (kg)': 1.20,
     'Total Weight (kg)': 3840,
@@ -230,24 +230,24 @@ const testErpDataset = [
   }
 ];
 
-// Query for date 2026-09-26 and line L-03 - KTS 700
-const matchedL03 = queryProductionRecords({
+// Query for date 2026-09-26 and line L-06 - KTS 700
+const matchedL06 = queryProductionRecords({
   dataset: testErpDataset,
   date: '2026-09-26',
-  machine: 'L-03 - KTS 700'
+  machine: 'L-06 - KTS 700'
 });
 
-assert.equal(matchedL03.length, 1, 'Should find exactly 1 matching record for L-03 on 2026-09-26');
-assert.equal(matchedL03[0].productionQty, 4800, 'Should match 4800 production pieces');
-assert.equal(matchedL03[0].itemCode, '1140', 'Should match item 1140');
+assert.equal(matchedL06.length, 1, 'Should find exactly 1 matching record for L-06 on 2026-09-26');
+assert.equal(matchedL06[0].productionQty, 4800, 'Should match 4800 production pieces');
+assert.equal(matchedL06[0].itemCode, '1140', 'Should match item 1140');
 
-// Query with line ID shorthand 'L-03'
+// Query with line ID shorthand 'L-06'
 const matchedByShortId = queryProductionRecords({
   dataset: testErpDataset,
   date: '2026-09-26',
-  machine: 'L-03'
+  machine: 'L-06'
 });
-assert.equal(matchedByShortId.length, 1, 'Should match using short line ID L-03');
+assert.equal(matchedByShortId.length, 1, 'Should match using short line ID L-06');
 assert.equal(matchedByShortId[0].productionQty, 4800);
 
 // Multi-item run on same date and machine: aggregation test
@@ -256,7 +256,7 @@ const multiItemDataset = [
     'Date': '2026-09-26',
     'Item Code': '1140',
     'Product Description & Specs': 'UPVC PIPE 110x5.3 PN-12.5',
-    'Machine': 'L-03 - KTS 700',
+    'Machine': 'L-06 - KTS 700',
     'Production Qty (FG)': 2500,
     'Unit Weight (kg)': 17.30,
     'Operating Hours': 14
@@ -265,7 +265,7 @@ const multiItemDataset = [
     'Date': '2026-09-26',
     'Item Code': '1141',
     'Product Description & Specs': 'UPVC PIPE 160x7.7 PN-12.5',
-    'Machine': 'L-03 - KTS 700',
+    'Machine': 'L-06 - KTS 700',
     'Production Qty (FG)': 1500,
     'Unit Weight (kg)': 35.00,
     'Operating Hours': 10
@@ -275,9 +275,9 @@ const multiItemDataset = [
 const matchedMulti = queryProductionRecords({
   dataset: multiItemDataset,
   date: '2026-09-26',
-  machine: 'L-03 - KTS 700'
+  machine: 'L-06 - KTS 700'
 });
-assert.equal(matchedMulti.length, 2, 'Should find both items for L-03 on 2026-09-26');
+assert.equal(matchedMulti.length, 2, 'Should find both items for L-06 on 2026-09-26');
 const totalMultiQty = matchedMulti.reduce((sum, r) => sum + r.productionQty, 0);
 assert.equal(totalMultiQty, 4000, 'Aggregated finished goods quantity should be 2500 + 1500 = 4000');
 console.log('Production Records Query & Aggregation: OK');
@@ -286,7 +286,7 @@ console.log('Production Records Query & Aggregation: OK');
 const boundSingle = autoBindProductionLogToReport({
   dataset: testErpDataset,
   date: '2026-09-26',
-  machine: 'L-03 - KTS 700'
+  machine: 'L-06 - KTS 700'
 });
 
 assert.equal(boundSingle.hasMatch, true, 'Should find matching record');
@@ -305,7 +305,7 @@ assert.ok(boundSingle.report.slots.length === 24, '24 hour slots should be built
 const boundMulti = autoBindProductionLogToReport({
   dataset: multiItemDataset,
   date: '2026-09-26',
-  machine: 'L-03 - KTS 700'
+  machine: 'L-06 - KTS 700'
 });
 assert.equal(boundMulti.hasMatch, true);
 assert.equal(boundMulti.totalActualPieces, 4000, 'Multi-item aggregated output should be 4000');
@@ -316,12 +316,12 @@ assert.equal(boundMulti.report.refs['2'].itemCode, '1141');
 const boundBlank = autoBindProductionLogToReport({
   dataset: testErpDataset,
   date: '2026-09-26',
-  machine: 'L-07 - KTS 170'
+  machine: 'L-02 - KTS 170'
 });
-assert.equal(boundBlank.hasMatch, false, 'No records for L-07 on 2026-09-26');
+assert.equal(boundBlank.hasMatch, false, 'No records for L-02 on 2026-09-26');
 assert.equal(boundBlank.totalActualPieces, 0, 'Blank state should have 0 actual pieces');
 assert.equal(boundBlank.report.summary.totalOutput, '0', 'Blank state summary should have 0 output');
-assert.equal(boundBlank.report.header.lineId, 'L-07', 'Header should be set to requested line');
+assert.equal(boundBlank.report.header.lineId, 'L-02', 'Header should be set to requested line');
 assert.equal(boundBlank.report.header.date, '2026-09-26', 'Header date should be set to requested date');
 assert.equal(boundBlank.report.slots[0].actual, 0, 'Blank slots should have 0 actual output');
 console.log('Auto-Binding to Report Header & Blank/Zero Fallback: OK');
@@ -330,28 +330,28 @@ console.log('Auto-Binding to Report Header & Blank/Zero Fallback: OK');
 const sampleFactoryDataset = [
   {
     date: '2026-09-26',
-    machine: 'L-03 - KTS 700',
+    machine: 'L-06 - KTS 700',
     itemCode: '1140',
     productionQty: 2500,
     operatingHours: 20
   },
   {
     date: '2026-09-26',
-    machine: 'L-05 - KTS 350',
+    machine: 'L-04 - KTS 350',
     itemCode: '1150',
     productionQty: 1800,
     operatingHours: 18
   },
   {
     date: '2026-09-26',
-    machine: 'L-04 - KTS 200',
+    machine: 'L-05 - KTS 200',
     itemCode: '1160',
     productionQty: 0,
     operatingHours: 0
   },
   {
     date: '2026-09-27',
-    machine: 'L-02 - KTS 250 TDH',
+    machine: 'L-07 - KTS 250 TDH',
     itemCode: '1120',
     productionQty: 3200,
     operatingHours: 24
@@ -365,14 +365,14 @@ const recordsFor26 = queryProductionRecordsForDate({
 });
 // Filter active operating lines (productionQty > 0 or operatingHours > 0)
 const operatingLines26 = recordsFor26.filter((r) => Number(r.productionQty) > 0 || Number(r.operatingHours) > 0);
-assert.equal(operatingLines26.length, 2, 'Should find exactly 2 operating lines on 2026-09-26 (L-03 and L-05)');
-assert.ok(operatingLines26.some((r) => r.machineId === 'L-03'), 'L-03 must be in active operating lines');
-assert.ok(operatingLines26.some((r) => r.machineId === 'L-05'), 'L-05 must be in active operating lines');
-assert.ok(!operatingLines26.some((r) => r.machineId === 'L-04'), 'Idle line L-04 must be excluded from active list');
+assert.equal(operatingLines26.length, 2, 'Should find exactly 2 operating lines on 2026-09-26 (L-06 and L-04)');
+assert.ok(operatingLines26.some((r) => r.machineId === 'L-06'), 'L-06 must be in active operating lines');
+assert.ok(operatingLines26.some((r) => r.machineId === 'L-04'), 'L-04 must be in active operating lines');
+assert.ok(!operatingLines26.some((r) => r.machineId === 'L-05'), 'Idle line L-05 must be excluded from active list');
 
 // Test auto-selection of first active machine on date change
 const firstActive26 = operatingLines26[0];
-assert.equal(firstActive26.machineId, 'L-03', 'First active machine on 2026-09-26 should be L-03');
+assert.equal(firstActive26.machineId, 'L-06', 'First active machine on 2026-09-26 should be L-06');
 
 const recordsFor27 = queryProductionRecordsForDate({
   dataset: sampleFactoryDataset,
@@ -380,21 +380,21 @@ const recordsFor27 = queryProductionRecordsForDate({
 });
 const operatingLines27 = recordsFor27.filter((r) => Number(r.productionQty) > 0 || Number(r.operatingHours) > 0);
 assert.equal(operatingLines27.length, 1, 'Should find exactly 1 operating line on 2026-09-27');
-assert.equal(operatingLines27[0].machineId, 'L-02', 'First active machine on 2026-09-27 should be L-02');
+assert.equal(operatingLines27[0].machineId, 'L-07', 'First active machine on 2026-09-27 should be L-07');
 
 // Test exact machine selection binding by ID (not array index)
-const selectedL05 = queryProductionRecords({
+const selectedL04 = queryProductionRecords({
   dataset: sampleFactoryDataset,
   date: '2026-09-26',
-  machine: 'L-05'
+  machine: 'L-04'
 });
-assert.equal(selectedL05.length, 1, 'Selecting L-05 by exact ID should return exactly 1 record');
-assert.equal(selectedL05[0].machineId, 'L-05', 'Selected record machineId must match requested ID L-05');
+assert.equal(selectedL04.length, 1, 'Selecting L-04 by exact ID should return exactly 1 record');
+assert.equal(selectedL04[0].machineId, 'L-04', 'Selected record machineId must match requested ID L-04');
 
 // Test idle line selection produces blank report with exact requested lineId
-const idleL04Blank = blankReportForMachine('2026-09-26', 'L-04');
-assert.equal(idleL04Blank.header.lineId, 'L-04', 'Blank report header lineId must strictly match requested L-04');
-assert.equal(idleL04Blank.summary.totalOutput, '0', 'Blank report totalOutput must be 0');
+const idleL05Blank = blankReportForMachine('2026-09-26', 'L-05');
+assert.equal(idleL05Blank.header.lineId, 'L-05', 'Blank report header lineId must strictly match requested L-05');
+assert.equal(idleL05Blank.summary.totalOutput, '0', 'Blank report totalOutput must be 0');
 console.log('Active Machines Date Filtering & Machine Dropdown Selection Binding: OK');
 
 // 11. State Synchronization & Reactive 24h Slot Synthesis when Operating Hours is 0 or Missing
@@ -403,7 +403,7 @@ const rawErpStagnantRow = {
   Date: '2026-09-26',
   'Item Code': '1140',
   'Product Description & Specs': 'UPVC PIPE 110x5.3 PN-12.5 SASO-ISO',
-  Machine: 'L-03 - KTS 700',
+  Machine: 'L-06 - KTS 700',
   'Production Qty (FG)': 195,
   'Unit Weight (kg)': 17.30,
   'Total Weight (kg)': 3373.5,
@@ -450,7 +450,7 @@ assert.equal(Math.round(liberatedActualSum), 250, 'distributeProduction must lib
 const autoBoundResult = autoBindProductionLogToReport({
   dataset: [rawErpStagnantRow],
   date: '2026-09-26',
-  machine: 'L-03'
+  machine: 'L-06'
 });
 assert.equal(autoBoundResult.hasMatch, true, 'autoBindProductionLogToReport must find match');
 assert.equal(autoBoundResult.totalActualPieces, 195, 'Total actual pieces must equal 195');

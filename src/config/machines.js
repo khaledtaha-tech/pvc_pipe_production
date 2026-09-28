@@ -12,10 +12,101 @@ export const SHIFT2_LABEL = 'Shift 2';
 export const SHIFT1_SPAN = '06:30 - 18:30';
 export const SHIFT2_SPAN = '18:30 - 06:30';
 
-// Unified 9 Factory Production & Pelletizing Lines
+// Unified 8 Factory Production & Pelletizing Lines (Official Factory Configuration)
 export const MACHINES = [
   {
     id: 'L-01',
+    profileId: 'KTS-350-TDH',
+    name: 'KTS 350 TDH',
+    capacityKgH: 300,
+    nominalCapacity: 300,
+    detail: '300 kg/h',
+    minDiameter: 25,
+    maxDiameter: 75,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KTS 350 TDH', 'KTS-350 TDH', 'KTS-350TDH', 'KTS 350TDH', 'L-01', 'L01', 'LINE 1', 'LINE-1']
+  },
+  {
+    id: 'L-02',
+    profileId: 'KTS-170',
+    name: 'KTS 170',
+    capacityKgH: 135,
+    nominalCapacity: 150,
+    detail: '135 kg/h',
+    minDiameter: 20,
+    maxDiameter: 75,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KTS 170', 'KTS-170', 'KTS170', 'L-02', 'L02', 'LINE 2', 'LINE-2']
+  },
+  {
+    id: 'L-03',
+    profileId: 'KABRA-90',
+    name: 'Kabra 90',
+    capacityKgH: 380,
+    nominalCapacity: 380,
+    detail: '380 kg/h',
+    minDiameter: 110,
+    maxDiameter: 200,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KABRA-90', 'KABRA 90', 'KABRA90', 'K-90', 'K90', 'Kabra 90 (K-90)', 'KABRA 90 (K-90)', 'L-03', 'L03', 'LINE 3', 'LINE-3']
+  },
+  {
+    id: 'L-04',
+    profileId: 'KTS-350',
+    name: 'KTS 350',
+    capacityKgH: 290,
+    nominalCapacity: 330,
+    detail: '290 kg/h',
+    minDiameter: 75,
+    maxDiameter: 160,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KTS 350', 'KTS-350', 'KTS350', 'L-04', 'L04', 'LINE 4', 'LINE-4']
+  },
+  {
+    id: 'L-05',
+    profileId: 'KTS-200',
+    name: 'KTS 200',
+    capacityKgH: 180,
+    nominalCapacity: 200,
+    detail: '180 kg/h',
+    minDiameter: 25,
+    maxDiameter: 63,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KTS 200', 'KTS-200', 'KTS200', 'L-05', 'L05', 'LINE 5', 'LINE-5']
+  },
+  {
+    id: 'L-06',
+    profileId: 'KTS-700',
+    name: 'KTS 700',
+    capacityKgH: 500,
+    nominalCapacity: 500,
+    detail: '500 kg/h',
+    minDiameter: 110,
+    maxDiameter: 400,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KTS 700', 'KTS-700', 'KTS700', 'L-06', 'L06', 'LINE 6', 'LINE-6']
+  },
+  {
+    id: 'L-07',
+    profileId: 'KTS-250-TDH',
+    name: 'KTS 250 TDH',
+    capacityKgH: 200,
+    nominalCapacity: 200,
+    detail: '200 kg/h',
+    minDiameter: 20,
+    maxDiameter: 50,
+    isPelletizingLine: false,
+    lineType: 'Pipe Extrusion Line',
+    matchKeys: ['KTS 250 TDH', 'KTS-250 TDH', 'KTS-250TDH', 'KTS 250TDH', 'KTS-250', 'KTS 250', 'L-07', 'L07', 'LINE 7', 'LINE-7']
+  },
+  {
+    id: 'L-08',
     profileId: 'KTS-550',
     name: 'KTS 550',
     capacityKgH: 400,
@@ -25,97 +116,7 @@ export const MACHINES = [
     maxDiameter: null,
     isPelletizingLine: true,
     lineType: 'Pelletizing Line',
-    matchKeys: ['KTS 550', 'KTS-550', 'KTS550', 'L-01', 'L01', 'LINE 1', 'LINE-1']
-  },
-  {
-    id: 'L-02',
-    profileId: 'KTS-250-TDH',
-    name: 'KTS 250 TDH',
-    capacityKgH: 200,
-    nominalCapacity: 200,
-    detail: '200 kg/h',
-    minDiameter: 20,
-    maxDiameter: 50,
-    matchKeys: ['KTS 250 TDH', 'KTS-250 TDH', 'KTS-250TDH', 'KTS 250TDH', 'KTS-250', 'KTS 250', 'L-02', 'L02', 'LINE 2', 'LINE-2']
-  },
-  {
-    id: 'L-03',
-    profileId: 'KTS-700',
-    name: 'KTS 700',
-    capacityKgH: 500,
-    nominalCapacity: 500,
-    detail: '500 kg/h',
-    minDiameter: 110,
-    maxDiameter: 400,
-    matchKeys: ['KTS 700', 'KTS-700', 'KTS700', 'L-03', 'L03', 'LINE 3', 'LINE-3']
-  },
-  {
-    id: 'L-04',
-    profileId: 'KTS-200',
-    name: 'KTS 200',
-    capacityKgH: 180,
-    nominalCapacity: 200,
-    detail: '180 kg/h',
-    minDiameter: 25,
-    maxDiameter: 63,
-    matchKeys: ['KTS 200', 'KTS-200', 'KTS200', 'L-04', 'L04', 'LINE 4', 'LINE-4']
-  },
-  {
-    id: 'L-05',
-    profileId: 'KTS-350',
-    name: 'KTS 350',
-    capacityKgH: 290,
-    nominalCapacity: 330,
-    detail: '290 kg/h',
-    minDiameter: 75,
-    maxDiameter: 160,
-    matchKeys: ['KTS 350', 'KTS-350', 'KTS350', 'L-05', 'L05', 'LINE 5', 'LINE-5']
-  },
-  {
-    id: 'L-06',
-    profileId: 'KABRA-90',
-    name: 'Kabra 90',
-    capacityKgH: 380,
-    nominalCapacity: 380,
-    detail: '380 kg/h',
-    minDiameter: 110,
-    maxDiameter: 200,
-    matchKeys: ['KABRA-90', 'KABRA 90', 'KABRA90', 'K-90', 'K90', 'Kabra 90 (K-90)', 'KABRA 90 (K-90)', 'L-06', 'L06', 'LINE 6', 'LINE-6']
-  },
-  {
-    id: 'L-07',
-    profileId: 'KTS-170',
-    name: 'KTS 170',
-    capacityKgH: 135,
-    nominalCapacity: 150,
-    detail: '135 kg/h',
-    minDiameter: 20,
-    maxDiameter: 75,
-    matchKeys: ['KTS 170', 'KTS-170', 'KTS170', 'L-07', 'L07', 'LINE 7', 'LINE-7']
-  },
-  {
-    id: 'L-08',
-    profileId: 'KTS-350-TDH',
-    name: 'KTS 350 TDH',
-    capacityKgH: 300,
-    nominalCapacity: 300,
-    detail: '300 kg/h',
-    minDiameter: 25,
-    maxDiameter: 75,
-    matchKeys: ['KTS 350 TDH', 'KTS-350 TDH', 'KTS-350TDH', 'KTS 350TDH', 'L-08', 'L08', 'LINE 8', 'LINE-8']
-  },
-  {
-    id: 'L-09',
-    profileId: 'BAUSANO',
-    name: 'Bausano',
-    capacityKgH: 1100,
-    nominalCapacity: 1100,
-    detail: '1100 kg/h',
-    minDiameter: null,
-    maxDiameter: null,
-    isPelletizingLine: true,
-    lineType: 'Pelletizing Line',
-    matchKeys: ['BAUSANO', 'BAUSANO 1', 'BAUSANO-1', 'L-09', 'L09', 'LINE 9', 'LINE-9']
+    matchKeys: ['KTS 550', 'KTS-550', 'KTS550', 'L-08', 'L08', 'LINE 8', 'LINE-8']
   }
 ];
 
@@ -134,13 +135,13 @@ export const MASTER_MACHINE_PROFILES = MACHINES.map(m => ({
 }));
 
 export const CANONICAL_PIPE_EXTRUDERS = [
-  'KTS 250 TDH',
-  'KTS 700',
-  'KTS 200',
-  'KTS 350',
-  'Kabra 90',
+  'KTS 350 TDH',
   'KTS 170',
-  'KTS 350 TDH'
+  'Kabra 90',
+  'KTS 350',
+  'KTS 200',
+  'KTS 700',
+  'KTS 250 TDH'
 ];
 
 export function machineLabel(id, masterList = MACHINES) {
@@ -155,6 +156,15 @@ export function normalizeMachineKey(str) {
 }
 
 /**
+ * Standardize incoming line identifier to canonical Line ID (e.g. "KTS 700" -> "L-06")
+ */
+export function normalizeLineId(str, masterList = MACHINES) {
+  if (!str) return '';
+  const m = matchMachine(str, masterList);
+  return m ? m.id : '';
+}
+
+/**
  * Robust machine matching ignoring case, hyphens, spaces, and punctuation
  */
 export function matchMachine(str, dynamicList = MACHINES) {
@@ -162,30 +172,56 @@ export function matchMachine(str, dynamicList = MACHINES) {
   const list = dynamicList && dynamicList.length > 0 ? dynamicList : MACHINES;
   const rawNorm = normalizeMachineKey(str);
 
-  // 1. Direct Line ID match (e.g. "L-01", "L01")
-  const idMatch = list.find((m) => normalizeMachineKey(m.id) === rawNorm);
+  // 1. Direct model & TDH variants match to official factory configuration
+  if (rawNorm.includes('KTS350') && rawNorm.includes('TDH')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS350') && normalizeMachineKey(m.name).includes('TDH')) ||
+      list.find((m) => m.id === 'L-01') || MACHINES.find((m) => m.id === 'L-01') || null;
+  }
+  if (rawNorm.includes('KTS170')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS170')) ||
+      list.find((m) => m.id === 'L-02') || MACHINES.find((m) => m.id === 'L-02') || null;
+  }
+  if (rawNorm.includes('KABRA') || rawNorm.includes('K90')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KABRA') || normalizeMachineKey(m.name).includes('K90')) ||
+      list.find((m) => m.id === 'L-03') || MACHINES.find((m) => m.id === 'L-03') || null;
+  }
+  if (rawNorm.includes('KTS350')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS350') && !normalizeMachineKey(m.name).includes('TDH')) ||
+      list.find((m) => m.id === 'L-04') || MACHINES.find((m) => m.id === 'L-04') || null;
+  }
+  if (rawNorm.includes('KTS200')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS200')) ||
+      list.find((m) => m.id === 'L-05') || MACHINES.find((m) => m.id === 'L-05') || null;
+  }
+  if (rawNorm.includes('KTS700')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS700')) ||
+      list.find((m) => m.id === 'L-06') || MACHINES.find((m) => m.id === 'L-06') || null;
+  }
+  if (rawNorm.includes('KTS250')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS250')) ||
+      list.find((m) => m.id === 'L-07') || MACHINES.find((m) => m.id === 'L-07') || null;
+  }
+  if (rawNorm.includes('KTS550')) {
+    return list.find((m) => normalizeMachineKey(m.name).includes('KTS550')) ||
+      list.find((m) => m.id === 'L-08') || MACHINES.find((m) => m.id === 'L-08') || null;
+  }
+  if (rawNorm.includes('BAUSANO')) {
+    return list.find((m) => m.id === 'L-09' || normalizeMachineKey(m.name).includes('BAUSANO')) || null;
+  }
+
+  // 2. Direct Line ID match (e.g. "L-01", "L01")
+  const idMatch = list.find((m) => normalizeMachineKey(m.id) === rawNorm) || MACHINES.find((m) => normalizeMachineKey(m.id) === rawNorm);
   if (idMatch) return idMatch;
 
-  // 2. Direct Name match
-  const nameMatch = list.find((m) => normalizeMachineKey(m.name) === rawNorm);
+  // 3. Direct Name match
+  const nameMatch = list.find((m) => normalizeMachineKey(m.name) === rawNorm) || MACHINES.find((m) => normalizeMachineKey(m.name) === rawNorm);
   if (nameMatch) return nameMatch;
-
-  // 3. Substring match for specific models & TDH variants
-  if (rawNorm.includes('KTS250')) return list.find((m) => m.id === 'L-02') || null;
-  if (rawNorm.includes('KTS350') && rawNorm.includes('TDH')) return list.find((m) => m.id === 'L-08') || null;
-  if (rawNorm.includes('KTS350')) return list.find((m) => m.id === 'L-05') || null;
-  if (rawNorm.includes('KTS550')) return list.find((m) => m.id === 'L-01') || null;
-  if (rawNorm.includes('KTS700')) return list.find((m) => m.id === 'L-03') || null;
-  if (rawNorm.includes('KTS200')) return list.find((m) => m.id === 'L-04') || null;
-  if (rawNorm.includes('KABRA') || rawNorm.includes('K90')) return list.find((m) => m.id === 'L-06') || null;
-  if (rawNorm.includes('KTS170')) return list.find((m) => m.id === 'L-07') || null;
-  if (rawNorm.includes('BAUSANO')) return list.find((m) => m.id === 'L-09') || null;
 
   // 4. Prefix match e.g. "LINE 1", "L-1", "L1"
   const mMatch = rawNorm.match(/^L(?:INE)?0?(\d)$/);
   if (mMatch) {
     const targetId = `L-0${mMatch[1]}`;
-    const found = list.find((m) => m.id === targetId);
+    const found = list.find((m) => m.id === targetId) || MACHINES.find((m) => m.id === targetId);
     if (found) return found;
   }
 
@@ -199,14 +235,11 @@ export function findMasterMachineProfile(rawName) {
   if (clean.includes('350') && clean.includes('TDH')) {
     return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-350-TDH');
   }
-  if (clean.includes('250')) {
-    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-250-TDH');
+  if (clean.includes('170')) {
+    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-170');
   }
-  if (clean.includes('700')) {
-    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-700');
-  }
-  if (clean.includes('550')) {
-    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-550');
+  if (clean.includes('KABRA') || clean.includes('K 90') || clean.includes('K-90') || clean.includes('K90') || clean === '90') {
+    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KABRA-90');
   }
   if (clean.includes('350')) {
     return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-350');
@@ -214,14 +247,28 @@ export function findMasterMachineProfile(rawName) {
   if (clean.includes('200')) {
     return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-200');
   }
-  if (clean.includes('170')) {
-    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-170');
+  if (clean.includes('700')) {
+    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-700');
   }
-  if (clean.includes('KABRA') || clean.includes('K 90') || clean.includes('K-90') || clean.includes('K90') || clean === '90') {
-    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KABRA-90');
+  if (clean.includes('250')) {
+    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-250-TDH');
+  }
+  if (clean.includes('550')) {
+    return MASTER_MACHINE_PROFILES.find(p => p.id === 'KTS-550');
   }
   if (clean.includes('BAUSANO')) {
-    return MASTER_MACHINE_PROFILES.find(p => p.id === 'BAUSANO');
+    return {
+      id: 'BAUSANO',
+      lineId: 'L-09',
+      name: 'Bausano',
+      nominalCapacity: 1100,
+      capacityKgH: 1100,
+      minDiameter: null,
+      maxDiameter: null,
+      isPelletizingLine: true,
+      lineType: 'Pelletizing Line',
+      matchKeys: ['BAUSANO', 'BAUSANO 1', 'BAUSANO-1', 'L-09', 'L09', 'LINE 9', 'LINE-9']
+    };
   }
 
   for (const profile of MASTER_MACHINE_PROFILES) {

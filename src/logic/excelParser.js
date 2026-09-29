@@ -668,29 +668,69 @@ export function convertLogRowToReport(row, options = {}) {
   let downtimeHours;
 
   if (isMulti) {
-    totalOpHours = Math.min(24, Math.max(targetOutput > 0 ? 1 : 0, round1(opH1 + opH2)));
-    downtimeHours = round1(Math.max(0, 24 - totalOpHours));
-  } else {
-    const rawOpH = row.operatingHours ?? row['Operating Hours'] ?? row.opHours;
-    if (rawOpH != null && rawOpH !== '' && !Number.isNaN(Number(rawOpH)) && Number(rawOpH) > 0) {
-      totalOpHours = Math.min(24, Number(rawOpH));
-    } else if (targetOutput > 0) {
-      totalOpHours = targetRate1 > 0 ? Math.min(24, Math.max(1, round1(targetOutput / targetRate1))) : 24;
-    } else {
-      totalOpHours = 0;
-    }
+    const rawOpH1 = item1.operatingHours ?? item1['Operating Hours'] ?? item1.opHours;
+    const rawOpH2 = item2.operatingHours ?? item2['Operating Hours'] ?? item2.opHours;
+    const rawDt = row.downtimeHours ?? row['Downtime Hours'] ?? row.dtHours;
 
-    if (targetOutput > 0) {
-      const rawDt = Number(row.downtimeHours ?? row['Downtime Hours'] ?? 0);
-      if (rawDt >= 24) {
-        downtimeHours = round1(Math.max(0, 24 - totalOpHours));
-      } else if (rawDt > 0) {
-        downtimeHours = Math.min(23, rawDt);
+    if (rawDt != null && rawDt !== '' && !Number.isNaN(Number(rawDt)) && Number(rawDt) > 0) {
+      const parsedDt = Math.min(24, Math.max(0, Number(rawDt)));
+      if (targetOutput > 0 && parsedDt >= 24) {
+        downtimeHours = 0;
+        totalOpHours = 24;
       } else {
+        downtimeHours = parsedDt;
+        totalOpHours = round1(Math.max(0, 24 - downtimeHours));
+        if (targetOutput > 0 && totalOpHours <= 0) {
+          totalOpHours = 24;
+          downtimeHours = 0;
+        }
+      }
+    } else if (rawOpH1 != null || rawOpH2 != null) {
+      const sumOp = (Number(rawOpH1) || 0) + (Number(rawOpH2) || 0);
+      if (sumOp > 0) {
+        totalOpHours = Math.min(24, Math.max(1, round1(sumOp)));
         downtimeHours = round1(Math.max(0, 24 - totalOpHours));
+      } else {
+        totalOpHours = targetOutput > 0 ? 24 : 0;
+        downtimeHours = targetOutput > 0 ? 0 : 24;
       }
     } else {
-      downtimeHours = Number(row.downtimeHours ?? 24);
+      totalOpHours = targetOutput > 0 ? 24 : 0;
+      downtimeHours = targetOutput > 0 ? 0 : 24;
+    }
+  } else {
+    const rawOpH = row.operatingHours ?? row['Operating Hours'] ?? row.opHours;
+    const rawDt = row.downtimeHours ?? row['Downtime Hours'] ?? row.dtHours;
+
+    if (rawDt != null && rawDt !== '' && !Number.isNaN(Number(rawDt)) && Number(rawDt) > 0) {
+      const parsedDt = Math.min(24, Math.max(0, Number(rawDt)));
+      if (targetOutput > 0 && parsedDt >= 24) {
+        downtimeHours = 0;
+        totalOpHours = 24;
+      } else {
+        downtimeHours = parsedDt;
+        totalOpHours = round1(Math.max(0, 24 - downtimeHours));
+        if (targetOutput > 0 && totalOpHours <= 0) {
+          totalOpHours = 24;
+          downtimeHours = 0;
+        }
+      }
+    } else if (rawOpH != null && rawOpH !== '' && !Number.isNaN(Number(rawOpH))) {
+      const parsedOpH = Number(rawOpH);
+      if (parsedOpH > 0) {
+        totalOpHours = Math.min(24, parsedOpH);
+        downtimeHours = round1(Math.max(0, 24 - totalOpHours));
+      } else {
+        // Defensive check: if operating hours is logged as 0 but actual output was produced (> 0),
+        // machine ran the full 24h cycle with 0 downtime
+        totalOpHours = targetOutput > 0 ? 24 : 0;
+        downtimeHours = targetOutput > 0 ? 0 : 24;
+      }
+    } else {
+      // Default: when no physical stoppage is logged, 24h run with 0 downtime
+      // Any production deficit is true speed loss, NOT downtime!
+      totalOpHours = targetOutput > 0 ? 24 : 0;
+      downtimeHours = targetOutput > 0 ? 0 : 24;
     }
   }
 
@@ -702,7 +742,7 @@ export function convertLogRowToReport(row, options = {}) {
       key: newId(),
       startHour,
       durationMin,
-      reason: row.reasonOfStop || row['Reason of Stop'] || (isMulti ? 'Die Change & Sizing Setup' : 'Maintenance & Setup')
+      reason: row.reasonOfStop || row['Reason of Stop'] || (isMulti ? 'Die Change & Sizing Setup' : 'Equipment Stoppage')
     });
   }
 

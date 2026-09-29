@@ -461,5 +461,73 @@ assert.ok(autoBoundDerived.oee > 0, 'Live OEE must be greater than 0%');
 assert.ok(autoBoundDerived.operatingHours > 0, 'Live operating hours must be greater than 0.0h');
 console.log('State Synchronization & Reactive 24h Slot Synthesis: OK');
 
+// 12. Dual-Mode Downtime Entry & True Speed-Loss Decoupling Tests
+// Case A: Mode A - Standard Presets
+const presetRun = reconcileShiftRun(benchmarkRep, {
+  totalActualPieces: 1540,
+  mode: 'preset',
+  presets: [
+    { id: 'mold_change', name: 'Die / Mold Changeover', durationMin: 120, startSlot: 2, enabled: true },
+    { id: 'heater_failure', name: 'Heater / Thermocouple Failure', durationMin: 45, startSlot: 6, enabled: false } // Disabled, should not apply
+  ]
+});
+assert.equal(presetRun.audit.totalDowntimeMin, 120, 'Preset mode must apply exactly 120 min for enabled preset');
+assert.equal(presetRun.audit.totalDowntimeHours, 2.0, 'Preset mode must report 2.0h downtime');
+assert.equal(presetRun.audit.operatingHours, 22.0, 'Operating hours must be 22.0h');
+assert.equal(presetRun.updatedSlots[2].downtime, 60, 'Slot 2 downtime must be 60 min');
+assert.equal(presetRun.updatedSlots[3].downtime, 60, 'Slot 3 downtime must be 60 min');
+assert.equal(presetRun.updatedSlots[6].downtime, 0, 'Disabled preset must not apply downtime to slot 6');
+const presetSlotSum = presetRun.updatedSlots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0);
+assert.equal(Math.round(presetSlotSum), 1540, 'Total actual pieces must sum to 1540 across operating slots');
+
+// Case B: Mode B - Direct Manual Entry
+const manualRun = reconcileShiftRun(benchmarkRep, {
+  totalActualPieces: 1800,
+  mode: 'manual',
+  manualDowntime: {
+    enabled: true,
+    durationMin: 90,
+    reason: 'Emergency Chiller Fix',
+    startSlot: 8
+  }
+});
+assert.equal(manualRun.audit.totalDowntimeMin, 90, 'Manual mode must apply 90 min');
+assert.equal(manualRun.audit.totalDowntimeHours, 1.5, 'Manual mode must report 1.5h downtime');
+assert.equal(manualRun.audit.operatingHours, 22.5, 'Manual mode must report 22.5h operating time');
+assert.equal(manualRun.updatedSlots[8].downtime, 60, 'Slot 8 must receive 60 min');
+assert.equal(manualRun.updatedSlots[9].downtime, 30, 'Slot 9 must receive 30 min');
+assert.ok(manualRun.updatedSlots[8].reason.includes('Emergency Chiller Fix'), 'Slot reason must record manual description');
+
+// Case C: Mode C - Zero Downtime Continuous 24h Full Run
+const zeroDtAudit = calculateReconciliationAudit({
+  totalActualPieces: 1680,
+  targetRate: 100,
+  totalDowntimeMin: 0
+});
+assert.equal(zeroDtAudit.operatingHours, 24.0, 'Zero downtime must have 24.0 operating hours');
+assert.equal(zeroDtAudit.availability, 1.0, 'Availability must be 100% (1.0)');
+assert.equal(zeroDtAudit.availabilityPct, 100.0, 'Availability % must be 100.0%');
+assert.equal(zeroDtAudit.targetOutputForOperating, 2400, 'Target for 24h at 100 pcs/h must be 2400 pcs');
+assert.equal(zeroDtAudit.actualHourlyRate, 70.0, 'Actual hourly rate must be 70.0 Pcs/h');
+assert.equal(zeroDtAudit.performance, 0.7, 'Performance must be 70% (0.7)');
+assert.equal(zeroDtAudit.performancePct, 70.0, 'Performance % must be 70.0%');
+assert.equal(zeroDtAudit.downtimePieces, 0, 'Downtime loss must be 0 pcs');
+assert.equal(zeroDtAudit.speedLossPieces, 720, 'Speed loss must be 720 pcs');
+assert.equal(zeroDtAudit.overallOee, 0.7, 'Overall OEE must be 70% (0.7)');
+
+const zeroDtRun = reconcileShiftRun(benchmarkRep, {
+  totalActualPieces: 1680,
+  mode: 'zero',
+  zeroDowntime: true
+});
+assert.equal(zeroDtRun.audit.totalDowntimeMin, 0, 'Zero mode must enforce 0 downtime minutes');
+assert.equal(zeroDtRun.audit.operatingHours, 24.0, 'Zero mode must enforce 24.0 operating hours');
+const zeroSlotSum = zeroDtRun.updatedSlots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0);
+assert.equal(Math.round(zeroSlotSum), 1680, 'Actual pieces must sum to 1680 across all 24 slots');
+const zeroDerived = buildAll(zeroDtRun.updatedSlots, benchmarkRep.refs, 0);
+assert.equal(zeroDerived.availability, 1.0, 'buildAll availability must be 1.0 (100%)');
+assert.ok(Math.abs(zeroDerived.performance - (1680 / zeroDerived.grandTotals.target)) < 0.01, 'Performance must reflect reduced speed');
+console.log('Dual-Mode Downtime Entry & True Speed-Loss Decoupling: OK');
+
 console.log('All OEE Reconciler unit tests passed successfully!');
 

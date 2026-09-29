@@ -25,6 +25,16 @@ export default function KpiStrip({ derived }) {
 
         <div className="kpi-card">
           <div className="kpi-value">
+            {eng.totalWeightKg ? eng.totalWeightKg.toLocaleString() : '-'}
+            <span className="kpi-unit">kg</span>
+          </div>
+          <div className="kpi-label">
+            Total Daily Output {derived.grandTotals?.actual ? `(${derived.grandTotals.actual.toLocaleString()} Pcs)` : ''}
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-value">
             {eng.actualRateKgH ? eng.actualRateKgH : '-'}
             <span className="kpi-unit">kg/h</span>
           </div>

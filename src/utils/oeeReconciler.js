@@ -1,6 +1,19 @@
 import { MACHINES, matchMachine, normalizeMachineKey, PLANT_NAME } from '../config/machines.js';
+import {
+  STANDARD_DOWNTIME_PRESETS,
+  STANDARD_DOWNTIME_REASONS,
+  getDowntimePresetById,
+  getDowntimePresetByName
+} from '../config/downtimeReasons.js';
 import { round1, roundToSum, HOUR_WINDOWS, makeRefSpec, emptySlots } from './dailyReportEngine.js';
 import { normalizeExcelDate, consolidateDailyMachineRecords, convertLogRowToReport } from './dailyExcelParser.js';
+
+export {
+  STANDARD_DOWNTIME_PRESETS,
+  STANDARD_DOWNTIME_REASONS,
+  getDowntimePresetById,
+  getDowntimePresetByName
+};
 
 /**
  * Standard technical downtime categories for extrusion breakdowns
@@ -18,25 +31,24 @@ export const STANDARD_BREAKDOWN_REASONS = [
  */
 export const DEFAULT_EVENT_CONFIGS = {
   moldChange: {
-    label: 'Mold / Size Change',
+    label: 'Die / Mold Changeover',
     defaultDurationMin: 120,
-    defaultReason: 'Mold / Size Changeover Setup',
+    defaultReason: 'Die / Mold Changeover',
     defaultStartSlot: 2 // 08:30 - 09:30
   },
   warmup: {
-    label: 'Cold Start-up / Heating',
-    defaultDurationMin: 90,
-    defaultReason: 'Cold Start-up / Barrel Heating & Stabilization',
+    label: 'Routine Startup / Calibration',
+    defaultDurationMin: 30,
+    defaultReason: 'Routine Startup / Calibration',
     defaultStartSlot: 0 // 06:30 - 07:30
   },
   breakdown: {
     label: 'Logged Breakdown',
-    defaultDurationMin: 60,
-    defaultReason: 'Electrical Breakdown (Drive Inverter Fault / Heating Zone Sensor Error)',
+    defaultDurationMin: 45,
+    defaultReason: 'Mechanical Jam / Puller Fix',
     defaultStartSlot: 14 // 20:30 - 21:30
   }
 };
-
 
 /**
  * Append reason with semicolon separator
@@ -74,57 +86,103 @@ export function applyEventToSlots(slots, startSlotIdx, durationMin, reason) {
 }
 
 /**
- * Calculate reconciliation audit metrics for Manager/Supervisor oversight
+ * Calculate reconciliation audit metrics with decoupled downtime and true speed loss
  */
 export function calculateReconciliationAudit({
   totalActualPieces = 0,
   targetRate = 0,
+  totalDowntimeMin = null,
   moldChangeMin = 0,
   warmupMin = 0,
-  breakdownMin = 0
+  breakdownMin = 0,
+  manualDowntimeMin = 0,
+  events = []
 }) {
   const rate = Number(targetRate) > 0 ? Number(targetRate) : 0;
   const actualPcs = Math.max(0, Math.round(Number(totalActualPieces) || 0));
 
-  const theoreticalCapacityPcs = round1(24 * rate);
-  const actualEquivalentHours = rate > 0 ? round1(actualPcs / rate) : 0;
-  const missingHours = Math.max(0, round1(24 - actualEquivalentHours));
-  const missingPieces = Math.max(0, round1(theoreticalCapacityPcs - actualPcs));
+  // Compute total downtime minutes
+  let calculatedDtMin = 0;
+  if (totalDowntimeMin != null) {
+    calculatedDtMin = Math.max(0, Number(totalDowntimeMin) || 0);
+  } else {
+    calculatedDtMin =
+      (Number(moldChangeMin) || 0) +
+      (Number(warmupMin) || 0) +
+      (Number(breakdownMin) || 0) +
+      (Number(manualDowntimeMin) || 0);
+    if (Array.isArray(events)) {
+      calculatedDtMin += events.reduce((sum, e) => sum + (e && e.enabled ? (Number(e.durationMin) || 0) : 0), 0);
+    }
+  }
 
-  const moldChangeHours = round1(moldChangeMin / 60);
-  const warmupHours = round1(warmupMin / 60);
-  const breakdownHours = round1(breakdownMin / 60);
+  const moldChangeHours = round1((Number(moldChangeMin) || 0) / 60);
+  const warmupHours = round1((Number(warmupMin) || 0) / 60);
+  const breakdownHours = round1((Number(breakdownMin) || 0) / 60);
+  const manualDowntimeHours = round1((Number(manualDowntimeMin) || 0) / 60);
 
-  const totalDowntimeMin = moldChangeMin + warmupMin + breakdownMin;
-  const totalDowntimeHours = round1(totalDowntimeMin / 60);
+  const totalDowntimeHours = round1(calculatedDtMin / 60);
   const operatingHours = Math.max(0, round1(24 - totalDowntimeHours));
+  const availability = 24 > 0 ? round1((operatingHours / 24) * 1000) / 1000 : 0;
+  const availabilityPct = round1(availability * 100);
 
-  // Total Accounted = Declared Downtime
+  const theoreticalCapacityPcs = round1(24 * rate);
+  const targetOutputForOperating = round1(operatingHours * rate);
+  const actualHourlyRate = operatingHours > 0 ? round1(actualPcs / operatingHours) : 0;
+
+  // True speed efficiency (Performance)
+  const performance = targetOutputForOperating > 0 ? round1((actualPcs / targetOutputForOperating) * 1000) / 1000 : 0;
+  const performancePct = round1(performance * 100);
+
+  // Stoppage output loss vs Speed loss
+  const missingPieces = Math.max(0, round1(theoreticalCapacityPcs - actualPcs));
+  const missingHours = rate > 0 ? round1(missingPieces / rate) : 0;
+
+  const downtimePieces = Math.round(totalDowntimeHours * rate);
+  const speedLossPieces = Math.max(0, round1(targetOutputForOperating - actualPcs));
+  const speedLossHours = rate > 0 ? round1(speedLossPieces / rate) : 0;
+
+  // Backward compatibility with legacy audit contract:
+  const actualEquivalentHours = rate > 0 ? round1(actualPcs / rate) : 0;
   const totalAccountedHours = totalDowntimeHours;
-  const totalAccountedPieces = Math.round(totalDowntimeHours * rate);
-
-  // Unexplained Time Gap
+  const totalAccountedPieces = downtimePieces;
   const rawGapHours = missingHours - totalAccountedHours;
   const unexplainedGapHours = rawGapHours > 0.05 ? round1(rawGapHours) : 0;
   const unexplainedGapPieces = rate > 0 ? Math.round(unexplainedGapHours * rate) : 0;
   const isFullyReconciled = unexplainedGapHours <= 0.2;
 
+  const overallOee = round1(availability * performance * 1000) / 1000;
+  const overallOeePct = round1(overallOee * 100);
+
   return {
     theoreticalCapacityPcs,
     actualPcs,
     targetRate: rate,
+    targetOutputForOperating,
+    actualHourlyRate,
     actualEquivalentHours,
-    missingHours,
+    operatingHours,
+    totalDowntimeMin: calculatedDtMin,
+    totalDowntimeHours,
+    availability,
+    availabilityPct,
+    performance,
+    performancePct,
+    overallOee,
+    overallOeePct,
     missingPieces,
+    missingHours,
+    downtimePieces,
+    speedLossPieces,
+    speedLossHours,
     moldChangeMin,
     moldChangeHours,
     warmupMin,
     warmupHours,
     breakdownMin,
     breakdownHours,
-    totalDowntimeMin,
-    totalDowntimeHours,
-    operatingHours,
+    manualDowntimeMin,
+    manualDowntimeHours,
     totalAccountedHours,
     totalAccountedPieces,
     unexplainedGapHours,
@@ -134,13 +192,17 @@ export function calculateReconciliationAudit({
 }
 
 /**
- * Reconcile shift run: apply declared downtime windows, reverse-distribute actual pieces
- * across remaining operating hours.
+ * Reconcile shift run: supports dual-mode downtime entry (presets vs manual), zero-downtime full runs,
+ * and true speed-loss proportional output distribution across active slots.
  */
 export function reconcileShiftRun(report, params = {}) {
   const {
     totalActualPieces = 0,
-    events = {}
+    zeroDowntime = false,
+    mode = 'preset', // 'preset' | 'manual' | 'zero'
+    manualDowntime = null, // { enabled: boolean, durationMin: number, reason: string, startSlot: number }
+    presets = [], // array of { id, name, durationMin, startSlot, reason, enabled }
+    events = {} // backwards compatibility
   } = params;
 
   // Initialize fresh copies of 24 slots with 0 downtime
@@ -166,30 +228,69 @@ export function reconcileShiftRun(report, params = {}) {
     reason: ''
   }));
 
-  // Collect declared event durations
+  let totalDowntimeMin = 0;
   let moldChangeMin = 0;
   let warmupMin = 0;
   let breakdownMin = 0;
+  let manualDowntimeMin = 0;
 
-  if (events.moldChange?.enabled) {
-    moldChangeMin = Math.max(0, Math.round(Number(events.moldChange.durationMin) || 0));
-    const reason = events.moldChange.reason || DEFAULT_EVENT_CONFIGS.moldChange.defaultReason;
-    const start = events.moldChange.startSlot ?? DEFAULT_EVENT_CONFIGS.moldChange.defaultStartSlot;
-    applyEventToSlots(slots, start, moldChangeMin, reason);
+  // Case 1: Zero Downtime (full 24h run at speed)
+  if (zeroDowntime || mode === 'zero') {
+    // Keep slots downtime at 0
+    totalDowntimeMin = 0;
   }
-
-  if (events.warmup?.enabled) {
-    warmupMin = Math.max(0, Math.round(Number(events.warmup.durationMin) || 0));
-    const reason = events.warmup.reason || DEFAULT_EVENT_CONFIGS.warmup.defaultReason;
-    const start = events.warmup.startSlot ?? DEFAULT_EVENT_CONFIGS.warmup.defaultStartSlot;
-    applyEventToSlots(slots, start, warmupMin, reason);
+  // Case 2: Direct Manual Downtime Entry (Mode B)
+  else if (mode === 'manual' && manualDowntime && manualDowntime.enabled) {
+    manualDowntimeMin = Math.max(0, Math.round(Number(manualDowntime.durationMin) || 0));
+    const reason = manualDowntime.reason || 'Unplanned Downtime (Direct Manual Entry)';
+    const start = manualDowntime.startSlot ?? 0;
+    applyEventToSlots(slots, start, manualDowntimeMin, reason);
+    totalDowntimeMin += manualDowntimeMin;
   }
+  // Case 3: Presets Array (Mode A)
+  else if (Array.isArray(presets) && presets.length > 0) {
+    presets.forEach((p) => {
+      if (p && p.enabled && Number(p.durationMin) > 0) {
+        const dMin = Math.max(0, Math.round(Number(p.durationMin)));
+        const reason = p.reason || p.name || 'Equipment Stoppage';
+        const start = p.startSlot ?? 0;
+        applyEventToSlots(slots, start, dMin, reason);
+        totalDowntimeMin += dMin;
+        if (p.id === 'mold_change' || reason.toLowerCase().includes('mold')) {
+          moldChangeMin += dMin;
+        } else if (p.id === 'startup_calibration' || p.id === 'warmup') {
+          warmupMin += dMin;
+        } else {
+          breakdownMin += dMin;
+        }
+      }
+    });
+  }
+  // Case 4: Legacy events object (for backwards compatibility)
+  else {
+    if (events.moldChange?.enabled) {
+      moldChangeMin = Math.max(0, Math.round(Number(events.moldChange.durationMin) || 0));
+      const reason = events.moldChange.reason || DEFAULT_EVENT_CONFIGS.moldChange.defaultReason;
+      const start = events.moldChange.startSlot ?? DEFAULT_EVENT_CONFIGS.moldChange.defaultStartSlot;
+      applyEventToSlots(slots, start, moldChangeMin, reason);
+      totalDowntimeMin += moldChangeMin;
+    }
 
-  if (events.breakdown?.enabled) {
-    breakdownMin = Math.max(0, Math.round(Number(events.breakdown.durationMin) || 0));
-    const reason = events.breakdown.reason || DEFAULT_EVENT_CONFIGS.breakdown.defaultReason;
-    const start = events.breakdown.startSlot ?? DEFAULT_EVENT_CONFIGS.breakdown.defaultStartSlot;
-    applyEventToSlots(slots, start, breakdownMin, reason);
+    if (events.warmup?.enabled) {
+      warmupMin = Math.max(0, Math.round(Number(events.warmup.durationMin) || 0));
+      const reason = events.warmup.reason || DEFAULT_EVENT_CONFIGS.warmup.defaultReason;
+      const start = events.warmup.startSlot ?? DEFAULT_EVENT_CONFIGS.warmup.defaultStartSlot;
+      applyEventToSlots(slots, start, warmupMin, reason);
+      totalDowntimeMin += warmupMin;
+    }
+
+    if (events.breakdown?.enabled) {
+      breakdownMin = Math.max(0, Math.round(Number(events.breakdown.durationMin) || 0));
+      const reason = events.breakdown.reason || DEFAULT_EVENT_CONFIGS.breakdown.defaultReason;
+      const start = events.breakdown.startSlot ?? DEFAULT_EVENT_CONFIGS.breakdown.defaultStartSlot;
+      applyEventToSlots(slots, start, breakdownMin, reason);
+      totalDowntimeMin += breakdownMin;
+    }
   }
 
   // Calculate remaining operating minutes per slot
@@ -205,21 +306,6 @@ export function reconcileShiftRun(report, params = {}) {
     actuals = roundToSum(rawActuals, desiredActual, 0);
   }
 
-  // Bind values back to slots
-  slots.forEach((s, i) => {
-    s.actual = actuals[i];
-    if (runningMinutes[i] === 0) {
-      s.actual = 0;
-      s.scrap = 0;
-    } else {
-      // Ensure scrap does not exceed actual
-      if (Number(s.scrap) > s.actual) {
-        s.scrap = s.actual;
-      }
-    }
-    s.good = Math.max(0, s.actual - (Number(s.scrap) || 0));
-  });
-
   // Target rate for audit calculations
   const ref1 = report?.refs?.['1'] || {};
   let targetRate = Number(ref1.targetRate) || 0;
@@ -234,12 +320,31 @@ export function reconcileShiftRun(report, params = {}) {
     targetRate = desiredActual > 0 ? round1(desiredActual / 24) : 100;
   }
 
+  // Bind values back to slots and calculate slot targets
+  slots.forEach((s, i) => {
+    s.actual = actuals[i];
+    s.rate = targetRate;
+    s.target = round1((targetRate * runningMinutes[i]) / 60);
+
+    if (runningMinutes[i] === 0) {
+      s.actual = 0;
+      s.scrap = 0;
+    } else {
+      if (Number(s.scrap) > s.actual) {
+        s.scrap = s.actual;
+      }
+    }
+    s.good = Math.max(0, s.actual - (Number(s.scrap) || 0));
+  });
+
   const audit = calculateReconciliationAudit({
     totalActualPieces: desiredActual,
     targetRate,
+    totalDowntimeMin,
     moldChangeMin,
     warmupMin,
-    breakdownMin
+    breakdownMin,
+    manualDowntimeMin
   });
 
   return {

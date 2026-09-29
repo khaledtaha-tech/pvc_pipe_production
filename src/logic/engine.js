@@ -222,12 +222,33 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
   const t2 = blockTotals(shift2);
   const grand = blockTotals(derived);
 
-  const totalDowntimeHours = round1(grand.downtime / 60);
-  const operatingHours = round1(24 - totalDowntimeHours);
-  const availability = operatingHours / 24;
+  const totalDowntimeMin = grand.downtime;
+  const totalDowntimeHours = round1(totalDowntimeMin / 60);
+  const operatingHours = round1(Math.max(0, 24 - totalDowntimeHours));
+  const availability = 24 > 0 ? operatingHours / 24 : 0;
 
-  const performance = grand.target > 0 ? grand.actual / grand.target : 0;
-  const quality = grand.actual > 0 ? grand.good / grand.actual : 0;
+  // Engineering KPIs & Rates
+  const ref1Weight = Number(refs?.['1']?.stdWeight) || 0;
+  const totalWeightKg = Number(engineering.totalWeightKg) || Math.round(grand.actual * ref1Weight);
+  const nominalCapacityKgH = Number(engineering.nominalCapacityKgH) || 0;
+  const actualRateKgH =
+    Number(engineering.actualRateKgH) || (operatingHours > 0 ? round1(totalWeightKg / operatingHours) : 0);
+  const expectedOutputKg = round1(operatingHours * nominalCapacityKgH);
+  const capacityUtilizationPct =
+    nominalCapacityKgH > 0 ? round1((actualRateKgH / nominalCapacityKgH) * 100) : 0;
+
+  // Performance calculation: actual output / expected target output for operating time
+  const performance =
+    grand.target > 0
+      ? grand.actual / grand.target
+      : (expectedOutputKg > 0 ? totalWeightKg / expectedOutputKg : 0);
+
+  // Quality calculation: (actual - scrap) / actual
+  const quality =
+    grand.actual > 0
+      ? Math.max(0, (grand.actual - grand.scrap) / grand.actual)
+      : (totalWeightKg > 0 && engineering.scrapKg != null ? Math.max(0, (totalWeightKg - engineering.scrapKg) / totalWeightKg) : 1);
+
   const oee = availability * performance * quality;
 
   // Explicit transparent formula formatting
@@ -237,16 +258,6 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
   const oeeStr = (oee * 100).toFixed(1) + '%';
   const formulaStr = `OEE = A (${aStr}) × P (${pStr}) × Q (${qStr}) = ${oeeStr}`;
 
-  // Engineering KPIs: Actual Output Rate (kg/h) vs Nominal Capacity (kg/h)
-  const ref1Weight = Number(refs?.['1']?.stdWeight) || 0;
-  const totalWeightKg = engineering.totalWeightKg || Math.round(grand.actual * ref1Weight);
-  const actualRateKgH =
-    engineering.actualRateKgH || (operatingHours > 0 ? round1(totalWeightKg / operatingHours) : 0);
-  const nominalCapacityKgH = engineering.nominalCapacityKgH || 0;
-  const capacityUtilizationPct =
-    engineering.capacityUtilizationPct ||
-    (nominalCapacityKgH > 0 ? round1((actualRateKgH / nominalCapacityKgH) * 100) : 0);
-
   return {
     slots: derived,
     shift1,
@@ -254,7 +265,7 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
     shift1Totals: t1,
     shift2Totals: t2,
     grandTotals: grand,
-    totalDowntimeMin: grand.downtime,
+    totalDowntimeMin,
     totalDowntimeHours,
     operatingHours,
     availability,
@@ -269,6 +280,7 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
     engineering: {
       ...engineering,
       totalWeightKg,
+      expectedOutputKg,
       actualRateKgH,
       nominalCapacityKgH,
       capacityUtilizationPct

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RotateCcw,
+  Trash2,
   Database,
   Cpu,
   Layers,
@@ -43,7 +44,7 @@ import {
   savePersistedRecords,
   clearPersistedRecords
 } from '../../data/store.js';
-import { saveAppState } from '../../utils/indexedDbStorage.js';
+import { saveAppState, clearAppState, deleteAnalysisDatabase } from '../../utils/indexedDbStorage.js';
 import { syncDatasetsToApi } from '../../logic/apiClient.js';
 import ErpImportVerificationModal from '../common/ErpImportVerificationModal.jsx';
 
@@ -69,8 +70,46 @@ export default function DataExchangeCenter({
   onNotify
 }) {
   const isLight = theme === 'light';
-  const notify = (msg) => {
-    if (onNotify) onNotify(msg);
+  const notify = (msg, type = 'success') => {
+    if (onNotify) onNotify(msg, type);
+  };
+
+  const handleExecuteClearData = async () => {
+    if (onClearAllData) {
+      onClearAllData();
+      return;
+    }
+
+    // Direct fallback if onClearAllData is not passed
+    try {
+      localStorage.removeItem('pvc_production_records');
+      localStorage.removeItem('pvc_uploader_meta');
+      localStorage.removeItem('pvc_active_report');
+      localStorage.removeItem('pvc_dmr_reports_v1');
+      clearPersistedRecords();
+    } catch (e) {
+      console.warn('LocalStorage clear error:', e);
+    }
+
+    try {
+      await clearAppState();
+      await deleteAnalysisDatabase();
+    } catch (e) {
+      console.warn('IndexedDB clear error:', e);
+    }
+
+    if (setRawRows) setRawRows([]);
+    if (setHistoricalRawRows) setHistoricalRawRows([]);
+
+    if (onNotify) {
+      onNotify('Local Cache Cleared Successfully. Re-syncing with server...', 'info');
+    }
+
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    }, 500);
   };
 
   // --- Upload State: Daily Production Log ---
@@ -464,8 +503,8 @@ export default function DataExchangeCenter({
             </div>
           </div>
 
-          {/* Quick Metrics Strip */}
-          <div className="flex items-center gap-3">
+          {/* Quick Metrics Strip & Maintenance Bar */}
+          <div className="flex flex-wrap items-center gap-3">
             <div
               className={`px-3 py-2 rounded-xl border text-center ${
                 isLight ? 'bg-white border-stone-200 text-stone-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
@@ -490,6 +529,17 @@ export default function DataExchangeCenter({
               <div className="text-[10px] font-semibold text-slate-400 uppercase">Master Plans</div>
               <div className="text-sm font-bold font-mono text-emerald-500">{masterRuns.length}</div>
             </div>
+
+            {/* Prominent Quick Clear Cache Button */}
+            <button
+              type="button"
+              onClick={handleExecuteClearData}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-500/80 shadow-md shadow-rose-900/30 hover:shadow-rose-600/40 transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 shrink-0"
+              title="Purge local storage cache, DMR reports, and reload state"
+            >
+              <Trash2 className="w-4 h-4 text-white shrink-0" />
+              <span>Clear Data</span>
+            </button>
           </div>
         </div>
       </div>
@@ -651,13 +701,13 @@ export default function DataExchangeCenter({
             </div>
           </div>
 
-          {/* Sample Loaders Strip */}
-          <div className="pt-3 border-t border-inherit flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          {/* Primary Dataset Actions & Maintenance Strip */}
+          <div className="pt-4 border-t border-inherit flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleLoadDailySample}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
                   isLight
                     ? 'bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
@@ -669,7 +719,7 @@ export default function DataExchangeCenter({
               <button
                 type="button"
                 onClick={handleLoadErpSample}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
                   isLight
                     ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-300'
                     : 'bg-purple-950/60 hover:bg-purple-900 text-purple-200 border border-purple-800'
@@ -679,16 +729,16 @@ export default function DataExchangeCenter({
                 <span>Load 15-Run ERP Sample</span>
               </button>
             </div>
-            {onClearAllData && (
-              <button
-                type="button"
-                onClick={onClearAllData}
-                className="text-xs text-rose-500 hover:text-rose-400 font-medium cursor-pointer p-1"
-                title="Reset active datasets"
-              >
-                Clear Data
-              </button>
-            )}
+
+            <button
+              type="button"
+              onClick={handleExecuteClearData}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-500/80 shadow-md shadow-rose-900/30 hover:shadow-rose-600/40 transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 shrink-0"
+              title="Purge local storage cache, DMR reports, and reload state"
+            >
+              <Trash2 className="w-4 h-4 text-white shrink-0" />
+              <span>Clear Data</span>
+            </button>
           </div>
         </div>
 

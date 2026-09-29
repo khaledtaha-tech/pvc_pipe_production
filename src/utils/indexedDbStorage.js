@@ -195,3 +195,25 @@ export async function clearAppState() {
     }
   });
 }
+
+/**
+ * Completely purges and deletes the PipeDataAnalysisDB IndexedDB database.
+ */
+export async function deleteAnalysisDatabase() {
+  if (!isIndexedDbSupported()) return false;
+  return new Promise((resolve) => {
+    try {
+      if (typeof window !== 'undefined' && window.indexedDB && typeof window.indexedDB.deleteDatabase === 'function') {
+        const req = window.indexedDB.deleteDatabase(DB_NAME);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+        req.onblocked = () => resolve(true);
+      } else {
+        resolve(false);
+      }
+    } catch (err) {
+      console.warn('IndexedDB database deletion error:', err);
+      resolve(false);
+    }
+  });
+}

@@ -236,6 +236,7 @@ export function clearPersistedRecords() {
     storage.removeItem(STORAGE_KEYS.MACHINE_MASTER);
     storage.removeItem(STORAGE_KEYS.UPLOADER_META);
     storage.removeItem(STORAGE_KEYS.ACTIVE_REPORT);
+    storage.removeItem(STORAGE_KEYS.REPORTS);
   } catch (err) {
     console.error('Failed to clear persisted records:', err);
   }

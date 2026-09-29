@@ -24,8 +24,10 @@ import {
 import { 
   loadAppState, 
   saveAppState, 
-  clearAppState 
+  clearAppState,
+  deleteAnalysisDatabase
 } from './utils/indexedDbStorage';
+import { clearPersistedRecords } from './data/store';
 import { fetchDatasetsFromApi, syncDatasetsToApi } from './logic/apiClient';
 import { t } from './utils/translations';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -202,11 +204,44 @@ function AppContent() {
     setTheme(t => (t === 'light' ? 'dark' : 'light'));
   };
 
-  const handleConfirmClearAll = async () => {
+  const handleInstantClearData = async () => {
+    // 1. Purge targeted localStorage keys immediately
+    try {
+      localStorage.removeItem('pvc_production_records');
+      localStorage.removeItem('pvc_uploader_meta');
+      localStorage.removeItem('pvc_active_report');
+      localStorage.removeItem('pvc_dmr_reports_v1');
+      clearPersistedRecords();
+    } catch (e) {
+      console.warn('LocalStorage clear error:', e);
+    }
+
+    // 2. Clear IndexedDB (PipeDataAnalysisDB)
+    try {
+      await clearAppState();
+      await deleteAnalysisDatabase();
+    } catch (e) {
+      console.warn('IndexedDB clear error:', e);
+    }
+
+    // 3. Clear in-memory datasets
     setRawRows([]);
     setHistoricalRawRows([]);
-    await clearAppState();
+
+    // 4. Non-blocking visual feedback toast
+    showToast('Local Cache Cleared Successfully. Re-syncing with server...', 'info');
+
+    // 5. Auto reload page after 500ms
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    }, 500);
+  };
+
+  const handleConfirmClearAll = async () => {
     setIsClearDialogOpen(false);
+    await handleInstantClearData();
     setActiveTab('master');
   };
 
@@ -375,7 +410,7 @@ function AppContent() {
               onExportMasterPlan={handleExportMasterPlanExcel}
               onExportUniqueCatalog={handleExportUniqueCatalog}
               onExportCleanLog={handleExportCleanExcel}
-              onClearAllData={() => setIsClearDialogOpen(true)}
+              onClearAllData={handleInstantClearData}
               onNotify={showToast}
             />
           </ErrorBoundary>

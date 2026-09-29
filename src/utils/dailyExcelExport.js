@@ -973,3 +973,16 @@ export function exportDateRangeSopToExcel(records, fromDate, toDate, machineMast
 
   return { success: true, workbook: wb, filename, count: targetRows.length };
 }
+
+// Re-export template-driven Excel export functions
+export {
+  base64ToUint8Array,
+  extractDayNumber,
+  formatTemplateOeeFilename,
+  getTemplateBuffer,
+  saveExcelWorkbook,
+  buildTemplateOeeWorkbook,
+  exportSingleMachineTemplateExcel,
+  exportAllMachinesTemplateExcel
+} from './templateExcelExport.js';
+

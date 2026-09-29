@@ -53,7 +53,9 @@ import {
   exportSingleMachineSopToExcel,
   exportAllMachinesSopToExcel,
   exportDateRangeToExcel,
-  exportDateRangeSopToExcel
+  exportDateRangeSopToExcel,
+  exportSingleMachineTemplateExcel,
+  exportAllMachinesTemplateExcel
 } from '../../logic/excelExport.js';
 import {
   getOperatingRecordsForDate,
@@ -715,7 +717,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   };
 
-  const handleExportExcelSingle = () => {
+  const handleExportExcelSingle = async () => {
     if (records.length > 0 && activeLinesForDate.length === 0) {
       notify(`No active operating lines on ${selectedDate} to export.`);
       return;
@@ -725,7 +727,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return;
     }
     try {
-      const res = exportSingleMachineToExcel(report, derived);
+      notify('Generating template-driven Excel report...');
+      const res = await exportSingleMachineTemplateExcel(report, derived, { machineMaster });
       notify(`Exported Excel: ${res.filename}`);
     } catch (err) {
       console.error('Failed to export single machine Excel:', err);
@@ -733,34 +736,35 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   };
 
-  const handleExportExcelAll = () => {
+  const handleExportExcelAll = async () => {
     if (!records || records.length === 0) {
       if (report) {
-        exportSingleMachineToExcel(report, derived);
-        notify('Exported active machine report to Excel.');
+        const res = await exportSingleMachineTemplateExcel(report, derived, { machineMaster });
+        notify(`Exported active machine report to Excel: ${res.filename}`);
         return;
       }
       notify('No production records loaded for batch Excel export.');
       return;
     }
     try {
-      const res = exportAllMachinesToExcel(records, selectedDate, machineMaster);
+      notify(`Generating Excel workbooks for active machines on ${selectedDate}...`);
+      const res = await exportAllMachinesTemplateExcel(records, selectedDate, machineMaster);
       if (!res.success) {
         if (res.reason === 'no_records') {
           notify(`No active operating machines found for date ${selectedDate}`);
         } else {
-          notify('Failed to generate combined Excel workbook.');
+          notify('Failed to generate Excel workbooks.');
         }
         return;
       }
-      notify(`Exported Excel workbook: ${res.filename} (${res.count} machines)`);
+      notify(`Exported ${res.count} Excel workbooks for ${selectedDate}`);
     } catch (err) {
       console.error('Failed to export all machines Excel:', err);
-      notify('Failed to generate combined Excel workbook.');
+      notify('Failed to generate Excel workbooks.');
     }
   };
 
-  const handleExportSopSingleExcel = () => {
+  const handleExportSopSingleExcel = async () => {
     if (records.length > 0 && activeLinesForDate.length === 0) {
       notify(`No active operating lines on ${selectedDate} to export.`);
       return;
@@ -770,7 +774,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return;
     }
     try {
-      const res = exportSingleMachineSopToExcel(report, derived);
+      notify('Generating KTS-350 SOP Excel report from template...');
+      const res = await exportSingleMachineTemplateExcel(report, derived, { machineMaster });
       notify(`Exported SOP Excel: ${res.filename}`);
       setIsExportModalOpen(false);
     } catch (err) {
@@ -779,11 +784,11 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   };
 
-  const handleExportSopAllExcel = () => {
+  const handleExportSopAllExcel = async () => {
     if (!records || records.length === 0) {
       if (report && derived) {
-        exportSingleMachineSopToExcel(report, derived);
-        notify('Exported active machine SOP report to Excel.');
+        const res = await exportSingleMachineTemplateExcel(report, derived, { machineMaster });
+        notify(`Exported active machine SOP report to Excel: ${res.filename}`);
         setIsExportModalOpen(false);
         return;
       }
@@ -791,7 +796,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return;
     }
     try {
-      const res = exportAllMachinesSopToExcel(records, selectedDate, machineMaster);
+      notify(`Generating SOP Excel workbooks for active machines on ${selectedDate}...`);
+      const res = await exportAllMachinesTemplateExcel(records, selectedDate, machineMaster);
       if (!res.success) {
         if (res.reason === 'no_records') {
           notify(`No active operating machines found for date ${selectedDate}`);
@@ -800,7 +806,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         }
         return;
       }
-      notify(`Exported SOP Excel workbook: ${res.filename} (${res.count} machines)`);
+      notify(`Exported ${res.count} SOP Excel workbooks for ${selectedDate}`);
       setIsExportModalOpen(false);
     } catch (err) {
       console.error('Failed to export all machines SOP Excel:', err);
@@ -1002,10 +1008,10 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         }
       } else if (format === 'excel') {
         if (template === 'modern') {
-          handleExportExcelSingle();
+          await handleExportExcelSingle();
           setIsExportModalOpen(false);
         } else {
-          handleExportSopSingleExcel();
+          await handleExportSopSingleExcel();
         }
       }
     } else if (scope === 'range') {
@@ -1034,10 +1040,10 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       // scope === 'all'
       if (format === 'excel') {
         if (template === 'modern') {
-          handleExportExcelAll();
+          await handleExportExcelAll();
           setIsExportModalOpen(false);
         } else {
-          handleExportSopAllExcel();
+          await handleExportSopAllExcel();
         }
       } else if (format === 'pdf') {
         await handleBatchPdfExport(template);
@@ -1408,6 +1414,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     openAutoReconcile: () => setIsReconcileModalOpen(true),
     exportSingleExcel: () => handleExportExcelSingle(),
     exportAllExcel: () => handleExportExcelAll(),
+    exportSingleTemplateExcel: () => handleExportExcelSingle(),
+    exportAllTemplateExcel: () => handleExportExcelAll(),
     exportDateRange: (from, to) => exportDateRangeToExcel(records, from, to, machineMaster),
     getRecords: () => records,
     getMachineMaster: () => machineMaster,

@@ -30,7 +30,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           pdf: ['html2pdf.js'],
-          excel: ['xlsx'],
+          excel: ['xlsx', 'exceljs'],
           charts: ['recharts']
         }
       }

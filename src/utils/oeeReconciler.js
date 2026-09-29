@@ -233,6 +233,7 @@ export function reconcileShiftRun(report, params = {}) {
   let warmupMin = 0;
   let breakdownMin = 0;
   let manualDowntimeMin = 0;
+  const downtimeEvents = [];
 
   // Case 1: Zero Downtime (full 24h run at speed)
   if (zeroDowntime || mode === 'zero') {
@@ -246,10 +247,18 @@ export function reconcileShiftRun(report, params = {}) {
     const start = manualDowntime.startSlot ?? 0;
     applyEventToSlots(slots, start, manualDowntimeMin, reason);
     totalDowntimeMin += manualDowntimeMin;
+    if (manualDowntimeMin > 0) {
+      downtimeEvents.push({
+        key: `ev_manual_${Date.now()}`,
+        startHour: (6 + start) % 24,
+        durationMin: manualDowntimeMin,
+        reason
+      });
+    }
   }
   // Case 3: Presets Array (Mode A)
   else if (Array.isArray(presets) && presets.length > 0) {
-    presets.forEach((p) => {
+    presets.forEach((p, idx) => {
       if (p && p.enabled && Number(p.durationMin) > 0) {
         const dMin = Math.max(0, Math.round(Number(p.durationMin)));
         const reason = p.reason || p.name || 'Equipment Stoppage';
@@ -263,6 +272,12 @@ export function reconcileShiftRun(report, params = {}) {
         } else {
           breakdownMin += dMin;
         }
+        downtimeEvents.push({
+          key: `ev_preset_${p.id || idx}_${Date.now()}`,
+          startHour: (6 + start) % 24,
+          durationMin: dMin,
+          reason
+        });
       }
     });
   }
@@ -274,6 +289,12 @@ export function reconcileShiftRun(report, params = {}) {
       const start = events.moldChange.startSlot ?? DEFAULT_EVENT_CONFIGS.moldChange.defaultStartSlot;
       applyEventToSlots(slots, start, moldChangeMin, reason);
       totalDowntimeMin += moldChangeMin;
+      downtimeEvents.push({
+        key: `ev_mold_${Date.now()}`,
+        startHour: (6 + start) % 24,
+        durationMin: moldChangeMin,
+        reason
+      });
     }
 
     if (events.warmup?.enabled) {
@@ -282,6 +303,12 @@ export function reconcileShiftRun(report, params = {}) {
       const start = events.warmup.startSlot ?? DEFAULT_EVENT_CONFIGS.warmup.defaultStartSlot;
       applyEventToSlots(slots, start, warmupMin, reason);
       totalDowntimeMin += warmupMin;
+      downtimeEvents.push({
+        key: `ev_warmup_${Date.now()}`,
+        startHour: (6 + start) % 24,
+        durationMin: warmupMin,
+        reason
+      });
     }
 
     if (events.breakdown?.enabled) {
@@ -290,6 +317,12 @@ export function reconcileShiftRun(report, params = {}) {
       const start = events.breakdown.startSlot ?? DEFAULT_EVENT_CONFIGS.breakdown.defaultStartSlot;
       applyEventToSlots(slots, start, breakdownMin, reason);
       totalDowntimeMin += breakdownMin;
+      downtimeEvents.push({
+        key: `ev_breakdown_${Date.now()}`,
+        startHour: (6 + start) % 24,
+        durationMin: breakdownMin,
+        reason
+      });
     }
   }
 
@@ -350,6 +383,7 @@ export function reconcileShiftRun(report, params = {}) {
   return {
     updatedSlots: slots,
     totalActualPieces: desiredActual,
+    downtimeEvents,
     audit
   };
 }

@@ -7,7 +7,12 @@ import {
   loadPersistedActiveReport,
   savePersistedActiveReport,
   loadPersistedMeta,
-  migrateStoredLineMappings
+  migrateStoredLineMappings,
+  makeReportKey,
+  isDateEqual,
+  isMachineEqual,
+  saveReportByDateAndMachine,
+  loadReportByDateAndMachine
 } from '../../src/data/store.js';
 
 console.log('--- Starting Storage & Persistence Unit Tests ---');
@@ -18,7 +23,9 @@ const mockLocalStorage = {
   getItem: (k) => (mockStorageMap.has(k) ? mockStorageMap.get(k) : null),
   setItem: (k, v) => mockStorageMap.set(k, String(v)),
   removeItem: (k) => mockStorageMap.delete(k),
-  clear: () => mockStorageMap.clear()
+  clear: () => mockStorageMap.clear(),
+  get length() { return mockStorageMap.size; },
+  key: (i) => Array.from(mockStorageMap.keys())[i] ?? null
 };
 
 globalThis.localStorage = mockLocalStorage;
@@ -127,5 +134,97 @@ assert.equal(clearedRecordsState.status, 'cleared');
 assert.deepEqual(clearedRecordsState.records, []);
 assert.equal(clearedRecordsState.records.some(r => (r.date || r.Date || '').startsWith('2024-')), false, 'Must not inject 2024 sample dates');
 console.log('Zero 2024 sample injection on clear: OK');
+
+// Test 8: Canonical report keys and matching
+assert.equal(makeReportKey('2026-09-28', 'L-06'), '2026-09-28_L-06');
+assert.equal(makeReportKey('2026-09-28', 'L-06 - KTS 700'), '2026-09-28_L-06');
+assert.equal(makeReportKey('2026-09-28', 'KTS 700'), '2026-09-28_L-06');
+assert.equal(isDateEqual('2026-09-28', '2026-09-28T00:00:00.000Z'), true);
+assert.equal(isMachineEqual('L-06 - KTS 700', 'L-06'), true);
+console.log('makeReportKey, isDateEqual, isMachineEqual canonical matching: OK');
+
+// Test 9: Multi-machine switching preserves user downtime and operating hours
+const dummySlots = Array.from({ length: 24 }, (_, i) => ({
+  slotIndex: i,
+  hourLabel: `${String(i).padStart(2, '0')}:00`,
+  plannedMinutes: 60,
+  downtimeMinutes: 0,
+  actualPieces: 10,
+  scrapPieces: 0
+}));
+
+// Create L-06 report with 2.5h downtime (21.5h operating) and downtime events
+const reportL06 = {
+  id: 'rep_2026-09-28_L-06',
+  header: {
+    date: '2026-09-28',
+    lineId: 'L-06',
+    lineCustom: 'L-06 - KTS 700'
+  },
+  slots: dummySlots.map((s, idx) => (idx === 3 ? { ...s, downtimeMinutes: 150 } : s)),
+  summary: {
+    totalPlannedHours: '24.0',
+    totalDowntimeHours: '2.5',
+    totalOperatingHours: '21.5',
+    availabilityPct: '89.6',
+    performancePct: '95.0',
+    qualityPct: '98.0',
+    oeePct: '83.4'
+  },
+  downtimeEvents: [
+    { hourIndex: 3, category: 'Mechanical Breakdown', durationHours: 2.5, reason: 'Gearbox inspection' }
+  ],
+  isReconciled: true
+};
+
+// Create L-05 report with 0.0h downtime (24.0h operating)
+const reportL05 = {
+  id: 'rep_2026-09-28_L-05',
+  header: {
+    date: '2026-09-28',
+    lineId: 'L-05',
+    lineCustom: 'L-05 - KTS 200'
+  },
+  slots: dummySlots.map(s => ({ ...s })),
+  summary: {
+    totalPlannedHours: '24.0',
+    totalDowntimeHours: '0.0',
+    totalOperatingHours: '24.0',
+    availabilityPct: '100.0',
+    performancePct: '92.0',
+    qualityPct: '99.0',
+    oeePct: '91.1'
+  },
+  downtimeEvents: [],
+  isReconciled: true
+};
+
+// Save both reports independently
+saveReportByDateAndMachine(reportL06);
+saveReportByDateAndMachine(reportL05);
+
+// Switching verification:
+// 1. Switch to L-05
+const loadedL05 = loadReportByDateAndMachine('2026-09-28', 'L-05');
+assert.ok(loadedL05, 'L-05 report must be loadable');
+assert.equal(loadedL05.summary.totalOperatingHours, '24.0');
+assert.equal(loadedL05.summary.totalDowntimeHours, '0.0');
+
+// 2. Switch back to L-06 - Verify it retains 2.5h downtime and 21.5h operating hours
+const loadedL06 = loadReportByDateAndMachine('2026-09-28', 'L-06');
+assert.ok(loadedL06, 'L-06 report must be loadable');
+assert.equal(loadedL06.summary.totalOperatingHours, '21.5', 'Operating hours must be 21.5h (NOT 24.0h)');
+assert.equal(loadedL06.summary.totalDowntimeHours, '2.5', 'Downtime hours must be 2.5h (NOT 0.0h)');
+assert.equal(loadedL06.downtimeEvents.length, 1, 'Downtime events must be preserved');
+assert.equal(loadedL06.downtimeEvents[0].durationHours, 2.5);
+assert.equal(loadedL06.isReconciled, true);
+console.log('Multi-machine switching preserves user downtime and operating hours: OK');
+
+// Test 10: clearPersistedRecords wipes per-machine pvc_rep_* keys
+clearPersistedRecords();
+const afterClearL06 = loadReportByDateAndMachine('2026-09-28', 'L-06');
+assert.equal(afterClearL06, null, 'Per-machine report must be cleaned on clear');
+assert.equal(mockLocalStorage.getItem('pvc_rep_2026-09-28_L-06'), null, 'pvc_rep_ key must be removed');
+console.log('clearPersistedRecords wipes per-machine direct keys: OK');
 
 console.log('All Storage & Persistence unit tests passed successfully!');

@@ -25,6 +25,60 @@ export function newId() {
 }
 
 /**
+ * Normalizes date string to YYYY-MM-DD
+ */
+export function normalizeDateStr(d) {
+  if (!d) return '';
+  const str = String(d).trim();
+  const match = str.match(/\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/);
+  if (match) {
+    const parts = match[0].split(/[-/.]/);
+    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+  }
+  return str.slice(0, 10);
+}
+
+/**
+ * Compare two dates for equivalence
+ */
+export function isDateEqual(dateA, dateB) {
+  if (!dateA || !dateB) return false;
+  return normalizeDateStr(dateA) === normalizeDateStr(dateB);
+}
+
+/**
+ * Compare two machine identifiers for canonical equivalence
+ */
+export function isMachineEqual(machineA, machineB) {
+  if (!machineA || !machineB) return false;
+  const mA = typeof machineA === 'object' && machineA !== null
+    ? (machineA.id || machineA.machineId || machineA.name || machineA.machineRaw)
+    : String(machineA);
+  const mB = typeof machineB === 'object' && machineB !== null
+    ? (machineB.id || machineB.machineId || machineB.name || machineB.machineRaw)
+    : String(machineB);
+
+  const matchedA = matchMachine(mA, MACHINES);
+  const matchedB = matchMachine(mB, MACHINES);
+  if (matchedA && matchedB && matchedA.id === matchedB.id) {
+    return true;
+  }
+  return String(mA).trim().toLowerCase() === String(mB).trim().toLowerCase();
+}
+
+/**
+ * Builds standard unique composite key for per-machine per-date storage
+ * Example: '2026-09-28_L-06'
+ */
+export function makeReportKey(date, machineId) {
+  if (!date || !machineId) return '';
+  const d = normalizeDateStr(date);
+  const matched = matchMachine(machineId, MACHINES);
+  const m = matched ? matched.id : String(machineId).trim();
+  return `${d}_${m}`;
+}
+
+/**
  * Sanitizes a report object header against canonical machine definitions.
  * Fixes misaligned Line ID and name combinations (e.g. L-01 - KTS 550 -> L-08 - KTS 550).
  */
@@ -125,6 +179,33 @@ export function migrateStoredLineMappings() {
         storage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(sanitized));
       }
     }
+
+    // 5. Sanitize direct pvc_rep_* keys
+    const directKeys = [];
+    if (typeof storage.length === 'number' && typeof storage.key === 'function') {
+      for (let i = 0; i < storage.length; i++) {
+        const k = storage.key(i);
+        if (k && k.startsWith('pvc_rep_')) {
+          directKeys.push(k);
+        }
+      }
+    } else {
+      for (const k of Object.keys(storage)) {
+        if (k && k.startsWith('pvc_rep_')) {
+          directKeys.push(k);
+        }
+      }
+    }
+    for (const k of directKeys) {
+      const raw = storage.getItem(k);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          const sanitized = sanitizeStoredReport(parsed);
+          storage.setItem(k, JSON.stringify(sanitized));
+        } catch (_) {}
+      }
+    }
   } catch (err) {
     console.error('Failed to migrate stored line mappings:', err);
   }
@@ -135,6 +216,9 @@ if (typeof window !== 'undefined') {
   migrateStoredLineMappings();
 }
 
+/**
+ * Loads all historical reports from persistent storage
+ */
 export function loadAll() {
   const storage = getStorage();
   if (!storage) return [];
@@ -148,20 +232,48 @@ export function loadAll() {
   }
 }
 
+/**
+ * Persists a report in the global store / history list AND under its unique [date]_[machineId] key.
+ * Guarantees that changes to a machine are preserved when switching lines.
+ */
 export function saveReport(report) {
   const storage = getStorage();
-  if (!storage) return report;
+  if (!storage || !report) return report;
   try {
+    storage.removeItem(STORAGE_KEYS.CLEARED);
     const items = loadAll();
     const sanitized = sanitizeStoredReport(report);
-    const idx = items.findIndex((r) => r.id === sanitized.id);
-    const updated = { ...sanitized, updatedAt: Date.now() };
+    const date = sanitized?.header?.date;
+    const lineId = sanitized?.header?.lineId;
+    const key = makeReportKey(date, lineId);
+
+    // Find existing by ID or by (date, lineId) match
+    const idx = items.findIndex((r) => {
+      if (r.id && sanitized.id && r.id === sanitized.id) return true;
+      if (date && lineId && r.header?.date && r.header?.lineId) {
+        return isDateEqual(r.header.date, date) && isMachineEqual(r.header.lineId, lineId);
+      }
+      return false;
+    });
+
+    const updated = {
+      ...sanitized,
+      updatedAt: Date.now(),
+      reportKey: key || sanitized.reportKey || undefined
+    };
+
     if (idx >= 0) {
       items[idx] = updated;
     } else {
       items.unshift(updated);
     }
     storage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
+
+    // Also persist direct fast-lookup key for the machine and date
+    if (key) {
+      storage.setItem(`pvc_rep_${key}`, JSON.stringify(updated));
+    }
+
     return updated;
   } catch (err) {
     console.error('Failed to save report:', err);
@@ -169,13 +281,83 @@ export function saveReport(report) {
   }
 }
 
+export function saveReportByDateAndMachine(report) {
+  return saveReport(report);
+}
+
+/**
+ * Retrieves a saved or reconciled report for a specific date and machine line.
+ * Returns null if no previous state was saved.
+ */
+export function loadReportByDateAndMachine(date, machineId) {
+  const storage = getStorage();
+  if (!storage || !date || !machineId) return null;
+  try {
+    const key = makeReportKey(date, machineId);
+
+    // 1. Direct fast-lookup key
+    if (key) {
+      const rawDirect = storage.getItem(`pvc_rep_${key}`);
+      if (rawDirect) {
+        try {
+          const parsed = JSON.parse(rawDirect);
+          if (parsed && parsed.header && Array.isArray(parsed.slots) && parsed.slots.length === 24) {
+            return sanitizeStoredReport(parsed);
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 2. Active report if matching
+    const active = loadPersistedActiveReport();
+    if (
+      active &&
+      active.header?.date &&
+      isDateEqual(active.header.date, date) &&
+      isMachineEqual(active.header.lineId, machineId) &&
+      Array.isArray(active.slots) &&
+      active.slots.length === 24
+    ) {
+      return active;
+    }
+
+    // 3. Search history list in pvc_dmr_reports_v1
+    const reports = loadAll();
+    const matched = reports.find(
+      (r) =>
+        r &&
+        r.header?.date &&
+        isDateEqual(r.header.date, date) &&
+        isMachineEqual(r.header.lineId, machineId) &&
+        Array.isArray(r.slots) &&
+        r.slots.length === 24
+    );
+    if (matched) {
+      return sanitizeStoredReport(matched);
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Failed to load report by date and machine:', err);
+    return null;
+  }
+}
+
 export function deleteReport(id) {
   const storage = getStorage();
   if (!storage) return [];
   try {
-    const items = loadAll().filter((r) => r.id !== id);
-    storage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(items));
-    return items;
+    const items = loadAll();
+    const target = items.find((r) => r.id === id);
+    if (target?.header?.date && target?.header?.lineId) {
+      const key = makeReportKey(target.header.date, target.header.lineId);
+      if (key) {
+        storage.removeItem(`pvc_rep_${key}`);
+      }
+    }
+    const filtered = items.filter((r) => r.id !== id);
+    storage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(filtered));
+    return filtered;
   } catch (err) {
     console.error('Failed to delete report:', err);
     return [];
@@ -237,6 +419,22 @@ export function clearPersistedRecords() {
     storage.removeItem(STORAGE_KEYS.UPLOADER_META);
     storage.removeItem(STORAGE_KEYS.ACTIVE_REPORT);
     storage.removeItem(STORAGE_KEYS.REPORTS);
+    const keysToRemove = [];
+    if (typeof storage.length === 'number' && typeof storage.key === 'function') {
+      for (let i = 0; i < storage.length; i++) {
+        const k = storage.key(i);
+        if (k && k.startsWith('pvc_rep_')) {
+          keysToRemove.push(k);
+        }
+      }
+    } else {
+      for (const k of Object.keys(storage)) {
+        if (k && k.startsWith('pvc_rep_')) {
+          keysToRemove.push(k);
+        }
+      }
+    }
+    keysToRemove.forEach((k) => storage.removeItem(k));
   } catch (err) {
     console.error('Failed to clear persisted records:', err);
   }
@@ -263,6 +461,7 @@ export function savePersistedActiveReport(report) {
   if (!storage) return;
   try {
     if (report) {
+      storage.removeItem(STORAGE_KEYS.CLEARED);
       storage.setItem(STORAGE_KEYS.ACTIVE_REPORT, JSON.stringify(sanitizeStoredReport(report)));
     } else {
       storage.removeItem(STORAGE_KEYS.ACTIVE_REPORT);

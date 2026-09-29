@@ -5,6 +5,8 @@ import { makeRefSpec, generateReport, buildAll } from '../../logic/engine.js';
 import {
   newId,
   saveReport,
+  saveReportByDateAndMachine,
+  loadReportByDateAndMachine,
   deleteReport,
   loadAll,
   getBenchmarkReport,
@@ -124,12 +126,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
     const savedActive = loadPersistedActiveReport();
     if (savedActive && savedActive.header?.date && !savedActive.header.date.startsWith('2024-')) {
+      const savedByKey = loadReportByDateAndMachine(savedActive.header.date, savedActive.header.lineId);
+      if (savedByKey && savedByKey.updatedAt && savedByKey.updatedAt >= (savedActive.updatedAt || 0)) {
+        return savedByKey;
+      }
       return savedActive;
     }
     if (persisted.status === 'loaded' && persisted.records.length > 0) {
       const firstRow = persisted.records[0];
       const rep = convertLogRowToReport(firstRow);
       if (rep.header?.date && !rep.header.date.startsWith('2024-')) {
+        const savedByKey = loadReportByDateAndMachine(rep.header.date, rep.header.lineId);
+        if (savedByKey) return savedByKey;
         return rep;
       }
     }
@@ -182,12 +190,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     migrateStoredLineMappings();
   }, []);
 
-  // Persist active report to localStorage whenever report state changes
-
-  // Persist active report to localStorage whenever report state changes
+  // Persist active report and per-machine snapshot whenever report state changes
   useEffect(() => {
     if (report && report.id) {
       savePersistedActiveReport(report);
+      if (report.header?.date && report.header?.lineId) {
+        saveReportByDateAndMachine(report);
+      }
     }
   }, [report]);
 
@@ -211,8 +220,11 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       if (consolidated.length > 0) {
         const firstOpRow = consolidated.find(isRecordOperating) || consolidated[0];
         const firstRep = convertLogRowToReport(firstOpRow);
-        setReport(firstRep);
-        savePersistedActiveReport(firstRep);
+        const existing = loadReportByDateAndMachine(firstRep.header?.date, firstRep.header?.lineId);
+        const targetRep = (existing && Array.isArray(existing.slots) && existing.slots.length === 24) ? existing : firstRep;
+        setReport(targetRep);
+        savePersistedActiveReport(targetRep);
+        saveReportByDateAndMachine(targetRep);
       }
     }
     if (newMaster && newMaster.length > 0) {
@@ -299,6 +311,14 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const handleSelectFromUploader = (newReport) => {
     let repToSet = newReport;
     if (repToSet) {
+      const targetDate = repToSet.header?.date;
+      const targetLine = repToSet.header?.lineId;
+      if (targetDate && targetLine) {
+        const existing = loadReportByDateAndMachine(targetDate, targetLine);
+        if (existing && Array.isArray(existing.slots) && existing.slots.length === 24) {
+          repToSet = existing;
+        }
+      }
       const totalActual = Number(repToSet.summary?.totalOutput) || 0;
       const slotSum = Array.isArray(repToSet.slots)
         ? repToSet.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0)
@@ -311,6 +331,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       }
       setReport(repToSet);
       savePersistedActiveReport(repToSet);
+      saveReportByDateAndMachine(repToSet);
     }
     setTab('sheet');
     notify(`Loaded 24-hour report for ${repToSet?.header?.lineId || 'Line'}`);
@@ -1176,6 +1197,27 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     const matchedMachineObj = matchMachine(targetLineId, machineMaster);
     const canonicalId = matchedMachineObj?.id || targetLineId;
 
+    // STEP 0: Check if a saved or reconciled report already exists in store for (targetDate, canonicalId)
+    const existing = loadReportByDateAndMachine(targetDate, canonicalId);
+    if (existing && Array.isArray(existing.slots) && existing.slots.length === 24) {
+      const machineCustomName = matchedMachineObj?.name || existing.header?.lineCustom || canonicalId;
+      const restored = {
+        ...existing,
+        updatedAt: Date.now(),
+        header: {
+          ...existing.header,
+          date: targetDate,
+          lineId: canonicalId,
+          lineCustom: machineCustomName
+        }
+      };
+      setReport(restored);
+      savePersistedActiveReport(restored);
+      saveReportByDateAndMachine(restored);
+      notify(`Restored saved 24h follow sheet for ${canonicalId} (${targetDate})`);
+      return restored;
+    }
+
     // Step a: Find matching record in the ingested production log for targetDate + targetLineId
     let activeRecord = null;
 
@@ -1222,6 +1264,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       const blankRep = blankReportForMachine(targetDate, canonicalId, machineMaster);
       setReport(blankRep);
       savePersistedActiveReport(blankRep);
+      saveReportByDateAndMachine(blankRep);
       notify(`Selected ${canonicalId} (${targetDate}): No records found (Blank/Zero State)`);
       return blankRep;
     }
@@ -1250,6 +1293,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     };
     setReport(newRep);
     savePersistedActiveReport(newRep);
+    saveReportByDateAndMachine(newRep);
 
     notify(`Auto-bound production log for ${canonicalId} (${targetDate}): ${newRep.summary.totalOutput} Pcs`);
     return newRep;
@@ -1263,6 +1307,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
   const handleToolbarDateChange = (newDate) => {
     if (!newDate || newDate === selectedDate) return;
+
+    // Persist current active report snapshot before switching date
+    if (report && report.header?.date && report.header?.lineId) {
+      saveReportByDateAndMachine(report);
+      savePersistedActiveReport(report);
+    }
 
     // Reset showAllLines back to false (default to active only for new date)
     setShowAllLines(false);
@@ -1306,21 +1356,39 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return;
     }
 
+    // Persist current active report snapshot before switching to another line
+    if (report && report.header?.date && report.header?.lineId) {
+      saveReportByDateAndMachine(report);
+      savePersistedActiveReport(report);
+    }
+
     loadAndBindReportForLineAndDate(selectedDate, targetLineId);
   };
 
-  const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces }) => {
-    update((r) => {
-      r.slots = updatedSlots;
-      r.summary = {
-        ...r.summary,
-        totalOutput: totalActualPieces
+  const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces, downtimeEvents, audit }) => {
+    setReport((prev) => {
+      const updated = {
+        ...prev,
+        isReconciled: true,
+        updatedAt: Date.now(),
+        slots: updatedSlots,
+        summary: {
+          ...prev.summary,
+          totalOutput: String(totalActualPieces)
+        },
+        downtimeEvents: Array.isArray(downtimeEvents) ? downtimeEvents : prev.downtimeEvents,
+        engineering: {
+          ...prev.engineering,
+          ...(audit ? { operatingHours: audit.operatingHours, actualRateKgH: audit.actualHourlyRate } : {})
+        }
       };
-      return r;
+      savePersistedActiveReport(updated);
+      saveReportByDateAndMachine(updated);
+      return updated;
     });
     notify('Shift run auto-reconciled successfully! 24h slots and OEE recomputed.');
     setIsReconcileModalOpen(false);
-  }, [update, notify]);
+  }, [notify]);
 
   useImperativeHandle(ref, () => ({
     handleSave,

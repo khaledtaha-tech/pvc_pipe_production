@@ -50,6 +50,21 @@ const ReportSheet = forwardRef(function ReportSheet(
   const s1 = derived.shift1Totals;
   const s2 = derived.shift2Totals;
   const eng = derived.engineering || {};
+  const operatingHours = Number(derived.operatingHours) || 0;
+  const totalWeightKg = Number(eng.totalWeightKg) || 0;
+  const nominalCapacityKgH = Number(eng.nominalCapacityKgH) || 0;
+
+  // True Actual Output Rate: operatingHours > 0 ? (totalOutputKg / operatingHours) : 0
+  const actualRateKgH =
+    operatingHours > 0 && totalWeightKg > 0
+      ? Math.round((totalWeightKg / operatingHours) * 10) / 10
+      : (Number(eng.actualRateKgH) || 0);
+
+  // Percentage of nominal: nominalRateKgH > 0 ? (actualOutputRateKgH / nominalRateKgH) * 100 : 0
+  const capacityUtilizationPct =
+    nominalCapacityKgH > 0
+      ? Math.round((actualRateKgH / nominalCapacityKgH) * 1000) / 10
+      : (Number(eng.capacityUtilizationPct) || 0);
 
   const s1ReasonsList = Array.from(
     new Set(
@@ -110,9 +125,9 @@ const ReportSheet = forwardRef(function ReportSheet(
           <span className="labeltext">Date:</span> <span className="value-strong">{header.date || '_____________'}</span>
         </div>
         <div className="tcell tcell-soft text-center">
-          {eng.nominalCapacityKgH ? (
+          {nominalCapacityKgH ? (
             <span className="capacity-strip">
-              Nominal Capacity: <b>{eng.nominalCapacityKgH} kg/h</b> &middot; Actual Output: <b>{eng.actualRateKgH} kg/h</b> &middot; Utilization: <b>{eng.capacityUtilizationPct}%</b>
+              Nominal Capacity: <b>{nominalCapacityKgH} kg/h</b> &middot; Actual Output: <b>{actualRateKgH} kg/h</b> &middot; Utilization: <b>{capacityUtilizationPct}%</b>
             </span>
           ) : null}
         </div>
@@ -349,9 +364,9 @@ const ReportSheet = forwardRef(function ReportSheet(
             OEE = Availability ({derived.aStr}) &times; Performance ({derived.pStr}) &times; Quality ({derived.qStr}) ={' '}
             <b className="formula-final">{derived.oeeStr}</b>
           </span>
-          {eng.nominalCapacityKgH ? (
+          {nominalCapacityKgH ? (
             <span className="capacity-math">
-              &middot; Capacity Benchmark: <b>{eng.nominalCapacityKgH} kg/h</b> &middot; Actual Output: <b>{eng.actualRateKgH} kg/h</b> (<b>{eng.capacityUtilizationPct}%</b> utilization)
+              &middot; Capacity Benchmark: <b>{nominalCapacityKgH} kg/h</b> &middot; Actual Output: <b>{actualRateKgH} kg/h</b> (<b>{capacityUtilizationPct}%</b> utilization)
             </span>
           ) : null}
         </div>

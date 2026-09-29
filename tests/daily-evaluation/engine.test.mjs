@@ -85,4 +85,53 @@ assert.equal(s2Reasons.length, 0, 'Shift 2 has no downtime in benchmark data');
 
 console.log('12-Hour Shift Summary aggregation parity: OK');
 
+// 5. True Actual Output Rate & Capacity Utilization % calculation
+// Scenario: Machine L-05 with Nominal: 200 kg/h, Operating: 24.0h, Total Output: 3,360 kg
+const slotsL05 = Array.from({ length: 24 }, (_, i) => ({
+  index: i,
+  window: `${String(i).padStart(2, '0')}:00`,
+  shift: i < 12 ? 1 : 2,
+  startHour: i,
+  ref: '1',
+  downtime: 0,
+  reason: '',
+  actual: 50, // 50 pcs/hour * 24 = 1200 pcs
+  scrap: 0,
+  purge: 0,
+  bundles: 0
+}));
+
+const refsL05 = {
+  1: {
+    ...makeRefSpec(),
+    stdWeight: '2.8' // 1200 * 2.8 = 3,360 kg
+  }
+};
+
+const engL05 = {
+  nominalCapacityKgH: 200,
+  totalWeightKg: 3360,
+  // Deliberately simulate stale actualRateKgH = 50 pcs/h to verify override
+  actualRateKgH: 50
+};
+
+const derivedL05 = buildAll(slotsL05, refsL05, 0, engL05);
+assert.equal(derivedL05.operatingHours, 24.0);
+assert.equal(derivedL05.engineering.totalWeightKg, 3360);
+assert.equal(derivedL05.engineering.actualRateKgH, 140, 'Actual output rate must strictly evaluate to 140 kg/h (3360 / 24.0)');
+assert.equal(derivedL05.engineering.capacityUtilizationPct, 70.0, 'Capacity utilization must strictly evaluate to 70.0% (140 / 200)');
+console.log('True Actual Output Rate (140 kg/h) & Capacity Utilization (70%): OK');
+
+// Scenario with downtime: 21.5h operating, 3010 kg total output, 200 kg/h nominal
+const slotsL05WithDt = slotsL05.map((s, idx) => (idx === 0 ? { ...s, downtime: 150 } : s)); // 2.5h downtime => 21.5h operating
+const engL05WithDt = {
+  nominalCapacityKgH: 200,
+  totalWeightKg: 3010
+};
+const derivedL05WithDt = buildAll(slotsL05WithDt, refsL05, 0, engL05WithDt);
+assert.equal(derivedL05WithDt.operatingHours, 21.5);
+assert.equal(derivedL05WithDt.engineering.actualRateKgH, 140, '3010 kg / 21.5h must evaluate to 140 kg/h');
+assert.equal(derivedL05WithDt.engineering.capacityUtilizationPct, 70.0);
+console.log('Actual Output Rate with downtime: OK');
+
 console.log('All engine unit tests passed successfully!');

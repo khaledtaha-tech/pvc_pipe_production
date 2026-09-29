@@ -1367,6 +1367,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
   const handleApplyReconciliation = useCallback(({ updatedSlots, totalActualPieces, downtimeEvents, audit }) => {
     setReport((prev) => {
+      const opHours = audit?.operatingHours != null ? Number(audit.operatingHours) : (Number(prev.engineering?.operatingHours) || 24);
+      const unitWeight = Number(prev.refs?.['1']?.stdWeight) || 0;
+      const totalWeightKg = Number(prev.engineering?.totalWeightKg) || Math.round(Number(totalActualPieces) * unitWeight);
+      const actualRateKgH = opHours > 0 && totalWeightKg > 0 ? Math.round((totalWeightKg / opHours) * 10) / 10 : 0;
+      const nominalCap = Number(prev.engineering?.nominalCapacityKgH) || 0;
+      const capacityUtilizationPct = nominalCap > 0 ? Math.round((actualRateKgH / nominalCap) * 1000) / 10 : 0;
+
       const updated = {
         ...prev,
         isReconciled: true,
@@ -1379,7 +1386,11 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         downtimeEvents: Array.isArray(downtimeEvents) ? downtimeEvents : prev.downtimeEvents,
         engineering: {
           ...prev.engineering,
-          ...(audit ? { operatingHours: audit.operatingHours, actualRateKgH: audit.actualHourlyRate } : {})
+          operatingHours: opHours,
+          totalWeightKg,
+          actualRateKgH,
+          capacityUtilizationPct,
+          actualRatePcsH: audit ? audit.actualHourlyRate : (opHours > 0 ? Math.round((Number(totalActualPieces) / opHours) * 10) / 10 : 0)
         }
       };
       savePersistedActiveReport(updated);

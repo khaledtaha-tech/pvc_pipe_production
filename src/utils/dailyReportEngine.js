@@ -231,8 +231,12 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
   const ref1Weight = Number(refs?.['1']?.stdWeight) || 0;
   const totalWeightKg = Number(engineering.totalWeightKg) || Math.round(grand.actual * ref1Weight);
   const nominalCapacityKgH = Number(engineering.nominalCapacityKgH) || 0;
+
+  // True Actual Output Rate (kg/h): operatingHours > 0 ? (totalOutputKg / operatingHours) : 0
   const actualRateKgH =
-    Number(engineering.actualRateKgH) || (operatingHours > 0 ? round1(totalWeightKg / operatingHours) : 0);
+    operatingHours > 0
+      ? (totalWeightKg > 0 ? round1(totalWeightKg / operatingHours) : (Number(engineering.actualRateKgH) || 0))
+      : 0;
   const expectedOutputKg = round1(operatingHours * nominalCapacityKgH);
   const capacityUtilizationPct =
     nominalCapacityKgH > 0 ? round1((actualRateKgH / nominalCapacityKgH) * 100) : 0;
@@ -283,7 +287,9 @@ export function buildAll(slots, refs, startCounter, engineering = {}) {
       expectedOutputKg,
       actualRateKgH,
       nominalCapacityKgH,
-      capacityUtilizationPct
+      capacityUtilizationPct,
+      operatingHours,
+      totalDowntimeHours
     }
   };
 }

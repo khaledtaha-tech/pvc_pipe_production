@@ -877,9 +877,9 @@ export function convertLogRowToReport(row, options = {}) {
   report.engineering = {
     ...report.engineering,
     ...generated.engineering,
-    nominalCapacityKgH: report.engineering.nominalCapacityKgH || generated.engineering?.nominalCapacityKgH || 0,
-    actualRateKgH: report.engineering.actualRateKgH || generated.engineering?.actualRateKgH || 0,
-    capacityUtilizationPct: report.engineering.capacityUtilizationPct || generated.engineering?.capacityUtilizationPct || 0
+    nominalCapacityKgH: generated.engineering?.nominalCapacityKgH || report.engineering.nominalCapacityKgH || 0,
+    actualRateKgH: generated.engineering?.actualRateKgH ?? report.engineering.actualRateKgH,
+    capacityUtilizationPct: generated.engineering?.capacityUtilizationPct ?? report.engineering.capacityUtilizationPct
   };
 
   return report;

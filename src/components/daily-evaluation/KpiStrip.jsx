@@ -2,7 +2,23 @@ export default function KpiStrip({ derived }) {
   if (!derived) return null;
 
   const eng = derived.engineering || {};
-  const hasCapacity = eng.nominalCapacityKgH > 0;
+  const operatingHours = Number(derived.operatingHours) || 0;
+  const totalWeightKg = Number(eng.totalWeightKg) || 0;
+  const nominalCapacityKgH = Number(eng.nominalCapacityKgH) || 0;
+
+  // True Actual Output Rate: operatingHours > 0 ? (totalOutputKg / operatingHours) : 0
+  const actualRateKgH =
+    operatingHours > 0 && totalWeightKg > 0
+      ? Math.round((totalWeightKg / operatingHours) * 10) / 10
+      : (Number(eng.actualRateKgH) || 0);
+
+  // Percentage of nominal: nominalRateKgH > 0 ? (actualOutputRateKgH / nominalRateKgH) * 100 : 0
+  const capacityUtilizationPct =
+    nominalCapacityKgH > 0
+      ? Math.round((actualRateKgH / nominalCapacityKgH) * 1000) / 10
+      : (Number(eng.capacityUtilizationPct) || 0);
+
+  const hasCapacity = nominalCapacityKgH > 0;
 
   return (
     <div className="kpi-section no-print">
@@ -25,7 +41,7 @@ export default function KpiStrip({ derived }) {
 
         <div className="kpi-card">
           <div className="kpi-value">
-            {eng.totalWeightKg ? eng.totalWeightKg.toLocaleString() : '-'}
+            {totalWeightKg ? totalWeightKg.toLocaleString() : (eng.totalWeightKg ? eng.totalWeightKg.toLocaleString() : '-')}
             <span className="kpi-unit">kg</span>
           </div>
           <div className="kpi-label">
@@ -35,11 +51,11 @@ export default function KpiStrip({ derived }) {
 
         <div className="kpi-card">
           <div className="kpi-value">
-            {eng.actualRateKgH ? eng.actualRateKgH : '-'}
+            {actualRateKgH > 0 ? actualRateKgH : (eng.actualRateKgH ? eng.actualRateKgH : '-')}
             <span className="kpi-unit">kg/h</span>
           </div>
           <div className="kpi-label">
-            Actual Output Rate {hasCapacity ? `(${eng.capacityUtilizationPct}% of ${eng.nominalCapacityKgH} kg/h)` : ''}
+            Actual Output Rate {hasCapacity ? `(${capacityUtilizationPct}% of ${nominalCapacityKgH} kg/h)` : ''}
           </div>
         </div>
 
@@ -79,7 +95,7 @@ export default function KpiStrip({ derived }) {
         </span>
         {hasCapacity ? (
           <span className="capacity-badge">
-            Capacity Utilization: <b>{eng.capacityUtilizationPct}%</b> ({eng.actualRateKgH} kg/h actual vs {eng.nominalCapacityKgH} kg/h nominal)
+            Capacity Utilization: <b>{capacityUtilizationPct}%</b> ({actualRateKgH} kg/h actual vs {nominalCapacityKgH} kg/h nominal)
           </span>
         ) : null}
       </div>

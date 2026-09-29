@@ -123,13 +123,17 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       return blankReport();
     }
     const savedActive = loadPersistedActiveReport();
-    if (savedActive) {
+    if (savedActive && savedActive.header?.date && !savedActive.header.date.startsWith('2024-')) {
       return savedActive;
     }
     if (persisted.status === 'loaded' && persisted.records.length > 0) {
-      return convertLogRowToReport(persisted.records[0]);
+      const firstRow = persisted.records[0];
+      const rep = convertLogRowToReport(firstRow);
+      if (rep.header?.date && !rep.header.date.startsWith('2024-')) {
+        return rep;
+      }
     }
-    return getBenchmarkReport();
+    return blankReport();
   });
   const [tab, setTab] = useState('sheet');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -178,40 +182,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     migrateStoredLineMappings();
   }, []);
 
-  // Seed demo data ONLY on the very first visit (when storage has no records and is not marked cleared)
-  useEffect(() => {
-    const persisted = loadPersistedRecords();
-    if (persisted.status !== 'empty') {
-      return; // Honors cleared state or already loaded records across hard refreshes
-    }
-    async function loadMasterData() {
-      try {
-        const resp = await fetch('./Master_Upload.xlsx');
-        if (!resp.ok) return;
-        const buf = await resp.arrayBuffer();
-        const res = parseExcelWorkbook(buf);
-        if (res.rows && res.rows.length > 0) {
-          setRecords(res.rows);
-          const sanitizedMaster = sanitizeMachineMaster(res.machineMaster);
-          if (sanitizedMaster && sanitizedMaster.length > 0) {
-            setMachineMaster(sanitizedMaster);
-          }
-          savePersistedRecords(res.rows, {
-            machineMaster: sanitizedMaster,
-            fileName: 'Master_Upload.xlsx',
-            sheetName: res.sheetName || 'Daily Production Log'
-          });
-          const firstOpRow = res.rows.find(isRecordOperating) || res.rows[0];
-          const initialRep = convertLogRowToReport(firstOpRow);
-          setReport(initialRep);
-          savePersistedActiveReport(initialRep);
-        }
-      } catch (err) {
-        console.error('Auto-load Master_Upload.xlsx error in App:', err);
-      }
-    }
-    loadMasterData();
-  }, []);
+  // Persist active report to localStorage whenever report state changes
 
   // Persist active report to localStorage whenever report state changes
   useEffect(() => {
@@ -1059,23 +1030,22 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       ? report.header.lineCustom || 'Custom Line'
       : machineLabel(report.header.lineId, machineMaster);
 
-  // Combined production datasets from uploaded records, daily log rawRows, and ERP historicalRawRows
+  // Combined production datasets from uploaded records and daily log rawRows
   const combinedDatasets = useMemo(() => {
     const list = [];
     if (Array.isArray(records) && records.length > 0) list.push(...records);
     if (Array.isArray(rawRows) && rawRows.length > 0) list.push(...rawRows);
-    if (Array.isArray(historicalRawRows) && historicalRawRows.length > 0) list.push(...historicalRawRows);
     return list;
-  }, [records, rawRows, historicalRawRows]);
+  }, [records, rawRows]);
 
-  // Available unique dates from all active and historical datasets
+  // Available unique dates from active recorded runs (strictly excluding legacy 2024 sample fixtures)
   const availableDates = useMemo(() => {
     const set = new Set();
     combinedDatasets.forEach((r) => {
       const rawDate = r.Date || r.date || r['DATE'];
       if (rawDate && !String(rawDate).toLowerCase().includes('total')) {
         const norm = normalizeExcelDate(rawDate);
-        if (norm && /^\d{4}-\d{2}-\d{2}$/.test(norm)) {
+        if (norm && /^\d{4}-\d{2}-\d{2}$/.test(norm) && !norm.startsWith('2024-')) {
           set.add(norm);
         }
       }
@@ -1083,16 +1053,22 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     return Array.from(set).sort();
   }, [combinedDatasets]);
 
-  // Ensure current report date is available in selectable list
+  // Ensure current report date and today are available in selectable list
   const selectableDates = useMemo(() => {
     const set = new Set(availableDates);
-    if (report?.header?.date) {
+    const today = todayISO();
+    if (today) {
+      set.add(today);
+    }
+    if (report?.header?.date && /^\d{4}-\d{2}-\d{2}$/.test(report.header.date) && !report.header.date.startsWith('2024-')) {
       set.add(report.header.date);
     }
     return Array.from(set).sort();
   }, [availableDates, report?.header?.date]);
 
-  const selectedDate = report?.header?.date || selectableDates[selectableDates.length - 1] || '';
+  const selectedDate = (report?.header?.date && !report.header.date.startsWith('2024-'))
+    ? report.header.date
+    : (selectableDates[selectableDates.length - 1] || todayISO());
 
   // Query operating records for currently selected date across combined datasets
   const activeLinesForDate = useMemo(() => {

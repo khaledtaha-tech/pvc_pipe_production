@@ -35,7 +35,9 @@ if (!is_array($erpRecords)) {
     $erpRecords = [];
 }
 
-if (count($productionLogs) === 0 && count($erpRecords) === 0) {
+$isClear = !empty($payload['clear']) || $mode === 'clear';
+
+if (count($productionLogs) === 0 && count($erpRecords) === 0 && !$isClear && $mode !== 'replace') {
     json_response([
         'success' => true,
         'count' => 0,
@@ -71,14 +73,10 @@ try {
     $prodInserted = 0;
     $erpInserted = 0;
 
-    // Handle replace mode if explicitly requested
-    if ($mode === 'replace' || $mode === 'overwrite') {
-        if (count($productionLogs) > 0) {
-            $pdo->exec("DELETE FROM `production_log_records`");
-        }
-        if (count($erpRecords) > 0) {
-            $pdo->exec("DELETE FROM `historical_erp_records`");
-        }
+    // Handle replace mode or explicit clear
+    if ($mode === 'replace' || $mode === 'overwrite' || $isClear) {
+        $pdo->exec("DELETE FROM `production_log_records`");
+        $pdo->exec("DELETE FROM `historical_erp_records`");
     }
 
     // 1. Process Production Logs
@@ -95,17 +93,48 @@ try {
             $dateRaw = $row['date'] ?? $row['Date'] ?? $row['record_date'] ?? '';
             $recordDate = normalize_date($dateRaw);
 
-            $lineMachine = trim($row['machineName'] ?? $row['machineId'] ?? $row['machineRaw'] ?? $row['machine'] ?? $row['Line'] ?? 'L-01');
+            $lineMachine = trim($row['machineName'] ?? $row['machineId'] ?? $row['machineRaw'] ?? $row['machine'] ?? $row['Machine'] ?? $row['Line'] ?? 'L-01');
             $shift = trim($row['shift'] ?? $row['Shift'] ?? 'All Day');
             $itemCode = trim($row['itemCode'] ?? $row['item_code'] ?? $row['Item Code'] ?? '');
             $description = trim($row['description'] ?? $row['Description'] ?? $row['Product Description & Specs'] ?? '');
             $outerDiameter = isset($row['outerDiameter']) ? (string)$row['outerDiameter'] : (isset($row['od']) ? (string)$row['od'] : null);
             $wallThickness = isset($row['wallThickness']) ? (string)$row['wallThickness'] : (isset($row['wt']) ? (string)$row['wt'] : null);
 
-            $actualOutputKg = is_numeric($row['totalWeight'] ?? null) ? (float)$row['totalWeight'] : (is_numeric($row['actual_output_kg'] ?? null) ? (float)$row['actual_output_kg'] : 0.0);
-            $scrapKg = is_numeric($row['scrapKg'] ?? null) ? (float)$row['scrapKg'] : (is_numeric($row['scrap_kg'] ?? null) ? (float)$row['scrap_kg'] : 0.0);
-            $operatingHours = is_numeric($row['operatingHours'] ?? null) ? (float)$row['operatingHours'] : (is_numeric($row['operating_hours'] ?? null) ? (float)$row['operating_hours'] : 24.0);
-            $downtimeHours = is_numeric($row['downtimeHours'] ?? null) ? (float)$row['downtimeHours'] : (is_numeric($row['downtime_hours'] ?? null) ? (float)$row['downtime_hours'] : 0.0);
+            $actualOutputKg = is_numeric($row['totalWeight'] ?? null)
+                ? (float)$row['totalWeight']
+                : (is_numeric($row['actual_output_kg'] ?? null)
+                    ? (float)$row['actual_output_kg']
+                    : (is_numeric($row['Total Weight (kg)'] ?? null)
+                        ? (float)$row['Total Weight (kg)']
+                        : (is_numeric($row['Total Weight'] ?? null)
+                            ? (float)$row['Total Weight']
+                            : 0.0)));
+
+            $scrapKg = is_numeric($row['scrapKg'] ?? null)
+                ? (float)$row['scrapKg']
+                : (is_numeric($row['scrap_kg'] ?? null)
+                    ? (float)$row['scrap_kg']
+                    : (is_numeric($row['Scrap / Rejection (kg)'] ?? null)
+                        ? (float)$row['Scrap / Rejection (kg)']
+                        : (is_numeric($row['Scrap'] ?? null)
+                            ? (float)$row['Scrap']
+                            : 0.0)));
+
+            $operatingHours = is_numeric($row['operatingHours'] ?? null)
+                ? (float)$row['operatingHours']
+                : (is_numeric($row['operating_hours'] ?? null)
+                    ? (float)$row['operating_hours']
+                    : (is_numeric($row['Operating Hours'] ?? null)
+                        ? (float)$row['Operating Hours']
+                        : 24.0));
+
+            $downtimeHours = is_numeric($row['downtimeHours'] ?? null)
+                ? (float)$row['downtimeHours']
+                : (is_numeric($row['downtime_hours'] ?? null)
+                    ? (float)$row['downtime_hours']
+                    : (is_numeric($row['Downtime Hours'] ?? null)
+                        ? (float)$row['Downtime Hours']
+                        : 0.0));
 
             $rawRowJson = json_encode($row, JSON_UNESCAPED_UNICODE);
 

@@ -120,4 +120,12 @@ assert.equal(migratedRecords[0].machineId, 'L-08', 'Stored records with KTS 550 
 assert.equal(migratedRecords[0].machineName, 'L-08 - KTS 550');
 console.log('migrateStoredLineMappings sanitizes stale cache to canonical L-08: OK');
 
+// Test 7: Verify clean empty state after clearPersistedRecords prevents phantom 2024 samples
+clearPersistedRecords();
+const clearedRecordsState = loadPersistedRecords();
+assert.equal(clearedRecordsState.status, 'cleared');
+assert.deepEqual(clearedRecordsState.records, []);
+assert.equal(clearedRecordsState.records.some(r => (r.date || r.Date || '').startsWith('2024-')), false, 'Must not inject 2024 sample dates');
+console.log('Zero 2024 sample injection on clear: OK');
+
 console.log('All Storage & Persistence unit tests passed successfully!');

@@ -52,33 +52,71 @@ try {
         $rows = $stmt->fetchAll();
 
         foreach ($rows as $r) {
+            $item = null;
             if (!empty($r['raw_row_json'])) {
                 $decoded = json_decode($r['raw_row_json'], true);
                 if (is_array($decoded) && count($decoded) > 0) {
-                    if (empty($decoded['id'])) {
-                        $decoded['id'] = 'db_' . $r['id'];
-                    }
-                    $productionLogs[] = $decoded;
-                    continue;
+                    $item = $decoded;
                 }
             }
 
-            // Structured fallback
-            $productionLogs[] = [
-                'id' => 'db_' . $r['id'],
-                'date' => $r['record_date'],
-                'machineName' => $r['line_machine'],
-                'machineRaw' => $r['line_machine'],
-                'shift' => $r['shift'],
-                'itemCode' => $r['item_code'],
-                'description' => $r['description'],
-                'outerDiameter' => $r['outer_diameter'],
-                'wallThickness' => $r['wall_thickness'],
-                'totalWeight' => (float)$r['actual_output_kg'],
-                'scrapKg' => (float)$r['scrap_kg'],
-                'operatingHours' => (float)$r['operating_hours'],
-                'downtimeHours' => (float)$r['downtime_hours']
-            ];
+            if (!$item) {
+                $item = [
+                    'id' => 'db_' . $r['id'],
+                    'date' => $r['record_date'],
+                    'Date' => $r['record_date'],
+                    'machineName' => $r['line_machine'],
+                    'Machine' => $r['line_machine'],
+                    'machineRaw' => $r['line_machine'],
+                    'shift' => $r['shift'],
+                    'itemCode' => $r['item_code'],
+                    'Item Code' => $r['item_code'],
+                    'description' => $r['description'],
+                    'Product Description & Specs' => $r['description'],
+                    'outerDiameter' => $r['outer_diameter'],
+                    'wallThickness' => $r['wall_thickness'],
+                    'totalWeight' => (float)$r['actual_output_kg'],
+                    'Total Weight (kg)' => (float)$r['actual_output_kg'],
+                    'scrapKg' => (float)$r['scrap_kg'],
+                    'Scrap / Rejection (kg)' => (float)$r['scrap_kg'],
+                    'operatingHours' => (float)$r['operating_hours'],
+                    'Operating Hours' => (float)$r['operating_hours'],
+                    'downtimeHours' => (float)$r['downtime_hours']
+                ];
+            } else {
+                if (empty($item['id'])) {
+                    $item['id'] = 'db_' . $r['id'];
+                }
+                if (empty($item['Date']) && !empty($item['date'])) {
+                    $item['Date'] = $item['date'];
+                }
+                if (empty($item['date']) && !empty($item['Date'])) {
+                    $item['date'] = $item['Date'];
+                }
+                if (empty($item['Machine']) && !empty($item['machineName'])) {
+                    $item['Machine'] = $item['machineName'];
+                }
+                if (empty($item['machineName']) && !empty($item['Machine'])) {
+                    $item['machineName'] = $item['Machine'];
+                }
+                if (empty($item['Product Description & Specs']) && !empty($item['description'])) {
+                    $item['Product Description & Specs'] = $item['description'];
+                }
+                if (empty($item['Total Weight (kg)']) && isset($item['totalWeight'])) {
+                    $item['Total Weight (kg)'] = $item['totalWeight'];
+                }
+                if (!isset($item['totalWeight']) && isset($item['Total Weight (kg)'])) {
+                    $item['totalWeight'] = $item['Total Weight (kg)'];
+                }
+                if (empty($item['Operating Hours']) && isset($item['operatingHours'])) {
+                    $item['Operating Hours'] = $item['operatingHours'];
+                }
+                if (!isset($item['operatingHours']) && isset($item['Operating Hours'])) {
+                    $item['operatingHours'] = $item['Operating Hours'];
+                }
+            }
+
+            $productionLogs[] = $item;
         }
     }
 

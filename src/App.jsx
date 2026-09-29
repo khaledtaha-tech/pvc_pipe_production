@@ -8,8 +8,6 @@ import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationVi
 import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
-import { SAMPLE_PRODUCTION_DATA } from './data/sampleData';
-import { SAMPLE_HISTORICAL_ERP_DATA } from './data/sampleHistoricalErpData';
 import { cleanPipeProductionData, standardizeMaterial, isValidPipeOrConduitProduct } from './utils/dataCleaner';
 import { canonicalizeMachineName, isUnknownMachine } from './config/machines';
 import { computeAnalytics } from './utils/analyticsEngine';
@@ -40,8 +38,8 @@ function AppContent() {
   const [currentModule, setCurrentModule] = useState('data-analysis'); // 'data-analysis' | 'daily-evaluation'
   const [activeTab, setActiveTab] = useState('master'); // 'master' | 'dashboard' | 'audit' | 'planning' | 'verification'
   const [lang, setLang] = useState('en');
-  const [rawRows, setRawRows] = useState(SAMPLE_PRODUCTION_DATA);
-  const [historicalRawRows, setHistoricalRawRows] = useState(SAMPLE_HISTORICAL_ERP_DATA);
+  const [rawRows, setRawRows] = useState([]);
+  const [historicalRawRows, setHistoricalRawRows] = useState([]);
   const [currentSheetName, setCurrentSheetName] = useState('Daily Production Log');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
@@ -117,8 +115,13 @@ function AppContent() {
         try {
           const remoteRes = await fetchDatasetsFromApi();
           if (remoteRes && remoteRes.success) {
-            const remoteProd = Array.isArray(remoteRes.productionLogs) ? remoteRes.productionLogs : [];
-            const remoteErp = Array.isArray(remoteRes.erpRecords) ? remoteRes.erpRecords : [];
+            const dataObj = remoteRes.data || remoteRes;
+            const remoteProd = Array.isArray(dataObj.productionLogs)
+              ? dataObj.productionLogs
+              : (Array.isArray(remoteRes.productionLogs) ? remoteRes.productionLogs : []);
+            const remoteErp = Array.isArray(dataObj.erpRecords)
+              ? dataObj.erpRecords
+              : (Array.isArray(remoteRes.erpRecords) ? remoteRes.erpRecords : []);
 
             if (remoteProd.length > 0 || remoteErp.length > 0) {
               hasRemoteData = true;
@@ -129,8 +132,8 @@ function AppContent() {
 
                 // Cache remote datasets into local IndexedDB for offline resilience
                 await saveAppState({
-                  rawRows: remoteProd.length > 0 ? remoteProd : SAMPLE_PRODUCTION_DATA,
-                  historicalRawRows: remoteErp.length > 0 ? remoteErp : SAMPLE_HISTORICAL_ERP_DATA,
+                  rawRows: remoteProd,
+                  historicalRawRows: remoteErp,
                   currentSheetName: 'Central MySQL Database'
                 });
                 setIsHydrated(true);
@@ -145,19 +148,18 @@ function AppContent() {
         if (!hasRemoteData) {
           const saved = await loadAppState();
           if (isMounted) {
-            if (saved && saved.isInitialized) {
+            if (saved && saved.isInitialized && !saved.isCleared) {
               setRawRows(saved.rawRows || []);
               setHistoricalRawRows(saved.historicalRawRows || []);
               if (saved.currentSheetName) {
                 setCurrentSheetName(saved.currentSheetName);
               }
             } else {
-              // 3. Fall back to initial sample fixtures if both remote and local are uninitialized
-              await saveAppState({
-                rawRows: SAMPLE_PRODUCTION_DATA,
-                historicalRawRows: SAMPLE_HISTORICAL_ERP_DATA,
-                currentSheetName: 'Daily Production Log'
-              });
+              // 3. Clean empty state when local storage or IndexedDB is empty/cleared
+              // DO NOT auto-populate phantom 2024 sample fixtures into production state!
+              setRawRows([]);
+              setHistoricalRawRows([]);
+              setCurrentSheetName('Daily Production Log');
             }
             setIsHydrated(true);
           }

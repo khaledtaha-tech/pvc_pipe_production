@@ -174,7 +174,19 @@ export async function fetchDatasetsFromApi(options = {}) {
   if (options.type) params.set('type', String(options.type));
 
   const query = params.toString() ? `?${params.toString()}` : '';
-  return apiRequest(`get_datasets.php${query}`, {
+  const res = await apiRequest(`get_datasets.php${query}`, {
     method: 'GET'
   });
+
+  if (res.success && res.data) {
+    return {
+      success: true,
+      data: res.data,
+      productionLogs: Array.isArray(res.data.productionLogs) ? res.data.productionLogs : [],
+      erpRecords: Array.isArray(res.data.erpRecords) ? res.data.erpRecords : [],
+      count: res.data.count || 0
+    };
+  }
+
+  return res;
 }

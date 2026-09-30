@@ -158,19 +158,25 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
   // 5. Standard Piece Rate (Cell E8) & Nominal Weight (Cell G8)
   const hourlyRate1 = options.standardRate != null
     ? Number(options.standardRate)
-    : (Number(report?.engineering?.hourlyTarget) ||
+    : (Number(ref1.targetRate) ||
+       Number(report?.refs?.['1']?.targetRate) ||
+       Number(report?.engineering?.hourlyTarget) ||
        Number(ref1.hourlyTarget) ||
-       Number(ref1.targetRate) ||
        computeStandardHourlyPieces(report, ref1) ||
        11);
   const hourlyRate2 = options.standardRate != null
     ? Number(options.standardRate)
-    : (Number(ref2.hourlyTarget) ||
-       Number(ref2.targetRate) ||
+    : (Number(ref2.targetRate) ||
+       Number(report?.refs?.['2']?.targetRate) ||
+       Number(ref2.hourlyTarget) ||
        ((ref2 && (ref2.speed || ref2.targetRate || ref2.pipeSpec)) ? computeStandardHourlyPieces(report, ref2) : hourlyRate1));
 
-  const stdUnitWeight = Number(ref1.stdWeight || report?.refs?.['1']?.stdWeight) || 26;
-  const stdUnitWeight2 = Number(ref2.stdWeight || report?.refs?.['2']?.stdWeight) || stdUnitWeight;
+  const stdUnitWeight = options.stdWeight != null
+    ? Number(options.stdWeight)
+    : (Number(ref1.stdWeight || report?.refs?.['1']?.stdWeight) || 26);
+  const stdUnitWeight2 = options.stdWeight != null
+    ? Number(options.stdWeight)
+    : (Number(ref2.stdWeight || report?.refs?.['2']?.stdWeight) || stdUnitWeight);
 
   ws.getCell('E8').value = Number(hourlyRate1) || 11;
   ws.getCell('G8').value = Number(stdUnitWeight) || 26;

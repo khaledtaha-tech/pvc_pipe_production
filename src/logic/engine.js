@@ -36,11 +36,13 @@ export function buildRefDerived(ref) {
   let cutTime = ref.cutTime != null && ref.cutTime !== '' ? round1(Number(ref.cutTime)) : null;
   let targetRate = ref.targetRate != null && ref.targetRate !== '' ? round1(Number(ref.targetRate)) : null;
 
-  if ((targetRate == null || isNaN(targetRate) || targetRate <= 0) && speed > 0 && length > 0) {
+  if (targetRate > 0) {
+    if (cutTime == null || isNaN(cutTime) || cutTime <= 0 || (length > 0 && Math.abs(cutTime - (3600 / targetRate)) > 0.1)) {
+      cutTime = round1(3600 / targetRate);
+    }
+  } else if (speed > 0 && length > 0) {
     cutTime = round1((length / speed) * 60);
     targetRate = cutTime > 0 ? round1(3600 / cutTime) : null;
-  } else if (targetRate > 0 && (cutTime == null || isNaN(cutTime) || cutTime <= 0) && length > 0) {
-    cutTime = round1(3600 / targetRate);
   }
   const parts = [];
   if (ref.od) parts.push(`${ref.od}mm`);

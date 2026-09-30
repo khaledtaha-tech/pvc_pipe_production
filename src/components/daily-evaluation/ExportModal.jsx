@@ -15,26 +15,34 @@ export default function ExportModal({
   availableDates = [],
   isExporting = false,
   exportProgressText = '',
+  initialStandardRate = '',
+  initialStdWeight = '',
   onConfirmExport
 }) {
   const [scope, setScope] = useState(initialScope);
   const [template, setTemplate] = useState('modern'); // 'modern' | 'sop'
   const [format, setFormat] = useState('pdf'); // 'pdf' | 'excel'
 
+  // Editable standard parameters for active line
+  const [standardRate, setStandardRate] = useState(initialStandardRate);
+  const [stdWeight, setStdWeight] = useState(initialStdWeight);
+
   // Date range selectors
   const [fromDate, setFromDate] = useState(() => availableDates[0] || selectedDate || '');
   const [toDate, setToDate] = useState(() => availableDates[availableDates.length - 1] || selectedDate || '');
 
-  // Sync scope and dates when initialScope changes or modal opens
+  // Sync scope, rates, and dates when initialScope changes or modal opens
   useEffect(() => {
     if (isOpen) {
       setScope(initialScope || 'current');
+      setStandardRate(initialStandardRate !== null && initialStandardRate !== undefined ? initialStandardRate : '');
+      setStdWeight(initialStdWeight !== null && initialStdWeight !== undefined ? initialStdWeight : '');
       if (availableDates && availableDates.length > 0) {
         setFromDate((prev) => prev || availableDates[0]);
         setToDate((prev) => prev || availableDates[availableDates.length - 1]);
       }
     }
-  }, [isOpen, initialScope, availableDates]);
+  }, [isOpen, initialScope, initialStandardRate, initialStdWeight, availableDates]);
 
   // Handle ESC key to close modal if not exporting
   useEffect(() => {
@@ -58,7 +66,15 @@ export default function ExportModal({
       if (scope === 'range' && (!fromDate || !toDate)) return;
     }
     if (typeof onConfirmExport === 'function') {
-      onConfirmExport({ template, format, scope, fromDate, toDate });
+      onConfirmExport({
+        template,
+        format,
+        scope,
+        fromDate,
+        toDate,
+        standardRate: standardRate !== '' && !isNaN(Number(standardRate)) ? Number(standardRate) : undefined,
+        stdWeight: stdWeight !== '' && !isNaN(Number(stdWeight)) ? Number(stdWeight) : undefined
+      });
     }
   };
 
@@ -186,6 +202,68 @@ export default function ExportModal({
         )}
 
         <form onSubmit={handleSubmit} className="export-modal-form">
+          {/* Section: Standard Production Parameters (Active Machine) */}
+          {scope === 'current' ? (
+            <div className="export-section export-standard-params-section">
+              <div className="export-params-header">
+                <label className="export-section-title">Standard Output Parameters (Active Machine)</label>
+                <span className="export-params-hint">
+                  Custom rates update OEE calculations and cell E8 in exported Excel workbooks
+                </span>
+              </div>
+              <div className="export-params-grid">
+                <div className="export-param-field">
+                  <label htmlFor="export-std-rate-input" className="export-param-label">
+                    Standard Target Rate:
+                  </label>
+                  <div className="export-param-input-wrap">
+                    <input
+                      id="export-std-rate-input"
+                      type="number"
+                      step="1"
+                      min="1"
+                      className="export-param-input"
+                      value={standardRate}
+                      placeholder="Pcs/h"
+                      onChange={(e) => setStandardRate(e.target.value)}
+                      disabled={isExporting}
+                    />
+                    <span className="export-param-unit">Pcs/h</span>
+                  </div>
+                </div>
+
+                <div className="export-param-field">
+                  <label htmlFor="export-std-weight-input" className="export-param-label">
+                    Std Unit Weight:
+                  </label>
+                  <div className="export-param-input-wrap">
+                    <input
+                      id="export-std-weight-input"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="export-param-input"
+                      value={stdWeight}
+                      placeholder="kg"
+                      onChange={(e) => setStdWeight(e.target.value)}
+                      disabled={isExporting}
+                    />
+                    <span className="export-param-unit">kg/pc</span>
+                  </div>
+                </div>
+
+                {Number(standardRate) > 0 && Number(stdWeight) > 0 ? (
+                  <div className="export-param-badge">
+                    <span className="export-badge-label">Nominal Mass Rate:</span>
+                    <span className="export-badge-value">
+                      {(Math.round(Number(standardRate) * Number(stdWeight) * 10) / 10).toFixed(1)} kg/h
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
           {/* Section 1: Document Template */}
           <div className="export-section">
             <label className="export-section-title">1. Choose Document Template</label>

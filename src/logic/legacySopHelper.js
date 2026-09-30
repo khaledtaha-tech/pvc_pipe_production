@@ -230,15 +230,15 @@ export function computeStandardHourlyPieces(report, ref) {
   const capacityKgH = Number(report?.engineering?.nominalCapacityKgH || machine?.capacityKgH || machine?.nominalCapacity || 0);
   const stdWeight = Number(ref?.stdWeight || ref?.unitWeight || 0);
 
-  // 1. Primary: Extrusion throughput benchmark from Nominal Capacity (Kg/h) / Unit Weight (Kg/pc)
-  if (capacityKgH > 0 && stdWeight > 0) {
-    return Math.round(capacityKgH / stdWeight);
-  }
-
-  // 2. Secondary: Explicit target rate
+  // 1. Primary: Explicit target rate (user in-place override or active specification)
   const targetRate = Number(ref?.targetRate);
   if (targetRate > 0) {
     return Math.round(targetRate);
+  }
+
+  // 2. Secondary: Extrusion throughput benchmark from Nominal Capacity (Kg/h) / Unit Weight (Kg/pc)
+  if (capacityKgH > 0 && stdWeight > 0) {
+    return Math.round(capacityKgH / stdWeight);
   }
 
   // 3. Fallback only: Linear speed and cut length when unit weight is absent

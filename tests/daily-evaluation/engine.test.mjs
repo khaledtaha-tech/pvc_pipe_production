@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateReport, buildAll, makeRefSpec, roundToSum } from '../../src/logic/engine.js';
+import { generateReport, buildAll, buildRefDerived, makeRefSpec, roundToSum } from '../../src/logic/engine.js';
 import { getBenchmarkReport } from '../../src/data/store.js';
 
 console.log('--- Starting Engine Unit Tests ---');
@@ -133,5 +133,49 @@ assert.equal(derivedL05WithDt.operatingHours, 21.5);
 assert.equal(derivedL05WithDt.engineering.actualRateKgH, 140, '3010 kg / 21.5h must evaluate to 140 kg/h');
 assert.equal(derivedL05WithDt.engineering.capacityUtilizationPct, 70.0);
 console.log('Actual Output Rate with downtime: OK');
+
+// 6. Direct In-Place Editing of Standard Output Rate & Weight
+// Modifying targetRate updates cutTime, hourly slot targets, and Performance / OEE
+const baseRef = {
+  ...makeRefSpec(),
+  pipeLength: '6',
+  speed: '1.2',
+  stdWeight: '20',
+  targetRate: '12' // 12 pcs/hour
+};
+const derivedRef = buildRefDerived(baseRef);
+assert.equal(derivedRef.cutTime, 300, '3600 / 12 = 300s cut time');
+
+// Simulate user editing targetRate in-place to 15 pcs/h
+const editedRef = {
+  ...baseRef,
+  targetRate: '15'
+};
+const rederivedRef = buildRefDerived(editedRef);
+assert.equal(rederivedRef.cutTime, 240, '3600 / 15 = 240s cut time');
+
+// Check 24-hour slots target derivation when rate is updated
+const slots24 = Array.from({ length: 24 }, (_, i) => ({
+  index: i,
+  window: `${String(i).padStart(2, '0')}:00`,
+  shift: i < 12 ? 1 : 2,
+  startHour: i,
+  ref: '1',
+  downtime: 0,
+  actual: 12,
+  scrap: 0
+}));
+
+// At 12 pcs/h target, 12 actual is 100% performance
+const derived12 = buildAll(slots24, { 1: baseRef }, 0);
+assert.equal(derived12.grandTotals.target, 288, '24 * 12 = 288 target pieces');
+assert.equal(derived12.pStr, '100.0%', 'Performance should be 100% when actual matches target');
+
+// At 15 pcs/h target, 12 actual is 80% performance (288 / 360)
+const derived15 = buildAll(slots24, { 1: editedRef }, 0);
+assert.equal(derived15.grandTotals.target, 360, '24 * 15 = 360 target pieces');
+assert.equal(derived15.pStr, '80.0%', 'Performance should immediately recalculate to 80.0% (288 / 360)');
+assert.equal(derived15.oeeStr, '80.0%', 'Overall OEE should reflect the updated target rate');
+console.log('In-place standard rate editing & instant OEE recalculation: OK');
 
 console.log('All engine unit tests passed successfully!');

@@ -35,7 +35,7 @@ function EditableNum({ value, onChange, step = 1 }) {
 }
 
 const ReportSheet = forwardRef(function ReportSheet(
-  { report, derived, onPatchSlot, isMonochrome = false, isExporting = false, viewMode = 'hourly' },
+  { report, derived, onPatchSlot, onPatchRef, isMonochrome = false, isExporting = false, viewMode = 'hourly' },
   ref
 ) {
   const innerRef = useRef(null);
@@ -183,8 +183,38 @@ const ReportSheet = forwardRef(function ReportSheet(
             <div className="tcell refval">{spec?.cls || ''}</div>
             <div className="tcell refnum">{num(spec?.speed)}</div>
             <div className="tcell refnum">{num(spec?.cutTime, 1)}</div>
-            <div className="tcell refnum refnum-hl">{num(spec?.targetRate)}</div>
-            <div className="tcell refnum">{num(spec?.stdWeight, 2)}</div>
+            <div className="tcell refnum refnum-hl">
+              {!isExporting && onPatchRef ? (
+                <input
+                  type="number"
+                  className="cellinput ref-cell-input"
+                  value={spec?.targetRate != null && spec.targetRate !== '' ? spec.targetRate : ''}
+                  placeholder="Pcs/h"
+                  title="Edit Standard Target Rate (Pcs/h)"
+                  step="1"
+                  min="0"
+                  onChange={(e) => onPatchRef(String(key), 'targetRate', e.target.value)}
+                />
+              ) : (
+                num(spec?.targetRate)
+              )}
+            </div>
+            <div className="tcell refnum">
+              {!isExporting && onPatchRef ? (
+                <input
+                  type="number"
+                  className="cellinput ref-cell-input"
+                  value={spec?.stdWeight != null && spec.stdWeight !== '' ? spec.stdWeight : ''}
+                  placeholder="kg"
+                  title="Edit Standard Unit Weight (kg/pipe)"
+                  step="0.01"
+                  min="0"
+                  onChange={(e) => onPatchRef(String(key), 'stdWeight', e.target.value)}
+                />
+              ) : (
+                num(spec?.stdWeight, 2)
+              )}
+            </div>
             <div className="tcell refval">{key === 1 ? summary.shift1Lead : summary.shift2Lead}</div>
           </div>
         );

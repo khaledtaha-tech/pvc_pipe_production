@@ -258,9 +258,47 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     setReport((prev) => ({ ...fn({ ...prev }), updatedAt: Date.now() }));
   }, []);
 
-  const patchHeader = (k, v) => update((r) => { r.header[k] = v; return r; });
-  const patchSummary = (k, v) => update((r) => { r.summary[k] = v; return r; });
-  const patchRef = (key, k, v) => update((r) => { r.refs[key][k] = v; return r; });
+  const handlePatchRef = useCallback((key, k, v) => {
+    update((r) => {
+      const keyStr = String(key);
+      const currentRef = r.refs[keyStr] || {};
+      const updatedRef = { ...currentRef, [k]: v };
+
+      if (k === 'targetRate') {
+        const numRate = Number(v);
+        if (numRate > 0) {
+          const cutTime = Math.round((3600 / numRate) * 10) / 10;
+          updatedRef.cutTime = cutTime;
+          const pipeLength = Number(updatedRef.pipeLength) || 6.0;
+          if (cutTime > 0) {
+            updatedRef.speed = Math.round(((pipeLength / cutTime) * 60) * 10) / 10;
+          }
+          if (keyStr === '1') {
+            r.engineering = {
+              ...r.engineering,
+              hourlyTarget: numRate
+            };
+          }
+        }
+      } else if (k === 'stdWeight') {
+        const numWeight = Number(v);
+        if (keyStr === '1' && numWeight > 0) {
+          const totalActualPieces = r.slots ? r.slots.reduce((a, s) => a + (Number(s.actual) || 0), 0) : 0;
+          if (totalActualPieces > 0) {
+            r.engineering = {
+              ...r.engineering,
+              totalWeightKg: Math.round(totalActualPieces * numWeight)
+            };
+          }
+        }
+      }
+
+      r.refs[keyStr] = updatedRef;
+      return r;
+    });
+  }, [update]);
+
+  const patchRef = handlePatchRef;
   const patchEvent = (i, k, v) => update((r) => { r.downtimeEvents[i][k] = v; return r; });
 
   const addEvent = () =>
@@ -717,7 +755,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   };
 
-  const handleExportExcelSingle = async () => {
+  const handleExportExcelSingle = async (exportOpts = {}) => {
     if (records.length > 0 && activeLinesForDate.length === 0) {
       notify(`No active operating lines on ${selectedDate} to export.`);
       return;
@@ -728,7 +766,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
     try {
       notify('Generating template-driven Excel report...');
-      const res = await exportSingleMachineTemplateExcel(report, derived, { machineMaster });
+      const standardRate = exportOpts?.standardRate != null && !isNaN(Number(exportOpts.standardRate))
+        ? Number(exportOpts.standardRate)
+        : (Number(report?.refs?.['1']?.targetRate) || Number(report?.engineering?.hourlyTarget) || undefined);
+      const stdWeight = exportOpts?.stdWeight != null && !isNaN(Number(exportOpts.stdWeight))
+        ? Number(exportOpts.stdWeight)
+        : (Number(report?.refs?.['1']?.stdWeight) || undefined);
+
+      const res = await exportSingleMachineTemplateExcel(report, derived, {
+        machineMaster,
+        standardRate,
+        stdWeight
+      });
       notify(`Exported Excel: ${res.filename}`);
     } catch (err) {
       console.error('Failed to export single machine Excel:', err);
@@ -764,7 +813,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   };
 
-  const handleExportSopSingleExcel = async () => {
+  const handleExportSopSingleExcel = async (exportOpts = {}) => {
     if (records.length > 0 && activeLinesForDate.length === 0) {
       notify(`No active operating lines on ${selectedDate} to export.`);
       return;
@@ -775,7 +824,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
     try {
       notify('Generating KTS-350 SOP Excel report from template...');
-      const res = await exportSingleMachineTemplateExcel(report, derived, { machineMaster });
+      const standardRate = exportOpts?.standardRate != null && !isNaN(Number(exportOpts.standardRate))
+        ? Number(exportOpts.standardRate)
+        : (Number(report?.refs?.['1']?.targetRate) || Number(report?.engineering?.hourlyTarget) || undefined);
+      const stdWeight = exportOpts?.stdWeight != null && !isNaN(Number(exportOpts.stdWeight))
+        ? Number(exportOpts.stdWeight)
+        : (Number(report?.refs?.['1']?.stdWeight) || undefined);
+
+      const res = await exportSingleMachineTemplateExcel(report, derived, {
+        machineMaster,
+        standardRate,
+        stdWeight
+      });
       notify(`Exported SOP Excel: ${res.filename}`);
       setIsExportModalOpen(false);
     } catch (err) {
@@ -990,7 +1050,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   };
 
-  const handleConfirmExport = async ({ template, format, scope, fromDate, toDate }) => {
+  const handleConfirmExport = async ({ template, format, scope, fromDate, toDate, standardRate, stdWeight }) => {
     if (template === 'blank_sop') {
       setIsExportModalOpen(false);
       setIsPrintSopModalOpen(true);
@@ -998,6 +1058,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
 
     if (scope === 'current') {
+      const customRate = standardRate != null && !isNaN(Number(standardRate)) ? Number(standardRate) : null;
+      const customWeight = stdWeight != null && !isNaN(Number(stdWeight)) ? Number(stdWeight) : null;
+
+      if (customRate !== null) {
+        handlePatchRef('1', 'targetRate', customRate);
+      }
+      if (customWeight !== null) {
+        handlePatchRef('1', 'stdWeight', customWeight);
+      }
+
       if (format === 'pdf') {
         if (template === 'modern') {
           await handleExport();
@@ -1008,10 +1078,10 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         }
       } else if (format === 'excel') {
         if (template === 'modern') {
-          await handleExportExcelSingle();
+          await handleExportExcelSingle({ standardRate: customRate, stdWeight: customWeight });
           setIsExportModalOpen(false);
         } else {
-          await handleExportSopSingleExcel();
+          await handleExportSopSingleExcel({ standardRate: customRate, stdWeight: customWeight });
         }
       }
     } else if (scope === 'range') {
@@ -1799,6 +1869,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                       report={report}
                       derived={derived}
                       onPatchSlot={patchSlot}
+                      onPatchRef={handlePatchRef}
                       isMonochrome={isLaserMonochrome}
                       isExporting={isExporting}
                       viewMode={viewMode}
@@ -1923,6 +1994,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         activeLinesCount={activeLinesForDate.length}
         isExporting={isExporting || isExportingSop}
         exportProgressText={exportProgressText}
+        initialStandardRate={report?.refs?.['1']?.targetRate || derived?.engineering?.hourlyTarget || ''}
+        initialStdWeight={report?.refs?.['1']?.stdWeight || ''}
         onConfirmExport={handleConfirmExport}
       />
 

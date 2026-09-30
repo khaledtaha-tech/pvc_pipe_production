@@ -217,4 +217,39 @@ if (fs.existsSync(masterPath)) {
   console.log('Batch export all operating machines (individual workbooks): OK');
 }
 
+// 7. Custom Standard Rate & Weight Override Verification (In-Place & Modal)
+// Test 7a: Explicit options.standardRate and options.stdWeight override
+const customWb = await buildTemplateOeeWorkbook(mockReport, mockDerived, {
+  standardRate: 15,
+  stdWeight: 28.5
+});
+const customWs = customWb.worksheets[0];
+assert.equal(customWs.getCell('E8').value, 15, 'Cell E8 must strictly reflect options.standardRate (15)');
+assert.equal(customWs.getCell('G8').value, 28.5, 'Cell G8 must strictly reflect options.stdWeight (28.5)');
+assert.equal(customWs.getCell('B10').value, 15, 'B10 must be 15 (1 * 15)');
+assert.equal(customWs.getCell('B11').value, 30, 'B11 must be 30 (2 * 15)');
+assert.equal(customWs.getCell('B21').value, 180, 'B21 must be 180 (12 * 15)');
+assert.equal(customWs.getCell('B33').value, 360, 'B33 must be 360 (24 * 15)');
+
+// Test 7b: In-place edited report.refs['1'].targetRate propagation when options.standardRate is omitted
+const inPlaceEditedReport = {
+  ...mockReport,
+  refs: {
+    ...mockReport.refs,
+    '1': {
+      ...mockReport.refs['1'],
+      targetRate: 18,
+      stdWeight: 31.2
+    }
+  }
+};
+const inPlaceWb = await buildTemplateOeeWorkbook(inPlaceEditedReport, mockDerived);
+const inPlaceWs = inPlaceWb.worksheets[0];
+assert.equal(inPlaceWs.getCell('E8').value, 18, 'Cell E8 must reflect in-place edited report.refs[1].targetRate (18)');
+assert.equal(inPlaceWs.getCell('G8').value, 31.2, 'Cell G8 must reflect in-place edited report.refs[1].stdWeight (31.2)');
+assert.equal(inPlaceWs.getCell('B10').value, 18, 'B10 must be 18 (1 * 18)');
+assert.equal(inPlaceWs.getCell('B33').value, 432, 'B33 must be 432 (24 * 18)');
+
+console.log('Custom standard rate & weight override (E8, G8, Col B): OK');
+
 console.log('All Template-Driven OEE Excel Export unit tests passed successfully!');

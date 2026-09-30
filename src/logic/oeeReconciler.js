@@ -121,7 +121,7 @@ export function calculateReconciliationAudit({
   const breakdownHours = round1((Number(breakdownMin) || 0) / 60);
   const manualDowntimeHours = round1((Number(manualDowntimeMin) || 0) / 60);
 
-  const totalDowntimeHours = round1(calculatedDtMin / 60);
+  const totalDowntimeHours = Math.min(24, round1(calculatedDtMin / 60));
   const operatingHours = Math.max(0, round1(24 - totalDowntimeHours));
   const availability = 24 > 0 ? round1((operatingHours / 24) * 1000) / 1000 : 0;
   const availabilityPct = round1(availability * 100);
@@ -259,10 +259,10 @@ export function reconcileShiftRun(report, params = {}) {
   // Case 3: Presets Array (Mode A)
   else if (Array.isArray(presets) && presets.length > 0) {
     presets.forEach((p, idx) => {
-      if (p && p.enabled && Number(p.durationMin) > 0) {
-        const dMin = Math.max(0, Math.round(Number(p.durationMin)));
+      const dMin = Math.max(0, Math.round(Number(p?.durationMin ?? p?.defaultDurationMin) || 0));
+      if (p && p.enabled && dMin > 0) {
         const reason = p.reason || p.name || 'Equipment Stoppage';
-        const start = p.startSlot ?? 0;
+        const start = p.startSlot ?? p.defaultStartSlot ?? 0;
         applyEventToSlots(slots, start, dMin, reason);
         totalDowntimeMin += dMin;
         if (p.id === 'mold_change' || reason.toLowerCase().includes('mold')) {

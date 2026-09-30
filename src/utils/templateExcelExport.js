@@ -47,6 +47,23 @@ export function extractDayNumber(dateStr, fallback = '28') {
 }
 
 /**
+ * Normalize stoppage reason to match exact formula criteria in SOP template
+ * e.g. Excel cells H20/H31/H36 use SUMIFS(..., "No Order") and SUMIFS(..., "Plan Complete")
+ */
+export function normalizeExcelStoppageReason(reason) {
+  if (!reason) return null;
+  const str = String(reason).trim();
+  const lower = str.toLowerCase();
+  if (lower === 'no order' || lower.includes('no order') || lower.includes('no_order')) {
+    return 'No Order';
+  }
+  if (lower === 'plan complete' || lower.includes('plan complete') || lower.includes('plan_complete')) {
+    return 'Plan Complete';
+  }
+  return str;
+}
+
+/**
  * Format filename strictly according to factory SOP specification:
  * OEE_[MachineID]_[YYYY-MM-DD].xlsx
  * e.g. OEE_KTS-350_2026-09-28.xlsx or OEE_L-03_2026-09-28.xlsx
@@ -202,7 +219,8 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
     const stdCumulative = (i + 1) * hourlyRate1;
     const actualPcs = slot.actual != null ? Number(slot.actual) : (slot.goodPcs != null ? Number(slot.goodPcs) : 0);
     const dtMin = slot.downtime != null && Number(slot.downtime) > 0 ? Number(slot.downtime) : 0;
-    const reasonText = slot.reason || slot.cause || '';
+    const rawReason = slot.reason || slot.cause || '';
+    const reasonText = normalizeExcelStoppageReason(rawReason);
     const unitWt = slot.ref === '2' ? stdUnitWeight2 : stdUnitWeight;
     const scrapKg = slot.scrapKg != null && Number(slot.scrapKg) >= 0
       ? Number(slot.scrapKg)
@@ -210,7 +228,7 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
 
     ws.getCell(`B${r}`).value = stdCumulative;
     ws.getCell(`C${r}`).value = actualPcs;
-    ws.getCell(`D${r}`).value = reasonText || null;
+    ws.getCell(`D${r}`).value = reasonText;
     ws.getCell(`E${r}`).value = dtMin > 0 ? dtMin : 0;
     ws.getCell(`F${r}`).value = scrapKg;
 
@@ -218,8 +236,7 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
     s1DowntimeMin += dtMin;
     s1ScrapKgTotal += scrapKg;
 
-    const lowerReason = String(reasonText).toLowerCase();
-    if (lowerReason.includes('no order') || lowerReason.includes('plan complete')) {
+    if (reasonText === 'No Order' || reasonText === 'Plan Complete') {
       s1PlanLossMin += dtMin;
     }
   }
@@ -236,7 +253,8 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
     const stdCumulative = (12 * hourlyRate1) + ((i + 1) * hourlyRate2);
     const actualPcs = slot.actual != null ? Number(slot.actual) : (slot.goodPcs != null ? Number(slot.goodPcs) : 0);
     const dtMin = slot.downtime != null && Number(slot.downtime) > 0 ? Number(slot.downtime) : 0;
-    const reasonText = slot.reason || slot.cause || '';
+    const rawReason = slot.reason || slot.cause || '';
+    const reasonText = normalizeExcelStoppageReason(rawReason);
     const unitWt = slot.ref === '2' ? stdUnitWeight2 : stdUnitWeight;
     const scrapKg = slot.scrapKg != null && Number(slot.scrapKg) >= 0
       ? Number(slot.scrapKg)
@@ -244,7 +262,7 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
 
     ws.getCell(`B${r}`).value = stdCumulative;
     ws.getCell(`C${r}`).value = actualPcs;
-    ws.getCell(`D${r}`).value = reasonText || null;
+    ws.getCell(`D${r}`).value = reasonText;
     ws.getCell(`E${r}`).value = dtMin > 0 ? dtMin : 0;
     ws.getCell(`F${r}`).value = scrapKg;
 
@@ -252,8 +270,7 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
     s2DowntimeMin += dtMin;
     s2ScrapKgTotal += scrapKg;
 
-    const lowerReason = String(reasonText).toLowerCase();
-    if (lowerReason.includes('no order') || lowerReason.includes('plan complete')) {
+    if (reasonText === 'No Order' || reasonText === 'Plan Complete') {
       s2PlanLossMin += dtMin;
     }
   }

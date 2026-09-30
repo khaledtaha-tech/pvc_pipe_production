@@ -353,21 +353,50 @@ export default function AutoReconcileModal({
                     <div className="reconcile-input-wrap small">
                       <input
                         type="number"
-                        min="5"
+                        min="0"
                         max="1440"
-                        step="15"
+                        step="1"
                         className="reconcile-text-input"
                         value={manualDowntime.durationMin}
                         onChange={(e) =>
                           setManualDowntime((prev) => ({
                             ...prev,
-                            durationMin: Math.max(0, parseInt(e.target.value, 10) || 0)
+                            durationMin: Math.min(1440, Math.max(0, parseInt(e.target.value, 10) || 0))
                           }))
                         }
                       />
                       <span className="reconcile-input-unit">
                         Min ({((Number(manualDowntime.durationMin) || 0) / 60).toFixed(1)}h)
                       </span>
+                    </div>
+                    {/* Quick selection pills for standard operational durations */}
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      {[
+                        { label: '30m', val: 30 },
+                        { label: '60m', val: 60 },
+                        { label: '2h', val: 120 },
+                        { label: '4h', val: 240 },
+                        { label: '12h (Shift)', val: 720 },
+                        { label: '24h (Full Day)', val: 1440 }
+                      ].map((btn) => (
+                        <button
+                          key={btn.val}
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{
+                            padding: '1px 6px',
+                            fontSize: '11px',
+                            height: '22px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            background: manualDowntime.durationMin === btn.val ? 'rgba(99,102,241,0.25)' : 'transparent',
+                            color: manualDowntime.durationMin === btn.val ? '#818cf8' : '#94a3b8'
+                          }}
+                          onClick={() => setManualDowntime((prev) => ({ ...prev, durationMin: btn.val }))}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -424,14 +453,14 @@ export default function AutoReconcileModal({
                                 type="number"
                                 min="0"
                                 max="1440"
-                                step="15"
+                                step="1"
                                 className="reconcile-text-input"
                                 value={preset.durationMin}
                                 onChange={(e) =>
                                   handleUpdatePreset(
                                     preset.id,
                                     'durationMin',
-                                    Math.max(0, parseInt(e.target.value, 10) || 0)
+                                    Math.min(1440, Math.max(0, parseInt(e.target.value, 10) || 0))
                                   )
                                 }
                               />

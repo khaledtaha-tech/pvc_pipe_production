@@ -5,6 +5,27 @@
 
 export const STANDARD_DOWNTIME_PRESETS = [
   {
+    id: 'no_order',
+    name: 'No Order',
+    defaultDurationMin: 1440,
+    defaultStartSlot: 0,
+    category: 'Planned / Demand'
+  },
+  {
+    id: 'plan_complete',
+    name: 'Plan Complete',
+    defaultDurationMin: 120,
+    defaultStartSlot: 10,
+    category: 'Planned / Schedule'
+  },
+  {
+    id: 'material_shortage',
+    name: 'Raw Material Shortage / No Resin',
+    defaultDurationMin: 60,
+    defaultStartSlot: 12,
+    category: 'Supply Chain'
+  },
+  {
     id: 'mold_change',
     name: 'Die / Mold Changeover',
     defaultDurationMin: 120,

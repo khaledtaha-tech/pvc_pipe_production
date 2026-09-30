@@ -3,6 +3,7 @@ import {
   applyEventToSlots,
   calculateReconciliationAudit,
   reconcileShiftRun,
+  STANDARD_DOWNTIME_PRESETS,
   STANDARD_BREAKDOWN_REASONS,
   DEFAULT_EVENT_CONFIGS,
   isDateMatch,
@@ -528,6 +529,90 @@ const zeroDerived = buildAll(zeroDtRun.updatedSlots, benchmarkRep.refs, 0);
 assert.equal(zeroDerived.availability, 1.0, 'buildAll availability must be 1.0 (100%)');
 assert.ok(Math.abs(zeroDerived.performance - (1680 / zeroDerived.grandTotals.target)) < 0.01, 'Performance must reflect reduced speed');
 console.log('Dual-Mode Downtime Entry & True Speed-Loss Decoupling: OK');
+
+// Case D: Full 24-Hour Stoppage (1440 Minutes) via Direct Manual Entry
+const fullDayStoppageRun = reconcileShiftRun(benchmarkRep, {
+  totalActualPieces: 0,
+  mode: 'manual',
+  manualDowntime: {
+    enabled: true,
+    durationMin: 1440,
+    reason: 'Plant Wide Power Cut / No Grid Supply',
+    startSlot: 0
+  }
+});
+assert.equal(fullDayStoppageRun.audit.totalDowntimeMin, 1440, 'Full day stoppage must record 1440 downtime minutes');
+assert.equal(fullDayStoppageRun.audit.totalDowntimeHours, 24.0, 'Full day stoppage must record 24.0 downtime hours');
+assert.equal(fullDayStoppageRun.audit.operatingHours, 0.0, 'Operating hours must be 0.0 for full day stoppage');
+assert.equal(fullDayStoppageRun.audit.availabilityPct, 0.0, 'Availability must be 0.0%');
+assert.equal(fullDayStoppageRun.audit.performancePct, 0.0, 'Performance must be 0.0%');
+assert.equal(fullDayStoppageRun.audit.overallOeePct, 0.0, 'Overall OEE must be 0.0%');
+assert.equal(fullDayStoppageRun.audit.unexplainedGapHours, 0.0, 'Zero unexplained gap when full 24h stoppage is declared');
+assert.equal(fullDayStoppageRun.audit.isFullyReconciled, true, 'Full day stoppage must be marked fully reconciled');
+assert.equal(fullDayStoppageRun.updatedSlots.length, 24, 'Must maintain exactly 24 slots');
+
+// Every slot must receive exactly 60 minutes downtime and 0 output
+for (let i = 0; i < 24; i += 1) {
+  const s = fullDayStoppageRun.updatedSlots[i];
+  assert.equal(s.downtime, 60, `Slot ${i} must have 60 min downtime`);
+  assert.equal(s.actual, 0, `Slot ${i} actual count must be 0`);
+  assert.equal(s.target, 0, `Slot ${i} target count must be 0`);
+  assert.ok(s.reason.includes('Plant Wide Power Cut'), `Slot ${i} must record stoppage reason`);
+}
+console.log('1440-minute (24h) full day stoppage reconciliation: OK');
+
+// Case E: New Standard Downtime Presets ("No Order", "Plan Complete", "Raw Material Shortage")
+const noOrderPreset = STANDARD_DOWNTIME_PRESETS.find((p) => p.id === 'no_order');
+assert.ok(noOrderPreset, 'no_order preset must exist in STANDARD_DOWNTIME_PRESETS');
+assert.equal(noOrderPreset.name, 'No Order', 'Preset name must strictly be "No Order"');
+assert.equal(noOrderPreset.defaultDurationMin, 1440, 'No Order default duration must be 1440 minutes');
+assert.equal(noOrderPreset.category, 'Planned / Demand', 'No Order category must be "Planned / Demand"');
+
+const planCompletePreset = STANDARD_DOWNTIME_PRESETS.find((p) => p.id === 'plan_complete');
+assert.ok(planCompletePreset, 'plan_complete preset must exist in STANDARD_DOWNTIME_PRESETS');
+assert.equal(planCompletePreset.name, 'Plan Complete', 'Preset name must strictly be "Plan Complete"');
+assert.equal(planCompletePreset.defaultDurationMin, 120, 'Plan Complete default duration must be 120 minutes');
+assert.equal(planCompletePreset.category, 'Planned / Schedule', 'Plan Complete category must be "Planned / Schedule"');
+
+const materialShortagePreset = STANDARD_DOWNTIME_PRESETS.find((p) => p.id === 'material_shortage');
+assert.ok(materialShortagePreset, 'material_shortage preset must exist in STANDARD_DOWNTIME_PRESETS');
+assert.equal(materialShortagePreset.name, 'Raw Material Shortage / No Resin', 'Preset name must be "Raw Material Shortage / No Resin"');
+assert.equal(materialShortagePreset.defaultDurationMin, 60, 'Raw Material Shortage default duration must be 60 minutes');
+assert.equal(materialShortagePreset.category, 'Supply Chain', 'Raw Material Shortage category must be "Supply Chain"');
+
+// Execute Mode A with 'no_order' preset
+const noOrderRun = reconcileShiftRun(benchmarkRep, {
+  totalActualPieces: 0,
+  mode: 'preset',
+  presets: [
+    { ...noOrderPreset, enabled: true }
+  ]
+});
+assert.equal(noOrderRun.audit.totalDowntimeMin, 1440);
+assert.equal(noOrderRun.audit.totalDowntimeHours, 24.0);
+assert.equal(noOrderRun.audit.operatingHours, 0.0);
+for (let i = 0; i < 24; i += 1) {
+  assert.equal(noOrderRun.updatedSlots[i].downtime, 60);
+  assert.equal(noOrderRun.updatedSlots[i].reason, 'No Order');
+}
+
+// Execute Mode A with 'plan_complete' preset
+const planCompleteRun = reconcileShiftRun(benchmarkRep, {
+  totalActualPieces: 1800,
+  mode: 'preset',
+  presets: [
+    { ...planCompletePreset, enabled: true }
+  ]
+});
+assert.equal(planCompleteRun.audit.totalDowntimeMin, 120);
+assert.equal(planCompleteRun.audit.totalDowntimeHours, 2.0);
+assert.equal(planCompleteRun.audit.operatingHours, 22.0);
+assert.equal(planCompleteRun.updatedSlots[10].downtime, 60);
+assert.equal(planCompleteRun.updatedSlots[10].reason, 'Plan Complete');
+assert.equal(planCompleteRun.updatedSlots[11].downtime, 60);
+assert.equal(planCompleteRun.updatedSlots[11].reason, 'Plan Complete');
+
+console.log('Standard presets ("No Order", "Plan Complete", "Raw Material Shortage"): OK');
 
 console.log('All OEE Reconciler unit tests passed successfully!');
 

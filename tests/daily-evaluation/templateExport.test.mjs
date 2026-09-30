@@ -6,6 +6,7 @@ import ExcelJS from 'exceljs';
 import {
   formatTemplateOeeFilename,
   extractDayNumber,
+  normalizeExcelStoppageReason,
   getTemplateBuffer,
   base64ToUint8Array,
   buildTemplateOeeWorkbook,
@@ -251,5 +252,110 @@ assert.equal(inPlaceWs.getCell('B10').value, 18, 'B10 must be 18 (1 * 18)');
 assert.equal(inPlaceWs.getCell('B33').value, 432, 'B33 must be 432 (24 * 18)');
 
 console.log('Custom standard rate & weight override (E8, G8, Col B): OK');
+
+// 8. Stoppage Reason Normalization for Formula Matching
+assert.equal(normalizeExcelStoppageReason('no order'), 'No Order');
+assert.equal(normalizeExcelStoppageReason('No Order (Full Day)'), 'No Order');
+assert.equal(normalizeExcelStoppageReason('no_order'), 'No Order');
+assert.equal(normalizeExcelStoppageReason('plan complete'), 'Plan Complete');
+assert.equal(normalizeExcelStoppageReason('Plan Complete (Shift End)'), 'Plan Complete');
+assert.equal(normalizeExcelStoppageReason('Raw Material Shortage / No Resin'), 'Raw Material Shortage / No Resin');
+assert.equal(normalizeExcelStoppageReason(''), null);
+assert.equal(normalizeExcelStoppageReason(null), null);
+console.log('Stoppage reason normalization for formula matching: OK');
+
+// 9. Full Day "No Order" 1440 min SOP Template Export & Formula Result Verification
+const noOrderReport = {
+  header: {
+    date: '2026-09-28',
+    lineId: 'L-04',
+    lineCustom: 'KTS 350'
+  },
+  refs: {
+    '1': {
+      itemCode: '262 R',
+      pipeSpec: 'PVC PIPE 110X8.1MM PN20 MANARCO G RR 6MTR',
+      targetRate: 15,
+      stdWeight: 26,
+      speed: 1.5,
+      pipeLength: 6.0
+    }
+  },
+  summary: {
+    startCounter: 0,
+    shift1Lead: 'Day Lead',
+    shift2Lead: 'Night Lead'
+  },
+  engineering: {
+    nominalCapacityKgH: 400,
+    hourlyTarget: 15
+  },
+  slots: []
+};
+
+// All 24 slots with 60 min downtime and 'No Order'
+for (let i = 0; i < 24; i += 1) {
+  noOrderReport.slots.push({
+    hour: `${String(i).padStart(2, '0')}:00`,
+    actual: 0,
+    downtime: 60,
+    reason: 'No Order',
+    scrapKg: 0,
+    ref: '1'
+  });
+}
+
+const noOrderDerived = buildAll(noOrderReport.slots, noOrderReport.refs, 0, noOrderReport.engineering);
+const noOrderWb = await buildTemplateOeeWorkbook(noOrderReport, noOrderDerived);
+const noOrderWs = noOrderWb.worksheets[0];
+
+// Verify rows 10 to 33 in Col D are exactly 'No Order' and Col E is 60
+for (let r = 10; r <= 33; r += 1) {
+  assert.equal(noOrderWs.getCell(`D${r}`).value, 'No Order', `Row ${r} Col D must be 'No Order'`);
+  assert.equal(noOrderWs.getCell(`E${r}`).value, 60, `Row ${r} Col E must be 60 min`);
+  assert.equal(noOrderWs.getCell(`C${r}`).value, 0, `Row ${r} Col C actual must be 0`);
+}
+
+// Verify Availability and OEE results are 'N/A' matching Excel formula IF(..., <=0, "N/A", ...)
+assert.equal(noOrderWs.getCell('H20').value?.result, 'N/A', 'Shift 1 Availability H20 must be N/A');
+assert.equal(noOrderWs.getCell('H21').value?.result, 'N/A', 'Shift 1 OEE H21 must be N/A');
+assert.equal(noOrderWs.getCell('H31').value?.result, 'N/A', 'Shift 2 Availability H31 must be N/A');
+assert.equal(noOrderWs.getCell('H32').value?.result, 'N/A', 'Shift 2 OEE H32 must be N/A');
+assert.equal(noOrderWs.getCell('H36').value?.result, 'N/A', 'Grand Availability H36 must be N/A');
+assert.equal(noOrderWs.getCell('H37').value?.result, 'N/A', 'Grand OEE H37 must be N/A');
+console.log('Full Day "No Order" (1440 min) SOP Template export & formula matching: OK');
+
+// 10. Partial Shift "Plan Complete" Deduction Verification
+const planCompleteReport = {
+  ...noOrderReport,
+  slots: []
+};
+for (let i = 0; i < 24; i += 1) {
+  const isPlanComplete = (i === 10 || i === 11);
+  planCompleteReport.slots.push({
+    hour: `${String(i).padStart(2, '0')}:00`,
+    actual: isPlanComplete ? 0 : 15,
+    downtime: isPlanComplete ? 60 : 0,
+    reason: isPlanComplete ? 'Plan Complete' : '',
+    scrapKg: 0,
+    ref: '1'
+  });
+}
+
+const planCompleteDerived = buildAll(planCompleteReport.slots, planCompleteReport.refs, 0, planCompleteReport.engineering);
+const planCompleteWb = await buildTemplateOeeWorkbook(planCompleteReport, planCompleteDerived);
+const planCompleteWs = planCompleteWb.worksheets[0];
+
+assert.equal(planCompleteWs.getCell('D20').value, 'Plan Complete', 'Row 20 Col D must be Plan Complete');
+assert.equal(planCompleteWs.getCell('D21').value, 'Plan Complete', 'Row 21 Col D must be Plan Complete');
+assert.equal(planCompleteWs.getCell('E20').value, 60);
+assert.equal(planCompleteWs.getCell('E21').value, 60);
+
+// Shift 1 has 120 min downtime of 'Plan Complete'.
+// Planned available time = 12*60 - 120 = 600 min.
+// Operating time = 12*60 - 120 = 600 min.
+// Availability = 600 / 600 = 1.0 (100% Availability!)
+assert.equal(planCompleteWs.getCell('H20').value?.result, 1.0, 'Shift 1 Availability must be 1.0 (100%) when downtime is Plan Complete');
+console.log('Partial Shift "Plan Complete" planned loss deduction: OK');
 
 console.log('All Template-Driven OEE Excel Export unit tests passed successfully!');

@@ -158,6 +158,107 @@ export function isCompoundingLineOrProduct(target, machineMaster = MACHINES) {
 }
 
 /**
+ * Extract embedded item code from product description string if available.
+ * E.g., 'HDPE 20 MM Code 930' -> '930'
+ */
+export function extractEmbeddedItemCode(description) {
+  if (!description || typeof description !== 'string') return '';
+  const match = description.match(/(?:code\s*[:#-]?\s*|\bitem\s*[:#-]?\s*)([A-Za-z0-9_-]+)/i);
+  return match ? match[1].trim() : '';
+}
+
+/**
+ * Standard factory product presets with official weights and dimensions
+ */
+export const SOP_FACTORY_PRESETS = [
+  { itemCode: 'COMP-01', description: 'PVC COMPOUND DRY BLEND GREY (25KG)', unitWeight: 25.0, stdWeight: 25.0, pipeLength: 0, isCompounding: true },
+  { itemCode: 'COMP-02', description: 'PVC COMPOUND RIGID WHITE (25KG)', unitWeight: 25.0, stdWeight: 25.0, pipeLength: 0, isCompounding: true },
+  { itemCode: 'PEL-01', description: 'PVC PELLETIZING COMPOUND BLACK (25KG)', unitWeight: 25.0, stdWeight: 25.0, pipeLength: 0, isCompounding: true },
+  { itemCode: '930', description: 'HDPE 20 MM Code 930', unitWeight: 0.15, stdWeight: 0.15, pipeLength: 6.0 },
+  { itemCode: '249', description: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2', unitWeight: 2.65, stdWeight: 2.65, pipeLength: 6.0 },
+  { itemCode: '247 R', description: 'uPVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R', unitWeight: 5.60, stdWeight: 5.60, pipeLength: 6.0 },
+  { itemCode: '255', description: 'uPVC PIPE 50x2.4 PN-10 SASO-ISO 1452-2', unitWeight: 0.58, stdWeight: 0.58, pipeLength: 6.0 },
+  { itemCode: '253', description: 'uPVC PIPE 75MM PN10X3.6MM SASO-ISO-1452-2', unitWeight: 1.25, stdWeight: 1.25, pipeLength: 6.0 },
+  { itemCode: '246', description: 'MANARCO PVC-U PIPE 200X9.6mm PN-12.5 SASO-ISO-1452-2 W/P', unitWeight: 8.75, stdWeight: 8.75, pipeLength: 6.0 },
+  { itemCode: '258', description: 'PVC PIPE 25MM SASO-ISO 1452-2 PN12.5 1.5MM', unitWeight: 0.25, stdWeight: 0.25, pipeLength: 6.0 },
+  { itemCode: '257', description: 'PVC PIPE 32MM SASO-ISO 1452-2 PN10 1.6MM', unitWeight: 0.35, stdWeight: 0.35, pipeLength: 6.0 },
+  { itemCode: '991', description: 'PVC 4" PIPE SDR 26 ASTMD 2241', unitWeight: 2.10, stdWeight: 2.10, pipeLength: 6.0 },
+  { itemCode: '198', description: 'PVC PIPE 3/4"SCH40', unitWeight: 0.35, stdWeight: 0.35, pipeLength: 6.0 },
+  { itemCode: '1291', description: 'MANARCO PVC PIPE 3" SCH 40 ASTMD 1785', unitWeight: 1.85, stdWeight: 1.85, pipeLength: 6.0 },
+  { itemCode: '195', description: 'uPVC PIPE 75MM 2.2MM GRAY PN-6 EN 1452', unitWeight: 0.95, stdWeight: 0.95, pipeLength: 6.0 },
+  { itemCode: '197', description: 'PVC 1" PIPE SCH40 ASTMD 2241', unitWeight: 0.50, stdWeight: 0.50, pipeLength: 6.0 },
+  { itemCode: '230', description: 'PVC PIPE 160MM EN1452 PN7.5 4.7MM GRAY R/R', unitWeight: 3.80, stdWeight: 3.80, pipeLength: 6.0 },
+  { itemCode: '500', description: 'BLACK MANARCO ELECTRICAL UPVC PIPE CONDUIT 20X1.6mm', unitWeight: 0.55, stdWeight: 0.55, pipeLength: 6.0 },
+  { itemCode: '549', description: 'MANARCO ELECTRICAL UPVC PIPE CONDUIT 25X1.9mm', unitWeight: 0.65, stdWeight: 0.65, pipeLength: 6.0 }
+];
+
+/**
+ * Safely resolves pipe standard unit weight (kg/pipe or kg/pc) across diverse spec fields:
+ * stdWeight, unitWeight, weightPerPipe, weightPerPc, weightPerMeter * cutLength, or preset catalog match.
+ */
+export function resolveStdWeightFromSpecs(source, cutLength = 6.0) {
+  if (!source) return 0;
+  if (typeof source === 'number' && !isNaN(source) && source > 0) {
+    return source;
+  }
+  const len = Number(cutLength) > 0 ? Number(cutLength) : 6.0;
+
+  // 1. Direct explicit numeric weight properties on source
+  const directCandidates = [
+    source.stdWeight,
+    source.stdWeightKg,
+    source.unitWeight,
+    source.weightPerPipe,
+    source.weightPerPc,
+    source.weightKg
+  ];
+  for (const c of directCandidates) {
+    const val = Number(c);
+    if (!isNaN(val) && val > 0) {
+      return Math.round(val * 100) / 100;
+    }
+  }
+
+  // 2. Linear weight per meter multiplied by cut length
+  const perMeterCandidates = [
+    source.weightPerMeter,
+    source.weightPerM,
+    source.linearWeight,
+    source.kgPerM
+  ];
+  for (const pm of perMeterCandidates) {
+    const val = Number(pm);
+    if (!isNaN(val) && val > 0) {
+      return Math.round(val * len * 100) / 100;
+    }
+  }
+
+  // 3. Compounding check
+  if (isCompoundingLineOrProduct(source)) {
+    return 25.0;
+  }
+
+  // 4. Product catalog / preset matching
+  const desc = resolveProductSpecification(source, typeof source === 'string' ? source : '');
+  const itemCode = String(source.itemCode || source.productCode || extractEmbeddedItemCode(desc) || '').trim().toUpperCase();
+
+  const matched = SOP_FACTORY_PRESETS.find((p) => {
+    if (itemCode && p.itemCode && p.itemCode.toUpperCase() === itemCode) return true;
+    if (desc && p.description && p.description.toUpperCase() === desc.toUpperCase()) return true;
+    return false;
+  });
+
+  if (matched && matched.unitWeight > 0) {
+    if (len !== 6.0 && matched.pipeLength === 6.0 && !matched.isCompounding) {
+      return Math.round((matched.unitWeight / 6.0) * len * 100) / 100;
+    }
+    return matched.unitWeight;
+  }
+
+  return 0;
+}
+
+/**
  * Format date string into template formats:
  * - dots: "17.09.2026"
  * - spaces: "17 9 2026"
@@ -673,16 +774,6 @@ export function findExactDayRunForMachine(records, lineId, exactDate) {
 }
 
 /**
- * Extract embedded item code from product description string if available.
- * E.g., 'HDPE 20 MM Code 930' -> '930'
- */
-export function extractEmbeddedItemCode(description) {
-  if (!description || typeof description !== 'string') return '';
-  const match = description.match(/(?:code\s*[:#-]?\s*|\bitem\s*[:#-]?\s*)([A-Za-z0-9_-]+)/i);
-  return match ? match[1].trim() : '';
-}
-
-/**
  * Extract operational pipe specs, speed, and cut length from a run record or fall back to machine master defaults.
  */
 export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHINES) {
@@ -708,9 +799,12 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       itemCode
     }, master);
 
-    const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(record.unitWeight) || (isCompounding ? 25.0 : 1.0));
-    const specs = parseProductSpecs(desc, unitWeight);
+    const specs = parseProductSpecs(desc);
     const pipeLength = isCompounding ? 0 : (Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0);
+    const resolvedWeight = resolveStdWeightFromSpecs(item, pipeLength) ||
+      resolveStdWeightFromSpecs(record, pipeLength) ||
+      (Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(record.unitWeight) || (isCompounding ? 25.0 : 1.0)));
+    const unitWeight = resolvedWeight;
 
     if (isCompounding) {
       const targetRate = nominalCap > 0 ? nominalCap : 400;
@@ -729,6 +823,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
         pipeLength: 0,
         speed: '',
         unitWeight: 25.0,
+        stdWeight: 25.0,
         nominalCapacity: nominalCap,
         targetRate,
         calculatedRate: targetRate,
@@ -767,6 +862,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       pipeLength,
       speed: Math.max(0.1, speed),
       unitWeight,
+      stdWeight: unitWeight,
       nominalCapacity: nominalCap,
       targetRate: calculatedRate,
       calculatedRate,
@@ -794,6 +890,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
       pipeLength: 0,
       speed: '',
       unitWeight: 25.0,
+      stdWeight: 25.0,
       nominalCapacity: nominalCap,
       targetRate,
       calculatedRate: targetRate,
@@ -819,6 +916,7 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
     pipeLength: 6.0,
     speed: '',
     unitWeight: '',
+    stdWeight: '',
     nominalCapacity: nominalCap,
     targetRate: '',
     calculatedRate: '',
@@ -837,32 +935,11 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
   const map = new Map();
 
   // 1. Factory Standard Presets with official item codes
-  const factoryPresets = [
-    { itemCode: 'COMP-01', description: 'PVC COMPOUND DRY BLEND GREY (25KG)', unitWeight: 25.0, pipeLength: 0, isCompounding: true },
-    { itemCode: 'COMP-02', description: 'PVC COMPOUND RIGID WHITE (25KG)', unitWeight: 25.0, pipeLength: 0, isCompounding: true },
-    { itemCode: 'PEL-01', description: 'PVC PELLETIZING COMPOUND BLACK (25KG)', unitWeight: 25.0, pipeLength: 0, isCompounding: true },
-    { itemCode: '930', description: 'HDPE 20 MM Code 930', unitWeight: 0.15, pipeLength: 6.0 },
-    { itemCode: '249', description: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2', unitWeight: 2.65, pipeLength: 6.0 },
-    { itemCode: '247 R', description: 'uPVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R', unitWeight: 5.60, pipeLength: 6.0 },
-    { itemCode: '255', description: 'uPVC PIPE 50x2.4 PN-10 SASO-ISO 1452-2', unitWeight: 0.58, pipeLength: 6.0 },
-    { itemCode: '253', description: 'uPVC PIPE 75MM PN10X3.6MM SASO-ISO-1452-2', unitWeight: 1.25, pipeLength: 6.0 },
-    { itemCode: '246', description: 'MANARCO PVC-U PIPE 200X9.6mm PN-12.5 SASO-ISO-1452-2 W/P', unitWeight: 8.75, pipeLength: 6.0 },
-    { itemCode: '258', description: 'PVC PIPE 25MM SASO-ISO 1452-2 PN12.5 1.5MM', unitWeight: 0.25, pipeLength: 6.0 },
-    { itemCode: '257', description: 'PVC PIPE 32MM SASO-ISO 1452-2 PN10 1.6MM', unitWeight: 0.35, pipeLength: 6.0 },
-    { itemCode: '991', description: 'PVC 4" PIPE SDR 26 ASTMD 2241', unitWeight: 2.10, pipeLength: 6.0 },
-    { itemCode: '198', description: 'PVC PIPE 3/4"SCH40', unitWeight: 0.35, pipeLength: 6.0 },
-    { itemCode: '1291', description: 'MANARCO PVC PIPE 3" SCH 40 ASTMD 1785', unitWeight: 1.85, pipeLength: 6.0 },
-    { itemCode: '195', description: 'uPVC PIPE 75MM 2.2MM GRAY PN-6 EN 1452', unitWeight: 0.95, pipeLength: 6.0 },
-    { itemCode: '197', description: 'PVC 1" PIPE SCH40 ASTMD 2241', unitWeight: 0.50, pipeLength: 6.0 },
-    { itemCode: '230', description: 'PVC PIPE 160MM EN1452 PN7.5 4.7MM GRAY R/R', unitWeight: 3.80, pipeLength: 6.0 },
-    { itemCode: '500', description: 'BLACK MANARCO ELECTRICAL UPVC PIPE CONDUIT 20X1.6mm', unitWeight: 0.55, pipeLength: 6.0 },
-    { itemCode: '549', description: 'MANARCO ELECTRICAL UPVC PIPE CONDUIT 25X1.9mm', unitWeight: 0.65, pipeLength: 6.0 }
-  ];
-
-  for (const preset of factoryPresets) {
+  for (const preset of SOP_FACTORY_PRESETS) {
     const key = preset.description.toUpperCase();
     map.set(key, {
       ...preset,
+      stdWeight: preset.unitWeight,
       label: preset.itemCode ? `[${preset.itemCode}] ${preset.description}` : preset.description
     });
   }
@@ -880,11 +957,12 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
         const key = desc.toUpperCase();
 
         if (!map.has(key)) {
-          const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
+          const unitWeight = resolveStdWeightFromSpecs(item, 6.0) || (Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0);
           map.set(key, {
             itemCode,
             description: desc,
             unitWeight,
+            stdWeight: unitWeight,
             pipeLength: 6.0,
             label: itemCode ? `[${itemCode}] ${desc}` : desc
           });
@@ -919,7 +997,14 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
   if (typeof product === 'object' && product !== null) {
     if (Number(product.unitWeight) > 0) {
       unitWeight = Number(product.unitWeight);
+    } else if (Number(product.stdWeight) > 0) {
+      unitWeight = Number(product.stdWeight);
+    } else {
+      const resolved = resolveStdWeightFromSpecs(product, len);
+      if (resolved > 0) unitWeight = resolved;
     }
+  } else if (typeof product === 'number' && product > 0) {
+    unitWeight = product;
   }
 
   const targetPcsH = nominalCap > 0 && unitWeight > 0 ? Math.round(nominalCap / unitWeight) : 100;
@@ -931,7 +1016,9 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
     speed: Math.max(0.1, speed),
     pipeLength: len,
     targetRate: calculatedRate,
-    calculatedRate
+    calculatedRate,
+    unitWeight,
+    stdWeight: unitWeight
   };
 }
 
@@ -988,8 +1075,10 @@ export function buildMorningSopModel(config = {}) {
   const pipeLength = isCompounding ? 0 : (Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0);
   const rawUnitWeight = config.unitWeight !== undefined && config.unitWeight !== null && config.unitWeight !== ''
     ? Number(config.unitWeight)
-    : NaN;
-  const unitWeight = !isNaN(rawUnitWeight) && rawUnitWeight > 0 ? rawUnitWeight : (isCompounding ? 25.0 : '');
+    : (config.stdWeight !== undefined && config.stdWeight !== null && config.stdWeight !== '' ? Number(config.stdWeight) : NaN);
+  const unitWeight = !isNaN(rawUnitWeight) && rawUnitWeight > 0
+    ? rawUnitWeight
+    : (isCompounding ? 25.0 : (resolveStdWeightFromSpecs(config, pipeLength) || ''));
 
   const isIdle = Boolean(
     config.isIdle ||
@@ -1091,6 +1180,7 @@ export function buildMorningSopModel(config = {}) {
     speed: speed,
     pipeLength,
     unitWeight,
+    stdWeight: unitWeight,
     nominalCapacityKgH: nominalCapacity,
     nominalCapacity,
     targetCapacity: isCompounding ? hourlyStdRate : nominalCapacity,

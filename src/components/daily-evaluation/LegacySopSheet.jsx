@@ -48,8 +48,8 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
     : null;
   const capacityDisplay = capacityVal ? `${capacityVal} Kg/h` : '______ Kg/h';
 
-  const weightVal = (!isUniversal && !model?.isIdle && (model?.unitWeight || model?.unitWeight1))
-    ? Number(model?.unitWeight || model?.unitWeight1)
+  const weightVal = (!isUniversal && !model?.isIdle && (model?.unitWeight || model?.unitWeight1 || model?.stdWeight))
+    ? Number(model?.unitWeight || model?.unitWeight1 || model?.stdWeight)
     : null;
   const weightDisplay = weightVal ? `${weightVal.toFixed(2)} Kg/Pc` : '______ Kg/Pc';
 

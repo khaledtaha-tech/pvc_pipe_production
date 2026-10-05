@@ -9,8 +9,33 @@ import {
   getAvailableProductsCatalog,
   calculateBenchmarkSpeedForProduct,
   buildMorningSopModel,
-  isCompoundingLineOrProduct
+  isCompoundingLineOrProduct,
+  resolveStdWeightFromSpecs
 } from '../../logic/legacySopHelper.js';
+
+const SOP_CONFIG_STORAGE_KEY = 'sop_operational_config';
+
+function loadPersistedSopConfig() {
+  if (typeof window === 'undefined' || !window.localStorage) return {};
+  try {
+    const raw = window.localStorage.getItem(SOP_CONFIG_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.warn('Failed to load SOP operational config:', err);
+    return {};
+  }
+}
+
+function savePersistedSopConfig(configByMachineId) {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const existing = loadPersistedSopConfig();
+    const merged = { ...existing, ...configByMachineId };
+    window.localStorage.setItem(SOP_CONFIG_STORAGE_KEY, JSON.stringify(merged));
+  } catch (err) {
+    console.warn('Failed to save SOP operational config:', err);
+  }
+}
 
 /**
  * Intelligent Morning Blank SOP (DOC-Ext.-03) Print & Export Configuration Modal
@@ -112,7 +137,24 @@ export default function PrintSopModal({
         }, activeMaster)
       );
       const nominalCapacity = Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || (isComp ? 400 : 200);
-      const unitWeight = isComp ? 25.0 : (Number(specs?.unitWeight) > 0 ? Number(specs.unitWeight) : (hadRun ? 1.0 : ''));
+
+      const persistedConfig = loadPersistedSopConfig();
+      const savedForMachine = persistedConfig[m?.id];
+
+      // Resolve standard unit weight: prefer persisted override if present, else specs, else catalog/fallback
+      let unitWeight = '';
+      if (isComp) {
+        unitWeight = 25.0;
+      } else if (savedForMachine && Number(savedForMachine.unitWeight) > 0) {
+        unitWeight = Number(savedForMachine.unitWeight);
+      } else if (Number(specs?.unitWeight) > 0) {
+        unitWeight = Number(specs.unitWeight);
+      } else if (Number(specs?.stdWeight) > 0) {
+        unitWeight = Number(specs.stdWeight);
+      } else {
+        unitWeight = hadRun ? 1.0 : '';
+      }
+
       const calculatedRate = specs?.calculatedRate !== undefined && specs?.calculatedRate !== null
         ? specs.calculatedRate
         : (isComp ? nominalCapacity : '');
@@ -223,8 +265,8 @@ export default function PrintSopModal({
           };
         }
 
-        const unitWeight = matchedProduct?.unitWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
         const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
+        const unitWeight = resolveStdWeightFromSpecs(matchedProduct, pipeLen) || matchedProduct?.unitWeight || matchedProduct?.stdWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
 
         const benchmark = calculateBenchmarkSpeedForProduct(
           { unitWeight },
@@ -297,8 +339,8 @@ export default function PrintSopModal({
           };
         }
 
-        const unitWeight = matchedProduct?.unitWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
         const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
+        const unitWeight = resolveStdWeightFromSpecs(matchedProduct, pipeLen) || matchedProduct?.unitWeight || matchedProduct?.stdWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
 
         const benchmark = calculateBenchmarkSpeedForProduct(
           { unitWeight },
@@ -428,6 +470,36 @@ export default function PrintSopModal({
     );
   };
 
+  // Update pipe standard weight (kg/pipe) and dynamically recalculate output rate (kg/h) and utilization (%)
+  const handleUnitWeightChange = (machineId, weightVal) => {
+    const rawVal = weightVal === '' ? '' : Number(weightVal);
+    const num = typeof rawVal === 'number' && !isNaN(rawVal) && rawVal > 0 ? rawVal : '';
+    setLinesState((prev) =>
+      prev.map((item) => {
+        if (item.machineId !== machineId) return item;
+        if (num === '') {
+          return {
+            ...item,
+            unitWeight: '',
+            calculatedRateKgH: item.isCompounding ? item.calculatedRate : ''
+          };
+        }
+        const calcRate = Number(item.calculatedRate) || 0;
+        const calcKgH = item.isCompounding
+          ? calcRate
+          : (calcRate > 0 ? Math.round(calcRate * num * 10) / 10 : '');
+        return {
+          ...item,
+          unitWeight: num,
+          calculatedRateKgH: calcKgH
+        };
+      })
+    );
+    if (num !== '') {
+      savePersistedSopConfig({ [machineId]: { unitWeight: num } });
+    }
+  };
+
   // Compile active models for print or PDF export
   const compileModels = () => {
     const targets = scope === 'current'
@@ -444,6 +516,7 @@ export default function PrintSopModal({
         speed: item.speed,
         pipeLength: item.pipeLength,
         unitWeight: item.unitWeight,
+        stdWeight: item.unitWeight,
         nominalCapacity: item.nominalCapacity,
         targetRate: item.calculatedRate,
         calculatedRateKgH: item.calculatedRateKgH,
@@ -455,7 +528,25 @@ export default function PrintSopModal({
     );
   };
 
+  const persistCurrentLines = () => {
+    const updates = {};
+    linesState.forEach((item) => {
+      if (item.machineId) {
+        updates[item.machineId] = {
+          unitWeight: item.unitWeight,
+          speed: item.speed,
+          pipeLength: item.pipeLength,
+          calculatedRate: item.calculatedRate,
+          itemCode: item.itemCode,
+          productDescription: item.productDescription
+        };
+      }
+    });
+    savePersistedSopConfig(updates);
+  };
+
   const handlePrint = () => {
+    persistCurrentLines();
     const models = compileModels();
     if (models.length === 0) return;
     if (typeof onConfirmPrint === 'function') {
@@ -464,6 +555,7 @@ export default function PrintSopModal({
   };
 
   const handlePdf = () => {
+    persistCurrentLines();
     const models = compileModels();
     if (models.length === 0) return;
     if (typeof onConfirmPdf === 'function') {
@@ -914,23 +1006,40 @@ export default function PrintSopModal({
                           />
                         </div>
 
+                        <div className="print-sop-param">
+                          <label className="print-sop-label">Std Weight (kg/pipe):</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            max="500"
+                            className="print-sop-input"
+                            value={line.unitWeight !== undefined && line.unitWeight !== null ? line.unitWeight : ''}
+                            placeholder="kg/pipe"
+                            onChange={(e) => handleUnitWeightChange(line.machineId, e.target.value)}
+                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                          />
+                        </div>
+
                         <div className="print-sop-param print-sop-calc-summary">
                           {line.calculatedRate ? (
                             <>
                               <div className="print-sop-calc-pcs-box">
                                 <span className="print-sop-calc-formula">
-                                  {line.speed > 0 ? `(${line.speed} \u00d7 60) / ${line.pipeLength}m` : 'Target Standard'}
+                                  {line.speed > 0
+                                    ? (unitWeight > 0
+                                        ? `(${line.speed} \u00d7 60) / ${line.pipeLength}m = ${line.calculatedRate} pcs/h \u00d7 ${unitWeight} kg/pc`
+                                        : `(${line.speed} \u00d7 60) / ${line.pipeLength}m = ${line.calculatedRate} pcs/h`)
+                                    : (unitWeight > 0
+                                        ? `${line.calculatedRate} pcs/h \u00d7 ${unitWeight} kg/pc`
+                                        : 'Target Standard')}
                                 </span>
                                 <span className="print-sop-calc-val">
-                                  = <strong>{line.calculatedRate}</strong> pcs/h
+                                  = <strong>{calculatedKgH.toLocaleString()}</strong> kg/h
                                 </span>
                               </div>
                               <span className="print-sop-calc-divider">|</span>
                               <div className="print-sop-calc-kgh-box">
-                                <span className="print-sop-calc-item print-sop-calc-output">
-                                  Calculated: <strong>{calculatedKgH.toLocaleString()} kg/h</strong>
-                                </span>
-                                <span className="print-sop-calc-bullet">&bull;</span>
                                 <span className="print-sop-calc-item print-sop-calc-nominal">
                                   Nominal Target: <strong>{nominalKgH.toLocaleString()} kg/h</strong>
                                 </span>

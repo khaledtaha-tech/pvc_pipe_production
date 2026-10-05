@@ -23,6 +23,8 @@ import {
   buildUniversalBlankSopModel,
   resolveProductSpecification,
   isCompoundingLineOrProduct,
+  resolveStdWeightFromSpecs,
+  SOP_FACTORY_PRESETS,
   SOP_SHIFT1_HOURS,
   SOP_SHIFT2_HOURS
 } from '../../src/logic/legacySopHelper.js';
@@ -637,6 +639,52 @@ const compoundForceSop = buildMorningSopModel({ lineId: 'L-01', isCompounding: t
 assert.equal(compoundForceSop.fullMachineName, 'L-08 - KTS 550');
 assert.equal(compoundForceSop.lineCode, 'L-08');
 console.log('Compounding Morning SOP Sheet Model: OK');
+
+// 22. Standard Pipe Weight Resolution & Dynamic Recalculation
+// a. Direct weight resolution from explicit properties
+assert.equal(resolveStdWeightFromSpecs({ stdWeight: 3.80 }), 3.80);
+assert.equal(resolveStdWeightFromSpecs({ unitWeight: 2.65 }), 2.65);
+assert.equal(resolveStdWeightFromSpecs({ weightPerPipe: 0.58 }), 0.58);
+assert.equal(resolveStdWeightFromSpecs({ weightPerPc: 1.25 }), 1.25);
+
+// b. Linear weight per meter multiplied by cut length
+assert.equal(resolveStdWeightFromSpecs({ weightPerMeter: 0.50 }, 6.0), 3.00);
+assert.equal(resolveStdWeightFromSpecs({ weightPerMeter: 0.50 }, 12.0), 6.00);
+
+// c. Product catalog and preset code resolution
+assert.equal(resolveStdWeightFromSpecs({ itemCode: '255' }), 0.58);
+assert.equal(resolveStdWeightFromSpecs({ itemCode: '230' }), 3.80);
+assert.equal(resolveStdWeightFromSpecs({ itemCode: '249' }), 2.65);
+assert.equal(resolveStdWeightFromSpecs({ itemCode: 'COMP-01' }), 25.0);
+
+// d. Dynamic length adjustment from catalog preset
+assert.equal(resolveStdWeightFromSpecs({ itemCode: '255' }, 12.0), 1.16);
+
+// e. Model building with explicit unit weight / stdWeight override
+const morningModelWithWeight = buildMorningSopModel({
+  lineId: 'L-01',
+  itemCode: '255',
+  speed: 3.9,
+  pipeLength: 6.0,
+  unitWeight: 3.79,
+  nominalCapacity: 150
+});
+assert.equal(morningModelWithWeight.unitWeight, 3.79);
+assert.equal(morningModelWithWeight.stdWeight, 3.79);
+assert.equal(morningModelWithWeight.hourlyStdRate, 39); // (3.9 * 60) / 6 = 39 pcs/h
+assert.equal(morningModelWithWeight.calculatedRateKgH, 148); // Math.round(39 * 3.79) = 148 kg/h
+assert.equal(morningModelWithWeight.utilizationPct, 99); // Math.round((148 / 150) * 100) = 99%
+
+// f. extractMachineSpecsFromRun propagates stdWeight
+const specsWithWeight = extractMachineSpecsFromRun({
+  machine: 'KTS 350 TDH',
+  unitWeight: 3.80,
+  description: 'PVC PIPE 160MM'
+}, 'L-01');
+assert.equal(specsWithWeight.unitWeight, 3.80);
+assert.equal(specsWithWeight.stdWeight, 3.80);
+
+console.log('Standard Pipe Weight Resolution & Dynamic Recalculation: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

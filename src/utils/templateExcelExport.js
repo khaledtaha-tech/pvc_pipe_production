@@ -190,10 +190,14 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
 
   const stdUnitWeight = options.stdWeight != null
     ? Number(options.stdWeight)
-    : (Number(ref1.stdWeight || report?.refs?.['1']?.stdWeight) || 26);
+    : (options.unitWeight != null
+        ? Number(options.unitWeight)
+        : (Number(ref1.stdWeight || ref1.unitWeight || report?.refs?.['1']?.stdWeight || report?.refs?.['1']?.unitWeight) || 26));
   const stdUnitWeight2 = options.stdWeight != null
     ? Number(options.stdWeight)
-    : (Number(ref2.stdWeight || report?.refs?.['2']?.stdWeight) || stdUnitWeight);
+    : (options.unitWeight != null
+        ? Number(options.unitWeight)
+        : (Number(ref2.stdWeight || ref2.unitWeight || report?.refs?.['2']?.stdWeight || report?.refs?.['2']?.unitWeight) || stdUnitWeight));
 
   ws.getCell('E8').value = Number(hourlyRate1) || 11;
   ws.getCell('G8').value = Number(stdUnitWeight) || 26;

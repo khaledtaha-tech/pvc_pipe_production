@@ -251,6 +251,9 @@ assert.equal(inPlaceWs.getCell('G8').value, 31.2, 'Cell G8 must reflect in-place
 assert.equal(inPlaceWs.getCell('B10').value, 18, 'B10 must be 18 (1 * 18)');
 assert.equal(inPlaceWs.getCell('B33').value, 432, 'B33 must be 432 (24 * 18)');
 
+const optWeightWb = await buildTemplateOeeWorkbook(mockReport, mockDerived, { unitWeight: 3.79 });
+assert.equal(optWeightWb.worksheets[0].getCell('G8').value, 3.79, 'Cell G8 must reflect options.unitWeight (3.79)');
+
 console.log('Custom standard rate & weight override (E8, G8, Col B): OK');
 
 // 8. Stoppage Reason Normalization for Formula Matching

@@ -660,6 +660,21 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
   const handleTriggerMorningSopPrint = (models) => {
     if (!models || models.length === 0) return;
+
+    // Synchronize active line specification if configured in morning SOP modal
+    const activeLineId = report?.header?.lineId;
+    if (activeLineId && Array.isArray(models)) {
+      const activeModel = models.find((m) => m?.lineCode === activeLineId || m?.lineId?.startsWith(activeLineId));
+      if (activeModel) {
+        if (activeModel.unitWeight && Number(activeModel.unitWeight) > 0) {
+          handlePatchRef('1', 'stdWeight', Number(activeModel.unitWeight));
+        }
+        if (activeModel.hourlyStdRate && Number(activeModel.hourlyStdRate) > 0) {
+          handlePatchRef('1', 'targetRate', Number(activeModel.hourlyStdRate));
+        }
+      }
+    }
+
     setSopBatchPrintModels(models);
     document.body.classList.add('print-sop-batch');
 
@@ -700,6 +715,21 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
   const handleTriggerMorningSopPdf = async (models) => {
     if (!models || models.length === 0) return;
+
+    // Synchronize active line specification if configured in morning SOP modal
+    const activeLineId = report?.header?.lineId;
+    if (activeLineId && Array.isArray(models)) {
+      const activeModel = models.find((m) => m?.lineCode === activeLineId || m?.lineId?.startsWith(activeLineId));
+      if (activeModel) {
+        if (activeModel.unitWeight && Number(activeModel.unitWeight) > 0) {
+          handlePatchRef('1', 'stdWeight', Number(activeModel.unitWeight));
+        }
+        if (activeModel.hourlyStdRate && Number(activeModel.hourlyStdRate) > 0) {
+          handlePatchRef('1', 'targetRate', Number(activeModel.hourlyStdRate));
+        }
+      }
+    }
+
     setIsGeneratingMorningPdf(true);
     setSopBatchPrintModels(models);
     notify(`Generating Morning SOP PDF for ${models.length} ${models.length === 1 ? 'line' : 'lines'}...`);

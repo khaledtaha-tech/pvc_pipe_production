@@ -351,6 +351,11 @@ function AppContent() {
             dailyEvalRef.current.openBlankSopPrint();
           }
         }}
+        onOpenMachineSettings={() => {
+          if (dailyEvalRef.current?.openMachineSettings) {
+            dailyEvalRef.current.openMachineSettings();
+          }
+        }}
       />
 
       {/* Main Container: Expanded to utilize lateral widescreen space */}
@@ -407,6 +412,11 @@ function AppContent() {
               onOpenBlankSopPrint={() => {
                 if (dailyEvalRef.current?.openBlankSopPrint) {
                   dailyEvalRef.current.openBlankSopPrint();
+                }
+              }}
+              onOpenMachineSettings={() => {
+                if (dailyEvalRef.current?.openMachineSettings) {
+                  dailyEvalRef.current.openMachineSettings();
                 }
               }}
               onExportMasterPlan={handleExportMasterPlanExcel}

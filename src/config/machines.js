@@ -156,8 +156,49 @@ export function normalizeMachineKey(str) {
 }
 
 /**
+ * Retrieve custom nominal capacity override stored in localStorage if present.
+ */
+export function getStoredCapacityOverride(lineId) {
+  if (!lineId) return null;
+  try {
+    const storage = (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage
+      : ((typeof globalThis !== 'undefined' && globalThis.localStorage) ? globalThis.localStorage : null);
+    if (!storage) return null;
+    const raw = storage.getItem('machine_nominal_capacities_override');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      const val = Number(parsed[lineId]);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  } catch (e) {
+    // Ignore storage parse errors
+  }
+  return null;
+}
+
+/**
+ * Apply capacity override hierarchy: override > uploaded > preset.
+ */
+export function applyMachineCapacityHierarchy(obj) {
+  if (!obj || !obj.id) return obj;
+  const overrideCap = getStoredCapacityOverride(obj.id);
+  if (overrideCap && overrideCap > 0) {
+    return {
+      ...obj,
+      capacityKgH: overrideCap,
+      nominalCapacity: overrideCap,
+      detail: `${overrideCap} kg/h`
+    };
+  }
+  return obj;
+}
+
+/**
  * Hard-locks an array of machine configurations to strictly adhere to the official factory master.
  * Overwrites any erroneous Line ID mappings from legacy uploads or stale localStorage objects.
+ * Honors user-configured nominal capacity overrides as highest priority.
  */
 export function sanitizeMachineMaster(list = []) {
   const masterList = Array.isArray(list) && list.length > 0 ? list : MACHINES;
@@ -179,8 +220,13 @@ export function sanitizeMachineMaster(list = []) {
       return m.id === canon.id;
     });
 
-    const capacityKgH = dynMatch && Number(dynMatch.capacityKgH) > 0 ? Number(dynMatch.capacityKgH) : canon.capacityKgH;
-    const nominalCapacity = dynMatch && Number(dynMatch.nominalCapacity) > 0 ? Number(dynMatch.nominalCapacity) : canon.nominalCapacity;
+    const overrideCap = getStoredCapacityOverride(canon.id);
+    const capacityKgH = overrideCap > 0
+      ? overrideCap
+      : (dynMatch && Number(dynMatch.capacityKgH) > 0 ? Number(dynMatch.capacityKgH) : canon.capacityKgH);
+    const nominalCapacity = overrideCap > 0
+      ? overrideCap
+      : (dynMatch && Number(dynMatch.nominalCapacity) > 0 ? Number(dynMatch.nominalCapacity) : canon.nominalCapacity);
 
     canonicalEntries.push({
       ...canon,
@@ -200,12 +246,15 @@ export function sanitizeMachineMaster(list = []) {
     if (!m) continue;
     const key = normalizeMachineKey(m.name || m.id);
     if (key.includes('BAUSANO') && !processedCanonIds.has('L-09')) {
+      const overrideCap09 = getStoredCapacityOverride('L-09');
+      const cap09 = overrideCap09 > 0 ? overrideCap09 : (Number(m.capacityKgH) || 1100);
+      const nom09 = overrideCap09 > 0 ? overrideCap09 : (Number(m.nominalCapacity) || 1100);
       canonicalEntries.push({
         id: 'L-09',
         name: 'Bausano',
-        capacityKgH: Number(m.capacityKgH) || 1100,
-        nominalCapacity: Number(m.nominalCapacity) || 1100,
-        detail: '1100 kg/h',
+        capacityKgH: cap09,
+        nominalCapacity: nom09,
+        detail: `${cap09} kg/h`,
         minDiameter: 160,
         maxDiameter: 500,
         isPelletizingLine: false,
@@ -231,6 +280,7 @@ export function normalizeLineId(str, masterList = MACHINES) {
 /**
  * Robust machine matching ignoring case, hyphens, spaces, and punctuation.
  * Hard-locks canonical model names to their official factory Line IDs.
+ * Honors user-configured nominal capacity overrides.
  */
 export function matchMachine(str, dynamicList = MACHINES) {
   if (!str) return null;
@@ -242,61 +292,61 @@ export function matchMachine(str, dynamicList = MACHINES) {
   if ((rawNorm.includes('KTS350') || rawNorm.includes('350')) && rawNorm.includes('TDH')) {
     const canon = MACHINES.find((m) => m.id === 'L-01');
     const dyn = list.find((m) => m.id === 'L-01' || (normalizeMachineKey(m.name).includes('350') && normalizeMachineKey(m.name).includes('TDH')));
-    return { ...canon, ...(dyn || {}), id: 'L-01', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-01', name: canon.name });
   }
   // 2. KTS 170 -> L-02
   if (rawNorm.includes('KTS170') || rawNorm.includes('170')) {
     const canon = MACHINES.find((m) => m.id === 'L-02');
     const dyn = list.find((m) => m.id === 'L-02' || normalizeMachineKey(m.name).includes('170'));
-    return { ...canon, ...(dyn || {}), id: 'L-02', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-02', name: canon.name });
   }
   // 3. Kabra 90 -> L-03
   if (rawNorm.includes('KABRA') || rawNorm.includes('K90') || rawNorm.includes('KABRA90') || rawNorm === '90') {
     const canon = MACHINES.find((m) => m.id === 'L-03');
     const dyn = list.find((m) => m.id === 'L-03' || normalizeMachineKey(m.name).includes('KABRA') || normalizeMachineKey(m.name).includes('K90'));
-    return { ...canon, ...(dyn || {}), id: 'L-03', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-03', name: canon.name });
   }
   // 4. KTS 350 (without TDH) -> L-04
   if ((rawNorm.includes('KTS350') || rawNorm.includes('350')) && !rawNorm.includes('TDH')) {
     const canon = MACHINES.find((m) => m.id === 'L-04');
     const dyn = list.find((m) => m.id === 'L-04' || (normalizeMachineKey(m.name).includes('350') && !normalizeMachineKey(m.name).includes('TDH')));
-    return { ...canon, ...(dyn || {}), id: 'L-04', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-04', name: canon.name });
   }
   // 5. KTS 200 (without TDH) -> L-05
   if ((rawNorm.includes('KTS200') || rawNorm.includes('200')) && !rawNorm.includes('TDH')) {
     const canon = MACHINES.find((m) => m.id === 'L-05');
     const dyn = list.find((m) => m.id === 'L-05' || (normalizeMachineKey(m.name).includes('200') && !normalizeMachineKey(m.name).includes('TDH')));
-    return { ...canon, ...(dyn || {}), id: 'L-05', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-05', name: canon.name });
   }
   // 6. KTS 700 -> L-06
   if (rawNorm.includes('KTS700') || rawNorm.includes('700')) {
     const canon = MACHINES.find((m) => m.id === 'L-06');
     const dyn = list.find((m) => m.id === 'L-06' || normalizeMachineKey(m.name).includes('700'));
-    return { ...canon, ...(dyn || {}), id: 'L-06', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-06', name: canon.name });
   }
   // 7. KTS 250 TDH / KTS 250 -> L-07
   if (rawNorm.includes('KTS250') || rawNorm.includes('250')) {
     const canon = MACHINES.find((m) => m.id === 'L-07');
     const dyn = list.find((m) => m.id === 'L-07' || normalizeMachineKey(m.name).includes('250'));
-    return { ...canon, ...(dyn || {}), id: 'L-07', name: canon.name };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-07', name: canon.name });
   }
   // 8. KTS 550 / 550 / Pelletizing / Compounding -> L-08
   if (rawNorm.includes('KTS550') || rawNorm.includes('550') || rawNorm.includes('PELLET') || rawNorm.includes('COMPOUND')) {
     const canon = MACHINES.find((m) => m.id === 'L-08');
     const dyn = list.find((m) => m.id === 'L-08' || normalizeMachineKey(m.name).includes('550') || normalizeMachineKey(m.name).includes('PELLET') || normalizeMachineKey(m.name).includes('COMPOUND'));
-    return { ...canon, ...(dyn || {}), id: 'L-08', name: canon.name, isPelletizingLine: true };
+    return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: 'L-08', name: canon.name, isPelletizingLine: true });
   }
   // 9. Bausano -> L-09
   if (rawNorm.includes('BAUSANO')) {
     const canon = MACHINES.find((m) => m.id === 'L-09') || { id: 'L-09', name: 'Bausano', capacityKgH: 1100, nominalCapacity: 1100 };
-    return { ...canon, id: 'L-09', name: 'Bausano' };
+    return applyMachineCapacityHierarchy({ ...canon, id: 'L-09', name: 'Bausano' });
   }
 
   // 2. Direct Line ID match (e.g. "L-08", "L08", "LINE 8", "LINE-8")
   const idMatch = MACHINES.find((m) => normalizeMachineKey(m.id) === rawNorm);
   if (idMatch) {
     const dyn = list.find((m) => m.id === idMatch.id);
-    return { ...idMatch, ...(dyn || {}), id: idMatch.id, name: idMatch.name };
+    return applyMachineCapacityHierarchy({ ...idMatch, ...(dyn || {}), id: idMatch.id, name: idMatch.name });
   }
 
   // 3. Prefix match e.g. "LINE 1", "L-1", "L1"
@@ -306,7 +356,7 @@ export function matchMachine(str, dynamicList = MACHINES) {
     const canon = MACHINES.find((m) => m.id === targetId);
     if (canon) {
       const dyn = list.find((m) => m.id === targetId);
-      return { ...canon, ...(dyn || {}), id: canon.id, name: canon.name };
+      return applyMachineCapacityHierarchy({ ...canon, ...(dyn || {}), id: canon.id, name: canon.name });
     }
   }
 
@@ -314,7 +364,7 @@ export function matchMachine(str, dynamicList = MACHINES) {
   const fallback = list.find((m) => normalizeMachineKey(m.id) === rawNorm || normalizeMachineKey(m.name) === rawNorm);
   if (fallback) {
     const canon = MACHINES.find((m) => m.id === fallback.id);
-    return canon ? { ...canon, ...fallback, id: canon.id, name: canon.name } : fallback;
+    return applyMachineCapacityHierarchy(canon ? { ...canon, ...fallback, id: canon.id, name: canon.name } : fallback);
   }
 
   return null;

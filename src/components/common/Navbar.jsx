@@ -20,7 +20,8 @@ import {
   LogOut,
   Save,
   Loader2,
-  Database
+  Database,
+  Sliders
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -48,7 +49,8 @@ export default function Navbar({
   onOpenMasterTable,
   onOpenPlanning,
   onOpenVerification,
-  onOpenBlankSopPrint
+  onOpenBlankSopPrint,
+  onOpenMachineSettings
 }) {
   const isAr = lang === 'ar';
 
@@ -201,6 +203,23 @@ export default function Navbar({
                 </a>
               </div>
             </div>
+
+            {/* Machine Settings Action */}
+            {onOpenMachineSettings && (
+              <button
+                type="button"
+                onClick={onOpenMachineSettings}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                  theme === 'light'
+                    ? 'bg-white text-stone-700 border border-stone-300 shadow-xs hover:bg-stone-50'
+                    : 'bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700'
+                }`}
+                title="Configure Machine Capacities (kg/h)"
+              >
+                <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden md:inline">Machine Settings</span>
+              </button>
+            )}
 
             {/* Language Toggle */}
             <button

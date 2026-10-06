@@ -12,6 +12,7 @@ import {
   isCompoundingLineOrProduct,
   resolveStdWeightFromSpecs
 } from '../../logic/legacySopHelper.js';
+import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 
 const SOP_CONFIG_STORAGE_KEY = 'sop_operational_config';
 
@@ -93,6 +94,16 @@ export default function PrintSopModal({
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [productCatalog]);
 
+  const [settingsVersion, setSettingsVersion] = useState(0);
+
+  useEffect(() => {
+    const handleSettingsChanged = () => setSettingsVersion((v) => v + 1);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
+      return () => window.removeEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
+    }
+  }, []);
+
   // Synchronize target date when modal opens or selectedDate changes
   useEffect(() => {
     if (isOpen) {
@@ -136,7 +147,10 @@ export default function PrintSopModal({
           productDescription: specs?.productDescription
         }, activeMaster)
       );
-      const nominalCapacity = Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || (isComp ? 400 : 200);
+      const configuredCap = getMachineNominalCapacity(m?.id, activeMaster);
+      const nominalCapacity = configuredCap > 0
+        ? configuredCap
+        : (Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || (isComp ? 400 : 200));
 
       const persistedConfig = loadPersistedSopConfig();
       const savedForMachine = persistedConfig[m?.id];
@@ -184,7 +198,7 @@ export default function PrintSopModal({
     });
 
     setLinesState(list);
-  }, [isOpen, targetDate, activeMaster, records, currentMachineId, scope, previousDate]);
+  }, [isOpen, targetDate, activeMaster, records, currentMachineId, scope, previousDate, settingsVersion]);
 
   // Handle ESC key to dismiss modal
   useEffect(() => {
@@ -517,7 +531,7 @@ export default function PrintSopModal({
         pipeLength: item.pipeLength,
         unitWeight: item.unitWeight,
         stdWeight: item.unitWeight,
-        nominalCapacity: item.nominalCapacity,
+        nominalCapacity: getMachineNominalCapacity(item.machineId, machineMaster) || item.nominalCapacity,
         targetRate: item.calculatedRate,
         calculatedRateKgH: item.calculatedRateKgH,
         targetCapacity: item.calculatedRate,
@@ -713,7 +727,7 @@ export default function PrintSopModal({
                 ? (matchMachine(line.machineId, activeMaster) || activeMaster.find((m) => m?.id === line.machineId))
                 : (activeMaster.find((m) => m?.id === line?.machineId) || null);
 
-              const nominalKgH = Number(line?.nominalCapacity) || Number(machineSetting?.nominalCapacity) || Number(machineSetting?.capacityKgH) || (isLineComp ? 400 : 200);
+              const nominalKgH = getMachineNominalCapacity(line?.machineId, activeMaster) || Number(line?.nominalCapacity) || Number(machineSetting?.nominalCapacity) || Number(machineSetting?.capacityKgH) || (isLineComp ? 400 : 200);
 
               const unitWeight = isLineComp ? 25.0 : (Number(line?.unitWeight) > 0 ? Number(line.unitWeight) : 1.0);
               const speed = Number(line?.speed) || 0;

@@ -1,6 +1,8 @@
 import { MACHINES, matchMachine, sanitizeMachineMaster } from '../config/machines.js';
 export { MACHINES, matchMachine, sanitizeMachineMaster };
 import { parseProductSpecs } from './dailyExcelParser.js';
+import { getMachineNominalCapacity } from './machineSettingsConfig.js';
+export { getMachineNominalCapacity };
 
 /**
  * Helper logic for Legacy Plant SOP (DOC-Ext.-03: PRODUCTION PIECES / Production follow)
@@ -328,7 +330,10 @@ export function calculateStandardHourly(speedMPerMin, count = 12, pipeLength = 6
 export function computeStandardHourlyPieces(report, ref) {
   const lineId = report?.header?.lineId;
   const machine = lineId ? matchMachine(lineId) : null;
-  const capacityKgH = Number(report?.engineering?.nominalCapacityKgH || machine?.capacityKgH || machine?.nominalCapacity || 0);
+  const configuredCap = lineId ? getMachineNominalCapacity(lineId) : 0;
+  const capacityKgH = configuredCap > 0
+    ? configuredCap
+    : Number(report?.engineering?.nominalCapacityKgH || machine?.capacityKgH || machine?.nominalCapacity || 0);
   const stdWeight = Number(ref?.stdWeight || ref?.unitWeight || 0);
 
   // 1. Primary: Explicit target rate (user in-place override or active specification)
@@ -542,7 +547,8 @@ export function buildSopModel(report, derived, options = {}) {
   const speed = speed1 || speed2 || '';
   const nominalCapacityKgH = isBlank
     ? ''
-    : (Number(derived?.engineering?.nominalCapacityKgH) ||
+    : (getMachineNominalCapacity(header.lineId, machineMaster) ||
+       Number(derived?.engineering?.nominalCapacityKgH) ||
        Number(report?.engineering?.nominalCapacityKgH) ||
        Number(matchMachine(header.lineId, machineMaster)?.capacityKgH) ||
        '');
@@ -784,7 +790,10 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
   const finalLineId = machine.id || cleanId;
   const fullMachineName = formatFullMachineName(finalLineId, machine.name, master);
   const isLineCompounding = isCompoundingLineOrProduct({ lineId: finalLineId, fullMachineName }, master);
-  const nominalCap = Number(record?.nominalCapacityKgH) || Number(machine?.nominalCapacity) || Number(machine?.capacityKgH) || (isLineCompounding ? 400 : 200);
+  const configuredCap = getMachineNominalCapacity(finalLineId, master);
+  const nominalCap = configuredCap > 0
+    ? configuredCap
+    : (Number(record?.nominalCapacityKgH) || Number(machine?.nominalCapacity) || Number(machine?.capacityKgH) || (isLineCompounding ? 400 : 200));
 
   if (record) {
     const item = (Array.isArray(record.items) && record.items.length > 0) ? record.items[0] : record;
@@ -1087,7 +1096,8 @@ export function buildMorningSopModel(config = {}) {
       : (!speed && !desc && !itemCode))
   );
 
-  const nominalCapacity = Number(config.nominalCapacity) || Number(config.capacityKgH) || (isCompounding ? 400 : 200);
+  const configuredNominal = getMachineNominalCapacity(lineId, machineMaster);
+  const nominalCapacity = Number(config.nominalCapacity) || configuredNominal || Number(config.capacityKgH) || (isCompounding ? 400 : 200);
 
   let hourlyStdRate = '';
   if (config.targetRate !== undefined && config.targetRate !== null && config.targetRate !== '' && Number(config.targetRate) > 0) {

@@ -7,6 +7,7 @@ import {
   sanitizeFilenamePart
 } from './batchZipExport.js';
 import { buildSopModel } from './legacySopHelper.js';
+import { getMachineNominalCapacity } from './machineSettingsConfig.js';
 
 /**
  * Format filename for single machine Excel report
@@ -85,7 +86,7 @@ export function saveWorkbook(wb, filename) {
 /**
  * Build a formatted worksheet for a single machine's 24-hour report
  */
-export function buildMachineReportSheet(report, derived) {
+export function buildMachineReportSheet(report, derived, options = {}) {
   const header = report.header || {};
   const refs = report.refs || {};
   const ref1 = refs['1'] || {};
@@ -97,7 +98,8 @@ export function buildMachineReportSheet(report, derived) {
   const totals = der.grandTotals || {};
 
   const eng = der?.engineering || report.engineering || {};
-  const nominalCapacity = Number(eng.nominalCapacityKgH || report.engineering?.nominalCapacityKgH || 0);
+  const machineMaster = options.machineMaster || null;
+  const nominalCapacity = Number(options.nominalCapacity || eng.nominalCapacityKgH || report.engineering?.nominalCapacityKgH || getMachineNominalCapacity(report?.header?.lineId, machineMaster) || 0);
 
   let actualKgPerHour = Number(
     derived?.actualKgPerHour != null && Number(derived.actualKgPerHour) > 0
@@ -368,7 +370,7 @@ export function buildAllMachinesSummarySheet(targetRows, selectedDate) {
     sumPurge += prg;
     sumWeight += Number(row.totalWeight) || (act * (Number(row.unitWeight) || 0));
 
-    const nomCap = Number(eng.nominalCapacityKgH || 0);
+    const nomCap = Number(eng.nominalCapacityKgH || getMachineNominalCapacity(rep.header?.lineId || row.machineId, machineMaster) || 0);
     const actRate = Number(eng.actualRateKgH || 0);
     const capUtil = Number(eng.capacityUtilizationPct || 0);
 
@@ -457,7 +459,7 @@ export function exportSingleMachineToExcel(report, derived, options = {}) {
   }
 
   const wb = XLSX.utils.book_new();
-  const ws = buildMachineReportSheet(report, derived);
+  const ws = buildMachineReportSheet(report, derived, options);
   const sheetName = sanitizeSheetName(report.header?.lineId || 'Report');
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 

@@ -45,6 +45,8 @@ import ExportModal from './ExportModal.jsx';
 import PrintSopModal from './PrintSopModal.jsx';
 import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
 import AutoReconcileModal from './AutoReconcileModal.jsx';
+import MachineSettingsModal from './MachineSettingsModal.jsx';
+import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
 import JSZip from 'jszip';
 import {
@@ -168,9 +170,21 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const [isPrintChoiceModalOpen, setIsPrintChoiceModalOpen] = useState(false);
   const [isPrintSopModalOpen, setIsPrintSopModalOpen] = useState(false);
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
+  const [isMachineSettingsOpen, setIsMachineSettingsOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
   const [showAllLines, setShowAllLines] = useState(false);
+
+  // Listen for external or in-app machine nominal rate changes
+  useEffect(() => {
+    const handleSettingsChanged = () => {
+      setMachineMaster((prev) => sanitizeMachineMaster(prev));
+    };
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
+      return () => window.removeEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
+    }
+  }, []);
 
   // Reset blank and batch SOP print state after browser print dialog closes
   useEffect(() => {
@@ -233,6 +247,34 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       setMachineMaster(sanitizeMachineMaster(newMaster));
     }
   }, [machineMaster]);
+
+  const handleMachineSettingsSaved = useCallback(() => {
+    const updatedMaster = sanitizeMachineMaster(machineMaster);
+    setMachineMaster(updatedMaster);
+    if (report && report.header?.lineId) {
+      const activeLineId = report.header.lineId;
+      const configuredNominal = getMachineNominalCapacity(activeLineId, updatedMaster);
+      if (configuredNominal > 0) {
+        setReport((prev) => {
+          const opHours = Number(prev.engineering?.operatingHours) || 24;
+          const actualRate = Number(prev.engineering?.actualRateKgH) || 0;
+          const capacityUtilizationPct = round1((actualRate / configuredNominal) * 100);
+          const updated = {
+            ...prev,
+            updatedAt: Date.now(),
+            engineering: {
+              ...prev.engineering,
+              nominalCapacityKgH: configuredNominal,
+              capacityUtilizationPct
+            }
+          };
+          savePersistedActiveReport(updated);
+          saveReportByDateAndMachine(updated);
+          return updated;
+        });
+      }
+    }
+  }, [machineMaster, report]);
 
   // Initialize with benchmark slots if empty
   useMemo(() => {
@@ -1512,6 +1554,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     save: handleSave,
     openBlankSopPrint: () => setIsPrintChoiceModalOpen(true),
     openAutoReconcile: () => setIsReconcileModalOpen(true),
+    openMachineSettings: () => setIsMachineSettingsOpen(true),
     exportSingleExcel: () => handleExportExcelSingle(),
     exportAllExcel: () => handleExportExcelAll(),
     exportSingleTemplateExcel: () => handleExportExcelSingle(),
@@ -1548,6 +1591,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
             Morning Blank SOP (Supervisor)
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setIsMachineSettingsOpen(true)}
+            title="Machine Master Settings: Configure and persist nominal machine rates (kg/h)"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginInlineEnd: 4 }}>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Machine Settings
           </button>
           <a
             href="./Master_Upload.xlsx"
@@ -2105,6 +2160,15 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         machineMaster={machineMaster}
         dataset={combinedDatasets}
         onApply={handleApplyReconciliation}
+      />
+
+      {/* Machine Master Settings Modal */}
+      <MachineSettingsModal
+        isOpen={isMachineSettingsOpen}
+        onClose={() => setIsMachineSettingsOpen(false)}
+        machineMaster={machineMaster}
+        onNotify={notify}
+        onSaved={handleMachineSettingsSaved}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

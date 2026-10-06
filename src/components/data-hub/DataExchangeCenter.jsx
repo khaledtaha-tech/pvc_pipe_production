@@ -63,6 +63,7 @@ export default function DataExchangeCenter({
   analytics = null,
   dailyEvalRef = null,
   onOpenBlankSopPrint,
+  onOpenMachineSettings,
   onExportMasterPlan,
   onExportUniqueCatalog,
   onExportCleanLog,
@@ -397,6 +398,14 @@ export default function DataExchangeCenter({
   const handleQuickPrintOperationalSummary = () => {
     notify('Opening operational print dialog...');
     window.print();
+  };
+
+  const handleOpenMachineSettings = () => {
+    if (onOpenMachineSettings) {
+      onOpenMachineSettings();
+    } else if (dailyEvalRef?.current?.openMachineSettings) {
+      dailyEvalRef.current.openMachineSettings();
+    }
   };
 
   // --- Data Exports & Backups ---
@@ -891,14 +900,29 @@ export default function DataExchangeCenter({
                     Generates single generic blank sheet or pre-populated machine runs for shift supervisors.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleTriggerBlankSopPrint}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-950/30 transition cursor-pointer shrink-0"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Open Print Dialog</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTriggerBlankSopPrint}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-950/30 transition cursor-pointer shrink-0"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Open Print Dialog</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenMachineSettings}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 border ${
+                      isLight
+                        ? 'bg-white hover:bg-stone-50 text-stone-700 border-stone-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                    title="Configure Machine Capacities (kg/h)"
+                  >
+                    <Sliders className="w-4 h-4 text-blue-400" />
+                    <span>Machine Settings</span>
+                  </button>
+                </div>
               </div>
 
               {/* Inline Options & Hints */}

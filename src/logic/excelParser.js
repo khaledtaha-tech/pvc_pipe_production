@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { MACHINES, matchMachine, normalizeLineId, sanitizeMachineMaster, PLANT_NAME } from '../config/machines.js';
-export { normalizeLineId, sanitizeMachineMaster };
+import { getMachineNominalCapacity } from './machineSettingsConfig.js';
+export { normalizeLineId, sanitizeMachineMaster, getMachineNominalCapacity };
 import {
   makeRefSpec,
   generateReport,
@@ -553,8 +554,9 @@ export function convertLogRowToReport(row, options = {}) {
   const specs2 = item2 ? parseProductSpecs(desc2, uw2) : makeRefSpec();
   if (item2) specs2.itemCode = item2.itemCode || item2['Item Code'] || '';
 
-  const matched = row.matchedMachine || matchMachine(row.machineId || row.machineRaw || row.Machine) || MACHINES[0];
-  const nominalCap = Number(row.nominalCapacityKgH || matched.capacityKgH || matched.nominalCapacity || 0);
+  const dynMaster = options.machineMaster || row.machineMaster || null;
+  const matched = row.matchedMachine || matchMachine(row.machineId || row.machineRaw || row.Machine, dynMaster) || MACHINES[0];
+  const nominalCap = getMachineNominalCapacity(matched.id, dynMaster) || Number(row.nominalCapacityKgH || matched.capacityKgH || matched.nominalCapacity || 0);
 
   // Flexible extraction of production quantities
   const targetOutput = Number(
@@ -863,7 +865,7 @@ export function convertLogRowToReport(row, options = {}) {
     downtimeEvents,
     slots,
     engineering: {
-      nominalCapacityKgH: row.nominalCapacityKgH || matched.capacityKgH || nominalCap,
+      nominalCapacityKgH: getMachineNominalCapacity(matched.id, dynMaster) || row.nominalCapacityKgH || matched.capacityKgH || nominalCap,
       actualRateKgH: row.actualRateKgH || actualRateKgH,
       capacityUtilizationPct: row.capacityUtilizationPct || capacityUtilizationPct,
       operatingHours: totalOpHours,

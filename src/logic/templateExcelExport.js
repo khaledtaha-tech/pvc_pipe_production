@@ -7,6 +7,7 @@ import {
   resolveProductSpecification,
   computeStandardHourlyPieces
 } from './legacySopHelper.js';
+import { getMachineNominalCapacity } from './machineSettingsConfig.js';
 import { getOperatingRecordsForDate, sanitizeFilenamePart } from './batchZipExport.js';
 import { convertLogRowToReport } from './excelParser.js';
 import { buildAll } from './engine.js';
@@ -172,22 +173,6 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
   const formattedDates = formatSopDates(targetDateStr);
   ws.getCell('I7').value = formattedDates.dots || '28.09.2026';
 
-  // 5. Standard Piece Rate (Cell E8) & Nominal Weight (Cell G8)
-  const hourlyRate1 = options.standardRate != null
-    ? Number(options.standardRate)
-    : (Number(ref1.targetRate) ||
-       Number(report?.refs?.['1']?.targetRate) ||
-       Number(report?.engineering?.hourlyTarget) ||
-       Number(ref1.hourlyTarget) ||
-       computeStandardHourlyPieces(report, ref1) ||
-       11);
-  const hourlyRate2 = options.standardRate != null
-    ? Number(options.standardRate)
-    : (Number(ref2.targetRate) ||
-       Number(report?.refs?.['2']?.targetRate) ||
-       Number(ref2.hourlyTarget) ||
-       ((ref2 && (ref2.speed || ref2.targetRate || ref2.pipeSpec)) ? computeStandardHourlyPieces(report, ref2) : hourlyRate1));
-
   const stdUnitWeight = options.stdWeight != null
     ? Number(options.stdWeight)
     : (options.unitWeight != null
@@ -198,6 +183,27 @@ export async function buildTemplateOeeWorkbook(report, derived, options = {}) {
     : (options.unitWeight != null
         ? Number(options.unitWeight)
         : (Number(ref2.stdWeight || ref2.unitWeight || report?.refs?.['2']?.stdWeight || report?.refs?.['2']?.unitWeight) || stdUnitWeight));
+
+  const lineNominalCapacity = options.nominalCapacity != null
+    ? Number(options.nominalCapacity)
+    : (getMachineNominalCapacity(report?.header?.lineId) || Number(report?.engineering?.nominalCapacityKgH) || 0);
+
+  // 5. Standard Piece Rate (Cell E8) & Nominal Weight (Cell G8)
+  const hourlyRate1 = options.standardRate != null
+    ? Number(options.standardRate)
+    : (Number(ref1.targetRate) ||
+       Number(report?.refs?.['1']?.targetRate) ||
+       Number(report?.engineering?.hourlyTarget) ||
+       Number(ref1.hourlyTarget) ||
+       computeStandardHourlyPieces(report, ref1) ||
+       (lineNominalCapacity > 0 && stdUnitWeight > 0 ? Math.round(lineNominalCapacity / stdUnitWeight) : null) ||
+       11);
+  const hourlyRate2 = options.standardRate != null
+    ? Number(options.standardRate)
+    : (Number(ref2.targetRate) ||
+       Number(report?.refs?.['2']?.targetRate) ||
+       Number(ref2.hourlyTarget) ||
+       ((ref2 && (ref2.speed || ref2.targetRate || ref2.pipeSpec)) ? computeStandardHourlyPieces(report, ref2) : hourlyRate1));
 
   ws.getCell('E8').value = Number(hourlyRate1) || 11;
   ws.getCell('G8').value = Number(stdUnitWeight) || 26;

@@ -13,7 +13,11 @@ export const HOUR_WINDOWS = (() => {
   return out;
 })();
 
-export const round1 = (n) => Math.round(n * 10) / 10;
+export const round1 = (val) => {
+  const num = Number(val);
+  if (num == null || isNaN(num) || !isFinite(num)) return 0;
+  return Math.round(num * 10) / 10;
+};
 
 export function makeRefSpec() {
   return {

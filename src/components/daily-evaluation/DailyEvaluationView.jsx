@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import html2pdf from 'html2pdf.js';
 import { MACHINES, matchMachine, machineLabel, sanitizeMachineMaster, PLANT_NAME, SOP_REF, DOC_VERSION } from '../../config/machines.js';
-import { makeRefSpec, generateReport, buildAll } from '../../logic/engine.js';
+import { makeRefSpec, generateReport, buildAll, round1 } from '../../logic/engine.js';
 import {
   newId,
   saveReport,
@@ -178,13 +178,41 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   // Listen for external or in-app machine nominal rate changes
   useEffect(() => {
     const handleSettingsChanged = () => {
-      setMachineMaster((prev) => sanitizeMachineMaster(prev));
+      setMachineMaster((prev) => {
+        const updatedMaster = sanitizeMachineMaster(prev);
+        if (report && report.header?.lineId) {
+          const activeLineId = report.header.lineId;
+          const configuredNominal = getMachineNominalCapacity(activeLineId, updatedMaster);
+          if (configuredNominal > 0) {
+            setReport((rPrev) => {
+              if (!rPrev) return rPrev;
+              const actualRate = Number(rPrev.engineering?.actualRateKgH) || 0;
+              const capacityUtilizationPct = (configuredNominal > 0 && actualRate > 0)
+                ? round1((actualRate / configuredNominal) * 100)
+                : 0;
+              const updated = {
+                ...rPrev,
+                updatedAt: Date.now(),
+                engineering: {
+                  ...rPrev.engineering,
+                  nominalCapacityKgH: configuredNominal,
+                  capacityUtilizationPct
+                }
+              };
+              savePersistedActiveReport(updated);
+              saveReportByDateAndMachine(updated);
+              return updated;
+            });
+          }
+        }
+        return updatedMaster;
+      });
     };
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
       return () => window.removeEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
     }
-  }, []);
+  }, [report]);
 
   // Reset blank and batch SOP print state after browser print dialog closes
   useEffect(() => {
@@ -256,9 +284,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       const configuredNominal = getMachineNominalCapacity(activeLineId, updatedMaster);
       if (configuredNominal > 0) {
         setReport((prev) => {
+          if (!prev) return prev;
           const opHours = Number(prev.engineering?.operatingHours) || 24;
           const actualRate = Number(prev.engineering?.actualRateKgH) || 0;
-          const capacityUtilizationPct = round1((actualRate / configuredNominal) * 100);
+          const capacityUtilizationPct = (configuredNominal > 0 && actualRate > 0)
+            ? round1((actualRate / configuredNominal) * 100)
+            : 0;
           const updated = {
             ...prev,
             updatedAt: Date.now(),
@@ -1518,9 +1549,9 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       const opHours = audit?.operatingHours != null ? Number(audit.operatingHours) : (Number(prev.engineering?.operatingHours) || 24);
       const unitWeight = Number(prev.refs?.['1']?.stdWeight) || 0;
       const totalWeightKg = Number(prev.engineering?.totalWeightKg) || Math.round(Number(totalActualPieces) * unitWeight);
-      const actualRateKgH = opHours > 0 && totalWeightKg > 0 ? Math.round((totalWeightKg / opHours) * 10) / 10 : 0;
+      const actualRateKgH = opHours > 0 && totalWeightKg > 0 ? round1(totalWeightKg / opHours) : 0;
       const nominalCap = Number(prev.engineering?.nominalCapacityKgH) || 0;
-      const capacityUtilizationPct = nominalCap > 0 ? Math.round((actualRateKgH / nominalCap) * 1000) / 10 : 0;
+      const capacityUtilizationPct = nominalCap > 0 ? round1((actualRateKgH / nominalCap) * 100) : 0;
 
       const updated = {
         ...prev,

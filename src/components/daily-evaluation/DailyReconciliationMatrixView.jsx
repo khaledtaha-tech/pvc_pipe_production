@@ -25,6 +25,7 @@ import {
 import {
   buildMatrixRowsForDate,
   calculateMatrixRowMetrics,
+  applyMatrixRowInput,
   autoBalanceRowHours,
   reconcileMatrixRow,
   exportMatrixToWorkbook,
@@ -112,17 +113,25 @@ export default function DailyReconciliationMatrixView({
     handleDateChangeInternal(dStr);
   };
 
-  // Update a single field in a row and dynamically recompute all row metrics
+  // Update a single field in a row and dynamically recompute all row metrics with reactive rebalancing
   const handleCellChange = (lineId, field, rawValue) => {
     setRows((prev) =>
       prev.map((r) => {
         if (r.lineId !== lineId) return r;
-        const val = rawValue === '' ? 0 : Number(rawValue);
-        const updated = {
-          ...r,
-          [field]: Number.isNaN(val) ? 0 : val
-        };
-        return calculateMatrixRowMetrics(updated);
+        return applyMatrixRowInput(r, field, rawValue);
+      })
+    );
+  };
+
+  // On blur, normalize empty string to 0
+  const handleCellBlur = (lineId, field) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.lineId !== lineId) return r;
+        if (r[field] === '' || r[field] == null) {
+          return applyMatrixRowInput(r, field, 0);
+        }
+        return r;
       })
     );
   };
@@ -255,25 +264,25 @@ export default function DailyReconciliationMatrixView({
 
   // Aggregate KPI metrics across the plant
   const plantSummary = useMemo(() => {
-    const totalExpectedKg = rows.reduce((s, r) => s + r.expectedKg, 0);
-    const totalExpectedPcs = rows.reduce((s, r) => s + r.expectedPcs, 0);
-    const totalActualKg = rows.reduce((s, r) => s + r.actualKg, 0);
-    const totalActualPcs = rows.reduce((s, r) => s + r.actualPcs, 0);
-    const totalLostHours = rows.reduce((s, r) => s + r.lostHours, 0);
+    const totalExpectedKg = rows.reduce((s, r) => s + (Number(r.expectedKg) || 0), 0);
+    const totalExpectedPcs = rows.reduce((s, r) => s + (Number(r.expectedPcs) || 0), 0);
+    const totalActualKg = rows.reduce((s, r) => s + (Number(r.actualKg) || 0), 0);
+    const totalActualPcs = rows.reduce((s, r) => s + (Number(r.actualPcs) || 0), 0);
+    const totalLostHours = rows.reduce((s, r) => s + (Number(r.lostHours) || 0), 0);
     const balancedCount = rows.filter((r) => r.balanceStatus === 'balanced').length;
     const operatingCount = rows.filter((r) => r.isOperating).length;
 
-    const opHoursSum = rows.reduce((s, r) => s + r.operatingHours, 0);
+    const opHoursSum = rows.reduce((s, r) => s + (Number(r.operatingHours) || 0), 0);
     const maxCapacityHours = rows.length * 24;
     const avgAvailability = maxCapacityHours > 0 ? (opHoursSum / maxCapacityHours) * 100 : 0;
 
     // Operating rows average OEE
     const operatingRows = rows.filter((r) => r.isOperating);
     const avgOee = operatingRows.length > 0
-      ? operatingRows.reduce((s, r) => s + r.oeePct, 0) / operatingRows.length
+      ? operatingRows.reduce((s, r) => s + (Number(r.oeePct) || 0), 0) / operatingRows.length
       : 0;
     const avgPerformance = operatingRows.length > 0
-      ? operatingRows.reduce((s, r) => s + r.performancePct, 0) / operatingRows.length
+      ? operatingRows.reduce((s, r) => s + (Number(r.performancePct) || 0), 0) / operatingRows.length
       : 0;
 
     return {
@@ -615,8 +624,9 @@ export default function DailyReconciliationMatrixView({
                         type="number"
                         step="0.01"
                         min="0"
-                        value={row.stdWeight || ''}
+                        value={row.stdWeight ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'stdWeight', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'stdWeight')}
                         className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
@@ -627,8 +637,9 @@ export default function DailyReconciliationMatrixView({
                         type="number"
                         step="1"
                         min="0"
-                        value={row.targetRate || ''}
+                        value={row.targetRate ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'targetRate', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'targetRate')}
                         className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-cyan-300 font-mono font-bold text-right"
                       />
                     </td>
@@ -669,6 +680,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.operatingHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'operatingHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'operatingHours')}
                         className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-emerald-800/80 focus:border-emerald-500 rounded text-emerald-300 font-mono font-bold text-right"
                       />
                     </td>
@@ -682,6 +694,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.moldChangeHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'moldChangeHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'moldChangeHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
@@ -695,6 +708,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.purgeCleaningHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'purgeCleaningHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'purgeCleaningHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
@@ -708,6 +722,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.heaterFailureHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'heaterFailureHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'heaterFailureHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
@@ -721,6 +736,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.mechanicalHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'mechanicalHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'mechanicalHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
@@ -734,6 +750,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.materialNoOrderHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'materialNoOrderHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'materialNoOrderHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
@@ -747,6 +764,7 @@ export default function DailyReconciliationMatrixView({
                         max="24"
                         value={row.otherHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'otherHours', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'otherHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>

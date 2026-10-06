@@ -40,6 +40,72 @@ export function categorizeDowntimeReason(reasonText = '') {
   return 'otherHours';
 }
 
+export const DOWNTIME_FIELD_KEYS = [
+  'moldChangeHours',
+  'purgeCleaningHours',
+  'heaterFailureHours',
+  'mechanicalHours',
+  'materialNoOrderHours',
+  'otherHours'
+];
+
+export function isDowntimeField(field) {
+  return DOWNTIME_FIELD_KEYS.includes(field);
+}
+
+/**
+ * Safely parse and round positive numeric value
+ */
+export function cleanPositiveNumber(val, decimals = 1) {
+  if (val === '' || val == null) return 0;
+  const num = Number(val);
+  if (Number.isNaN(num) || !Number.isFinite(num)) return 0;
+  const factor = Math.pow(10, decimals);
+  return Math.max(0, Math.round(num * factor) / factor);
+}
+
+/**
+ * Apply input change to a matrix row with dynamic 24-hour auto-rebalancing
+ */
+export function applyMatrixRowInput(row, field, rawValue) {
+  const isCleared = rawValue === '' || rawValue == null;
+  const cleanVal = isCleared ? 0 : cleanPositiveNumber(rawValue, field === 'stdWeight' ? 2 : 1);
+
+  const updated = {
+    ...row,
+    [field]: isCleared ? '' : cleanVal
+  };
+
+  // 1. Dynamic 24-Hour Auto-Rebalance Logic on Downtime Input:
+  // When user modifies any of the 6 downtime categories:
+  if (isDowntimeField(field)) {
+    const moldChange = field === 'moldChangeHours' ? cleanVal : cleanPositiveNumber(row.moldChangeHours);
+    const purgeClean = field === 'purgeCleaningHours' ? cleanVal : cleanPositiveNumber(row.purgeCleaningHours);
+    const heaterFail = field === 'heaterFailureHours' ? cleanVal : cleanPositiveNumber(row.heaterFailureHours);
+    const mechJam = field === 'mechanicalHours' ? cleanVal : cleanPositiveNumber(row.mechanicalHours);
+    const matShort = field === 'materialNoOrderHours' ? cleanVal : cleanPositiveNumber(row.materialNoOrderHours);
+    const otherStop = field === 'otherHours' ? cleanVal : cleanPositiveNumber(row.otherHours);
+
+    const totalDowntime = round1(moldChange + purgeClean + heaterFail + mechJam + matShort + otherStop);
+    // Automatically adjust Operating Hours = Math.max(0, 24 - totalDowntime)
+    updated.operatingHours = Math.max(0, round1(24.0 - totalDowntime));
+  } else if (field === 'operatingHours') {
+    // If the user explicitly edits Operating Hours directly:
+    updated.operatingHours = isCleared ? '' : cleanVal;
+  }
+
+  // 2. Keep Actual Kg in sync when Actual Pieces or Std Weight change
+  if (field === 'actualPcs') {
+    const stdWeight = cleanPositiveNumber(row.stdWeight, 2);
+    updated.actualKg = round1(cleanVal * stdWeight);
+  } else if (field === 'stdWeight') {
+    const actualPcs = cleanPositiveNumber(row.actualPcs, 0);
+    updated.actualKg = round1(actualPcs * cleanVal);
+  }
+
+  return calculateMatrixRowMetrics(updated);
+}
+
 /**
  * Calculate mathematical metrics for a single matrix row
  */
@@ -120,13 +186,13 @@ export function calculateMatrixRowMetrics(row) {
     deficitPcs,
     deficitKg,
     lostHours,
-    operatingHours,
-    moldChangeHours,
-    purgeCleaningHours,
-    heaterFailureHours,
-    mechanicalHours,
-    materialNoOrderHours,
-    otherHours,
+    operatingHours: row.operatingHours === '' ? '' : operatingHours,
+    moldChangeHours: row.moldChangeHours === '' ? '' : moldChangeHours,
+    purgeCleaningHours: row.purgeCleaningHours === '' ? '' : purgeCleaningHours,
+    heaterFailureHours: row.heaterFailureHours === '' ? '' : heaterFailureHours,
+    mechanicalHours: row.mechanicalHours === '' ? '' : mechanicalHours,
+    materialNoOrderHours: row.materialNoOrderHours === '' ? '' : materialNoOrderHours,
+    otherHours: row.otherHours === '' ? '' : otherHours,
     totalDowntimeHours,
     totalAccountedHours,
     varianceHours,
@@ -310,6 +376,19 @@ export function buildMatrixRowsForDate({
           }
         });
       }
+
+      // Ensure total accounted hours does not exceed 24.0 on initial load if downtime exists
+      const totalDt = round1(
+        moldChangeHours +
+        purgeCleaningHours +
+        heaterFailureHours +
+        mechanicalHours +
+        materialNoOrderHours +
+        otherHours
+      );
+      if (totalDt > 0 && operatingHours + totalDt > 24.05) {
+        operatingHours = Math.max(0, round1(24.0 - totalDt));
+      }
     } else if (record) {
       // Ingested record without prior saved report
       if (record.operatingHours != null && Number(record.operatingHours) >= 0) {
@@ -329,6 +408,18 @@ export function buildMatrixRowsForDate({
         } else {
           otherHours = remainingDowntime;
         }
+      }
+
+      const totalDt = round1(
+        moldChangeHours +
+        purgeCleaningHours +
+        heaterFailureHours +
+        mechanicalHours +
+        materialNoOrderHours +
+        otherHours
+      );
+      if (totalDt > 0 && operatingHours + totalDt > 24.05) {
+        operatingHours = Math.max(0, round1(24.0 - totalDt));
       }
     } else {
       // Idle line on this date (Full 24h No Order)

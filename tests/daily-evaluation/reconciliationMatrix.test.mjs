@@ -5,7 +5,10 @@ import {
   buildMatrixRowsForDate,
   reconcileMatrixRow,
   exportMatrixToWorkbook,
-  categorizeDowntimeReason
+  categorizeDowntimeReason,
+  applyMatrixRowInput,
+  cleanPositiveNumber,
+  isDowntimeField
 } from '../../src/logic/reconciliationMatrixHelper.js';
 import { MACHINES } from '../../src/config/machines.js';
 
@@ -286,4 +289,148 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 8 Passed: Matrix Excel workbook generated successfully');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (8/8) ---');
+// Test 9: Live Reactive 24h Auto-Rebalance on Downtime Input (4h Purge & Cleaning scenario)
+{
+  const initialRow = {
+    lineId: 'L-01',
+    lineName: 'Battenfeld-01',
+    nominalCapacity: 200,
+    targetRate: 50,
+    stdWeight: 3.5,
+    actualPcs: 1000,
+    actualKg: 3500,
+    operatingHours: 24.0,
+    moldChangeHours: 0.0,
+    purgeCleaningHours: 0.0,
+    heaterFailureHours: 0.0,
+    mechanicalHours: 0.0,
+    materialNoOrderHours: 0.0,
+    otherHours: 0.0
+  };
+
+  // User enters 4h in Purge & Cleaning
+  const step1 = applyMatrixRowInput(initialRow, 'purgeCleaningHours', 4);
+  assert.strictEqual(step1.purgeCleaningHours, 4.0);
+  assert.strictEqual(step1.operatingHours, 20.0, 'Operating hours must automatically balance down to 20.0h');
+  assert.strictEqual(step1.totalDowntimeHours, 4.0);
+  assert.strictEqual(step1.totalAccountedHours, 24.0, 'Total accounted hours must remain pinned to 24.0h');
+  assert.strictEqual(step1.balanceStatus, 'balanced');
+  assert.strictEqual(step1.balanceLabel, '24.0h Balanced');
+  assert.strictEqual(step1.availabilityPct, 83.3, 'Availability must rebalance to 83.3% (20h / 24h)');
+  assert.strictEqual(step1.performancePct, 100.0, 'Performance must be 100.0% (1000 / (20 * 50))');
+  assert.strictEqual(step1.oeePct, 83.3, 'OEE must rebalance to 83.3%');
+
+  // User adds another 2h in Mold Change
+  const step2 = applyMatrixRowInput(step1, 'moldChangeHours', 2);
+  assert.strictEqual(step2.moldChangeHours, 2.0);
+  assert.strictEqual(step2.purgeCleaningHours, 4.0);
+  assert.strictEqual(step2.operatingHours, 18.0, 'Operating hours must automatically balance down to 18.0h');
+  assert.strictEqual(step2.totalDowntimeHours, 6.0);
+  assert.strictEqual(step2.totalAccountedHours, 24.0);
+  assert.strictEqual(step2.balanceStatus, 'balanced');
+  assert.strictEqual(step2.availabilityPct, 75.0, 'Availability must rebalance to 75.0% (18h / 24h)');
+  assert.strictEqual(step2.performancePct, 100.0, 'Performance must be capped at 100.0%');
+  assert.strictEqual(step2.oeePct, 75.0);
+
+  // User clears Mold Change input (backspaces to '')
+  const step3 = applyMatrixRowInput(step2, 'moldChangeHours', '');
+  assert.strictEqual(step3.moldChangeHours, '', 'Empty string must be preserved while typing');
+  assert.strictEqual(step3.operatingHours, 20.0, 'Operating hours must balance back up to 20.0h');
+  assert.strictEqual(step3.totalDowntimeHours, 4.0);
+  assert.strictEqual(step3.totalAccountedHours, 24.0);
+  assert.strictEqual(step3.availabilityPct, 83.3);
+
+  console.log('Test 9 Passed: Dynamic 24h auto-rebalance on downtime input verified');
+}
+
+// Test 10: Manual Operating Hours Decoupling & Sparkle Auto-Balance Recovery
+{
+  const balancedRow = {
+    lineId: 'L-01',
+    targetRate: 50,
+    actualPcs: 1000,
+    operatingHours: 20.0,
+    purgeCleaningHours: 4.0
+  };
+
+  // User directly edits Operating Hours to 16.0h (decoupling from 24h balance)
+  const decoupledRow = applyMatrixRowInput(balancedRow, 'operatingHours', 16.0);
+  assert.strictEqual(decoupledRow.operatingHours, 16.0, 'Direct manual edit must be respected');
+  assert.strictEqual(decoupledRow.purgeCleaningHours, 4.0);
+  assert.strictEqual(decoupledRow.totalAccountedHours, 20.0);
+  assert.strictEqual(decoupledRow.varianceHours, 4.0);
+  assert.strictEqual(decoupledRow.balanceStatus, 'under');
+  assert.strictEqual(decoupledRow.balanceLabel, '4h Remaining');
+  assert.strictEqual(decoupledRow.availabilityPct, 66.7, 'Availability must recalculate: 16h / 24h = 66.7%');
+
+  // User clicks sparkle Auto-Balance button
+  const restored = autoBalanceRowHours(decoupledRow, 'adjust_op');
+  assert.strictEqual(restored.operatingHours, 20.0, 'Auto-balance must re-align Operating Hours to 24 - 4 = 20h');
+  assert.strictEqual(restored.totalAccountedHours, 24.0);
+  assert.strictEqual(restored.balanceStatus, 'balanced');
+  assert.strictEqual(restored.availabilityPct, 83.3);
+
+  console.log('Test 10 Passed: Manual operating hours decoupling & sparkle recovery verified');
+}
+
+// Test 11: Reactive Std Weight, Actual Pcs, and Rate Recalculations
+{
+  const base = {
+    targetRate: 40,
+    stdWeight: 3.0,
+    actualPcs: 800,
+    actualKg: 2400,
+    operatingHours: 20.0
+  };
+
+  // Change Std Weight to 4.5
+  const withNewWeight = applyMatrixRowInput(base, 'stdWeight', 4.5);
+  assert.strictEqual(withNewWeight.stdWeight, 4.5);
+  assert.strictEqual(withNewWeight.actualKg, 3600.0, 'Actual Kg must update: 800 * 4.5 = 3600');
+  assert.strictEqual(withNewWeight.expectedKg, 4320.0, 'Expected Kg must update: (24 * 40) * 4.5 = 4320');
+
+  // Change Actual Pcs to 1000
+  const withNewPcs = applyMatrixRowInput(withNewWeight, 'actualPcs', 1000);
+  assert.strictEqual(withNewPcs.actualPcs, 1000);
+  assert.strictEqual(withNewPcs.actualKg, 4500.0, 'Actual Kg must update: 1000 * 4.5 = 4500');
+
+  // Negative / NaN input sanitization
+  const cleanNeg = cleanPositiveNumber(-10);
+  assert.strictEqual(cleanNeg, 0);
+  const cleanNaN = cleanPositiveNumber('not-a-number');
+  assert.strictEqual(cleanNaN, 0);
+  const cleanNull = cleanPositiveNumber(null);
+  assert.strictEqual(cleanNull, 0);
+
+  console.log('Test 11 Passed: Reactive weight, pieces, rate calculations & sanitizers verified');
+}
+
+// Test 12: Initial Load Auto-Balance Normalization for Legacy / Overscheduled Reports
+{
+  const overscheduledReport = {
+    header: { date: '2026-03-20', itemCode: 'PIPE-110' },
+    engineering: { operatingHours: 24.0, totalWeightKg: 1000 },
+    slots: Array(24).fill({ actual: 50, downtime: 0, reason: '' }),
+    downtimeEvents: [
+      { reason: 'Color / Material Purge & Cleaning', durationMin: 240 } // 4 hours
+    ]
+  };
+
+  const rows = buildMatrixRowsForDate({
+    date: '2026-03-20',
+    machineMaster: [{ id: 'L-01', name: 'Line 01', nominalCapacity: 200 }],
+    combinedDatasets: [],
+    loadReportByDateAndMachineFn: () => overscheduledReport
+  });
+
+  assert.strictEqual(rows.length, 1);
+  const l01 = rows[0];
+  assert.strictEqual(l01.purgeCleaningHours, 4.0);
+  assert.strictEqual(l01.operatingHours, 20.0, 'Legacy report with 24h op + 4h downtime must be normalized to 20.0h');
+  assert.strictEqual(l01.totalAccountedHours, 24.0);
+  assert.strictEqual(l01.balanceStatus, 'balanced');
+
+  console.log('Test 12 Passed: Initial load normalization for overscheduled reports verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (12/12) ---');

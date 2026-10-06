@@ -72,6 +72,14 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   // OEE = 83.3 * 1.0 = 83.3%
   assert.strictEqual(metrics.oeePct, 83.3);
 
+  // Realized Pace / Operating Rate & Speed Efficiency
+  // actualRatePcsH = 1000 pcs / 20h = 50.0 pcs/h
+  assert.strictEqual(metrics.actualRatePcsH, 50.0);
+  // actualRateKgH = 3500 kg / 20h = 175.0 kg/h
+  assert.strictEqual(metrics.actualRateKgH, 175.0);
+  // speedEfficiencyPct = (175 kg/h / 200 kg/h nominal) * 100 = 87.5%
+  assert.strictEqual(metrics.speedEfficiencyPct, 87.5);
+
   console.log('Test 2 Passed: Row metrics and 24h balanced telemetry verified');
 }
 
@@ -433,4 +441,59 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 12 Passed: Initial load normalization for overscheduled reports verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (12/12) ---');
+// Test 13: Dedicated Actual Operating Rate (Pcs/h & kg/h) and Speed Efficiency (%) tests
+{
+  // 1. Throttled/slow run: 600 pcs in 20 operating hours, stdWeight 3.0 kg/pc, nominalCapacity 200 kg/h
+  const throttledRow = calculateMatrixRowMetrics({
+    operatingHours: 20.0,
+    actualPcs: 600,
+    stdWeight: 3.0,
+    nominalCapacity: 200
+  });
+  // actualRatePcsH = 600 / 20 = 30.0 pcs/h
+  assert.strictEqual(throttledRow.actualRatePcsH, 30.0);
+  // actualRateKgH = (600 * 3.0) / 20 = 1800 / 20 = 90.0 kg/h
+  assert.strictEqual(throttledRow.actualRateKgH, 90.0);
+  // speedEfficiencyPct = (90 / 200) * 100 = 45.0%
+  assert.strictEqual(throttledRow.speedEfficiencyPct, 45.0);
+
+  // 2. High-speed run: 1000 pcs in 10 operating hours, stdWeight 2.0 kg/pc, nominalCapacity 180 kg/h
+  const highSpeedRow = calculateMatrixRowMetrics({
+    operatingHours: 10.0,
+    actualPcs: 1000,
+    stdWeight: 2.0,
+    nominalCapacity: 180
+  });
+  // actualRatePcsH = 1000 / 10 = 100.0 pcs/h
+  assert.strictEqual(highSpeedRow.actualRatePcsH, 100.0);
+  // actualRateKgH = 2000 / 10 = 200.0 kg/h
+  assert.strictEqual(highSpeedRow.actualRateKgH, 200.0);
+  // speedEfficiencyPct = (200 / 180) * 100 = 111.1%
+  assert.strictEqual(highSpeedRow.speedEfficiencyPct, 111.1);
+
+  // 3. Zero operating hours / idle line: must safely return 0 without NaN or throwing
+  const idleRow = calculateMatrixRowMetrics({
+    operatingHours: 0.0,
+    actualPcs: 0,
+    stdWeight: 3.0,
+    nominalCapacity: 200
+  });
+  assert.strictEqual(idleRow.actualRatePcsH, 0);
+  assert.strictEqual(idleRow.actualRateKgH, 0);
+  assert.strictEqual(idleRow.speedEfficiencyPct, 0);
+
+  // 4. Excel workbook contains Actual Rate columns directly after Operating Hours
+  const sampleWb = exportMatrixToWorkbook([throttledRow], '2026-03-25');
+  const sheet = sampleWb.Sheets['Reconciliation_2026-03-25'];
+  assert.strictEqual(sheet['O1'].v, 'Operating Hours (h)');
+  assert.strictEqual(sheet['P1'].v, 'Actual Rate (Pcs/h)');
+  assert.strictEqual(sheet['Q1'].v, 'Actual Rate (kg/h)');
+  assert.strictEqual(sheet['R1'].v, 'Speed Efficiency (%)');
+  assert.strictEqual(sheet['P2'].v, 30.0);
+  assert.strictEqual(sheet['Q2'].v, 90.0);
+  assert.strictEqual(sheet['R2'].v, 45.0);
+
+  console.log('Test 13 Passed: Actual operating rates and speed efficiency verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (13/13) ---');

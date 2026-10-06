@@ -174,6 +174,19 @@ export function calculateMatrixRowMetrics(row) {
     : (operatingHours === 0 && actualPcs === 0 ? 0 : 0);
   const oeePct = round1((availabilityPct / 100) * (performancePct / 100) * 100);
 
+  // Realized Pace / Actual Operating Rate
+  const actualRatePcsH = (operatingHours > 0 && actualPcs > 0)
+    ? round1(actualPcs / operatingHours)
+    : 0;
+
+  const actualRateKgH = (operatingHours > 0 && actualKg > 0)
+    ? round1(actualKg / operatingHours)
+    : round1(actualRatePcsH * stdWeight);
+
+  const speedEfficiencyPct = nominalCap > 0
+    ? round1((actualRateKgH / nominalCap) * 100)
+    : (targetRate > 0 ? round1((actualRatePcsH / targetRate) * 100) : 0);
+
   return {
     ...row,
     targetRate,
@@ -186,6 +199,9 @@ export function calculateMatrixRowMetrics(row) {
     deficitPcs,
     deficitKg,
     lostHours,
+    actualRatePcsH,
+    actualRateKgH,
+    speedEfficiencyPct,
     operatingHours: row.operatingHours === '' ? '' : operatingHours,
     moldChangeHours: row.moldChangeHours === '' ? '' : moldChangeHours,
     purgeCleaningHours: row.purgeCleaningHours === '' ? '' : purgeCleaningHours,
@@ -609,6 +625,9 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
     'Deficit Output (Kg)',
     'Lost Hours (h)',
     'Operating Hours (h)',
+    'Actual Rate (Pcs/h)',
+    'Actual Rate (kg/h)',
+    'Speed Efficiency (%)',
     'Die/Mold Change (h)',
     'Purge & Cleaning (h)',
     'Heater Failures (h)',
@@ -638,6 +657,9 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
     r.deficitKg,
     r.lostHours,
     r.operatingHours,
+    r.actualRatePcsH,
+    r.actualRateKgH,
+    r.speedEfficiencyPct,
     r.moldChangeHours,
     r.purgeCleaningHours,
     r.heaterFailureHours,
@@ -670,6 +692,9 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
     { wch: 16 }, // Deficit Kg
     { wch: 14 }, // Lost Hours
     { wch: 16 }, // Operating Hours
+    { wch: 18 }, // Actual Rate Pcs/h
+    { wch: 18 }, // Actual Rate kg/h
+    { wch: 18 }, // Speed Efficiency %
     { wch: 16 }, // Die/Mold
     { wch: 16 }, // Purge
     { wch: 16 }, // Heater

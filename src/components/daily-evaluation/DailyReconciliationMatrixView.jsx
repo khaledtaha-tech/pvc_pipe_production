@@ -499,7 +499,7 @@ export default function DailyReconciliationMatrixView({
       {/* Wide Horizontal Scrollable Table */}
       <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[1750px]">
+          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[1850px]">
             {/* Top Multi-Header Row */}
             <thead>
               <tr className="bg-slate-950/90 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
@@ -512,8 +512,8 @@ export default function DailyReconciliationMatrixView({
                 <th colSpan={4} className="px-3 py-2 border-r border-slate-800 text-emerald-300 bg-emerald-950/20">
                   Production Balance (Theoretical vs Actual)
                 </th>
-                <th colSpan={7} className="px-3 py-2 border-r border-slate-800 text-amber-300 bg-amber-950/20">
-                  24-Hour Time Allocation (Inline Editable Hours)
+                <th colSpan={8} className="px-3 py-2 border-r border-slate-800 text-amber-300 bg-amber-950/20">
+                  24-Hour Time Allocation &amp; Realized Pace
                 </th>
                 <th colSpan={4} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
                   Audit &amp; Telemetry
@@ -555,8 +555,11 @@ export default function DailyReconciliationMatrixView({
                   Lost Time (h)
                 </th>
 
-                {/* 24-Hour Time Allocation (Editable inputs) */}
+                {/* 24-Hour Time Allocation (Editable inputs & Realized Pace) */}
                 <th className="px-2.5 py-2.5 text-emerald-400 font-bold bg-emerald-950/10">Operating (h)</th>
+                <th className="px-2.5 py-2.5 text-center text-cyan-400 font-bold bg-cyan-950/20" title="Actual realized pace during reported operating hours: Pcs/h, kg/h &amp; Speed Efficiency %">
+                  Actual Realized Rate
+                </th>
                 <th className="px-2.5 py-2.5">Die/Mold (h)</th>
                 <th className="px-2.5 py-2.5">Purge/Clean (h)</th>
                 <th className="px-2.5 py-2.5">Heater Fail (h)</th>
@@ -579,7 +582,7 @@ export default function DailyReconciliationMatrixView({
             <tbody className="divide-y divide-slate-800/60">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={23} className="text-center py-8 text-slate-400">
+                  <td colSpan={24} className="text-center py-8 text-slate-400">
                     No machine lines match the active filter for {selectedDate}.
                   </td>
                 </tr>
@@ -683,6 +686,39 @@ export default function DailyReconciliationMatrixView({
                         onBlur={() => handleCellBlur(row.lineId, 'operatingHours')}
                         className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-emerald-800/80 focus:border-emerald-500 rounded text-emerald-300 font-mono font-bold text-right"
                       />
+                    </td>
+
+                    {/* 11.5 Actual Realized Rate (Pcs/h, kg/h & Speed Efficiency %) */}
+                    <td className="px-2.5 py-1.5 font-mono text-center bg-cyan-950/10">
+                      {row.operatingHours > 0 && row.actualPcs > 0 ? (
+                        <div>
+                          <div className="font-bold text-cyan-300 text-xs leading-tight">
+                            {row.actualRatePcsH.toLocaleString()} <span className="text-[10px] text-cyan-500 font-normal">pcs/h</span>
+                          </div>
+                          <div className="text-[10px] text-slate-300 leading-tight mt-0.5">
+                            {row.actualRateKgH.toLocaleString()} <span className="text-slate-500">kg/h</span>
+                          </div>
+                          <div className="mt-0.5">
+                            <span
+                              className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                                row.speedEfficiencyPct >= 90
+                                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                                  : row.speedEfficiencyPct >= 75
+                                  ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                                  : 'bg-rose-950/80 text-rose-300 border-rose-800'
+                              }`}
+                              title={`Speed Efficiency: ${row.speedEfficiencyPct}% against Nominal Capacity (${row.nominalCapacity} kg/h)`}
+                            >
+                              {row.speedEfficiencyPct.toFixed(1)}% Eff
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-600 text-center text-[10px] py-0.5">
+                          <div>0.0 <span className="text-[9px] text-slate-700">pcs/h</span></div>
+                          <div>0.0 <span className="text-[9px] text-slate-700">kg/h</span></div>
+                        </div>
+                      )}
                     </td>
 
                     {/* 12. Die / Mold Changeover Input */}

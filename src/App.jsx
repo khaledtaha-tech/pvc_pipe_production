@@ -356,6 +356,14 @@ function AppContent() {
             dailyEvalRef.current.openMachineSettings();
           }
         }}
+        onOpenReconciliationMatrix={() => {
+          if (currentModule !== 'daily-evaluation') {
+            setCurrentModule('daily-evaluation');
+          }
+          if (dailyEvalRef.current?.openMatrix) {
+            dailyEvalRef.current.openMatrix();
+          }
+        }}
       />
 
       {/* Main Container: Expanded to utilize lateral widescreen space */}

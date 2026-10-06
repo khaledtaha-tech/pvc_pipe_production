@@ -440,7 +440,7 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
   const machineRaw = String(raw.Machine ?? raw.machine ?? raw.machineRaw ?? raw.machineName ?? raw.machineId ?? '').trim();
 
   const qty = Number(raw['Production Qty (FG)'] ?? raw.productionQty ?? raw.qty ?? raw.production_qty ?? raw['Production Qty'] ?? raw.ProductionQty ?? 0) || 0;
-  const unitWeight = Number(raw['Unit Weight (kg)'] ?? raw.unitWeight ?? raw.unit_weight ?? raw['Unit Weight'] ?? raw.UnitWeight ?? 0) || 0;
+  const unitWeight = Number(raw['Unit Weight (kg)'] ?? raw.unitWeight ?? raw.unit_weight ?? raw['Unit Weight'] ?? raw.UnitWeight ?? raw.weightPerPiece ?? raw.weightPerPc ?? raw.weightPerPipe ?? 0) || 0;
   const totalWeight = Number(raw['Total Weight (kg)'] ?? raw.totalWeight ?? raw.total_weight ?? raw['Total Weight'] ?? (qty * unitWeight)) || 0;
   const scrapKg = Number(raw['Scrap / Rejection (kg)'] ?? raw.scrapKg ?? raw.scrap_rejection ?? raw['Scrap (kg)'] ?? raw['Scrap'] ?? 0) || 0;
   const rawOpH = raw['Operating Hours'] ?? raw.operatingHours ?? raw.operating_hours ?? raw['OperatingHours'];
@@ -474,6 +474,11 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
     reasonOfStop,
     actualRateKgH,
     capacityUtilizationPct,
+    cutLength: Number(raw['Cut Length (m)'] ?? raw.cutLength ?? raw.pipeLength ?? 6) || 6,
+    speed: Number(raw['Line Speed (m/min)'] ?? raw.speed ?? 0) || 0,
+    standardRate: Number(raw['Standard Rate (Pcs/h)'] ?? raw.standardRate ?? raw.targetRate ?? 0) || 0,
+    weightPerMeter: Number(raw['Weight/m (kg)'] ?? raw.weightPerMeter ?? 0) || 0,
+    weightPerPiece: round1(unitWeight),
     raw
   };
 }

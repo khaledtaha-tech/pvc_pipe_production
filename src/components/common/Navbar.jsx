@@ -50,7 +50,8 @@ export default function Navbar({
   onOpenPlanning,
   onOpenVerification,
   onOpenBlankSopPrint,
-  onOpenMachineSettings
+  onOpenMachineSettings,
+  onOpenReconciliationMatrix
 }) {
   const isAr = lang === 'ar';
 
@@ -378,6 +379,46 @@ export default function Navbar({
                 <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
                 <span>{isAr ? 'إضافة سطر' : 'Add Row'}</span>
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Lower Tier: Daily Evaluation Center Banner & Navigation */}
+        {currentModule === 'daily-evaluation' && (
+          <div className="flex items-center justify-between py-2 text-xs overflow-x-auto">
+            <div className="flex items-center gap-2">
+              <span className="text-blue-400 font-bold flex items-center gap-1.5">
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>Daily OEE Evaluation</span>
+              </span>
+              <span className="text-slate-400 text-[11px] hidden sm:inline">
+                | 24h Extrusion Monitoring, Shift Run Reconciliation &amp; OEE Auditing
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {onOpenReconciliationMatrix && (
+                <button
+                  type="button"
+                  onClick={onOpenReconciliationMatrix}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold cursor-pointer text-xs transition shadow-sm"
+                  title="Open Master Daily Production &amp; Lost Hours Reconciliation Matrix (All Lines Overview)"
+                >
+                  <Table className="w-3.5 h-3.5" />
+                  <span>Reconciliation Matrix (All Lines)</span>
+                </button>
+              )}
+
+              {onOpenBlankSopPrint && (
+                <button
+                  type="button"
+                  onClick={onOpenBlankSopPrint}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md font-semibold cursor-pointer text-xs transition"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Morning SOP (DOC-Ext.-03)</span>
+                </button>
+              )}
             </div>
           </div>
         )}

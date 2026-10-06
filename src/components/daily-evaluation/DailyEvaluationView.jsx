@@ -46,6 +46,7 @@ import PrintSopModal from './PrintSopModal.jsx';
 import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
 import AutoReconcileModal from './AutoReconcileModal.jsx';
 import MachineSettingsModal from './MachineSettingsModal.jsx';
+import DailyReconciliationMatrixView from './DailyReconciliationMatrixView.jsx';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
 import JSZip from 'jszip';
@@ -1586,6 +1587,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     openBlankSopPrint: () => setIsPrintChoiceModalOpen(true),
     openAutoReconcile: () => setIsReconcileModalOpen(true),
     openMachineSettings: () => setIsMachineSettingsOpen(true),
+    openMatrix: () => setTab('matrix'),
+    setTab: (t) => setTab(t),
     exportSingleExcel: () => handleExportExcelSingle(),
     exportAllExcel: () => handleExportExcelAll(),
     exportSingleTemplateExcel: () => handleExportExcelSingle(),
@@ -1669,6 +1672,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         </button>
         <button
           type="button"
+          className={'tab' + (tab === 'matrix' ? ' active' : '')}
+          onClick={() => setTab('matrix')}
+        >
+          Daily Reconciliation Matrix
+        </button>
+        <button
+          type="button"
           className={'tab' + (tab === 'sheet' ? ' active' : '')}
           onClick={() => setTab('sheet')}
           disabled={!derived}
@@ -1702,6 +1712,38 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           isMonochrome={isLaserMonochrome}
           onToggleMonochrome={setIsLaserMonochrome}
           onExportSop={handleExportSop}
+        />
+      </main>
+
+      {/* Reconciliation Matrix View */}
+      <main
+        className="app-main matrix-main no-print"
+        style={{ display: tab === 'matrix' ? undefined : 'none' }}
+      >
+        <DailyReconciliationMatrixView
+          records={records}
+          combinedDatasets={combinedDatasets}
+          machineMaster={machineMaster}
+          selectedDate={selectedDate}
+          availableDates={selectableDates}
+          onDateChange={(newDate) => {
+            handleToolbarDateChange(newDate);
+          }}
+          onSelectMachineAndOpenSheet={(lineId, date) => {
+            loadAndBindReportForLineAndDate(date || selectedDate, lineId);
+            setTab('sheet');
+          }}
+          onReportSaved={(updatedRep) => {
+            if (
+              report &&
+              report.header?.lineId === updatedRep.header?.lineId &&
+              report.header?.date === updatedRep.header?.date
+            ) {
+              setReport(updatedRep);
+              savePersistedActiveReport(updatedRep);
+            }
+          }}
+          onNotify={notify}
         />
       </main>
 
@@ -1866,6 +1908,18 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <path d="M12 20v-6M6 20V10M18 20V4" />
                   </svg>
                   Auto-Reconcile Shift Run
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setTab('matrix')}
+                  title="Open Master Daily Production & Lost Hours Reconciliation Matrix for all lines"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+                  </svg>
+                  Reconciliation Matrix
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={handleSave}>
                   Save to History

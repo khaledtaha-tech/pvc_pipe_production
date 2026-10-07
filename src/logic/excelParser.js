@@ -338,9 +338,12 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     itemCode: itemCodeCol,
     desc: headers.findIndex((h) => /desc|product|spec/i.test(h)),
     machine: headers.findIndex((h) => /machine|line|extruder/i.test(h)),
-    qty: headers.findIndex((h) => /prod.*qty|quantity|^qty|fg/i.test(h)),
-    unitWeight: headers.findIndex((h) => /unit\s*w/i.test(h)),
-    totalWeight: headers.findIndex((h) => /total\s*w/i.test(h)),
+    fgQty: headers.findIndex((h) => /production\s*qty\s*\(?fg\)?|finished\s*goods|^fg\b|total\s*production\s*\(?pcs\)?/i.test(h)),
+    altQty: headers.findIndex((h) => /prod.*qty|quantity|^qty\b|total\s*qty/i.test(h)),
+    shiftA: headers.findIndex((h) => /shift\s*a/i.test(h)),
+    shiftB: headers.findIndex((h) => /shift\s*b/i.test(h)),
+    unitWeight: headers.findIndex((h) => /unit\s*w(?:eight)?|weight\s*\/?\s*pc|wt\s*\/?\s*pc|kg\s*\/?\s*(?:pc|pipe)|unit.*wt/i.test(h) && !/total/i.test(h)),
+    totalWeight: headers.findIndex((h) => (/total\s*w(?:eight)?|total\s*kg|^weight\s*\(?kg\)?/i.test(h) || (/\bweight\b/i.test(h) && !/unit/i.test(h))) && !/unit/i.test(h)),
     scrapKg: headers.findIndex((h) => /scrap|reject/i.test(h)),
     opHours: headers.findIndex((h) => /operat.*hour|run.*hour|^hours/i.test(h)),
     reasonOfStop: headers.findIndex((h) => /reason.*stop|stop.*reason|downtime.*reason|^reason/i.test(h))
@@ -364,9 +367,50 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     const itemCode = colIdx.itemCode >= 0 ? String(row[colIdx.itemCode]).trim() : '';
     const description = colIdx.desc >= 0 ? String(row[colIdx.desc]).trim() : '';
     const machineRaw = colIdx.machine >= 0 ? String(row[colIdx.machine]).trim() : '';
-    const qty = colIdx.qty >= 0 ? Number(row[colIdx.qty]) || 0 : 0;
-    const unitWeight = colIdx.unitWeight >= 0 ? Number(row[colIdx.unitWeight]) || 0 : 0;
-    const totalWeight = colIdx.totalWeight >= 0 ? Number(row[colIdx.totalWeight]) || 0 : 0;
+
+    // 1. Unit Weight: Extract directly from Unit Weight (kg) column of uploaded row
+    let unitWeight = colIdx.unitWeight >= 0 && row[colIdx.unitWeight] !== '' && !isNaN(Number(row[colIdx.unitWeight]))
+      ? Number(row[colIdx.unitWeight])
+      : 0;
+
+    // 2. Total Weight: Extract from Total Weight (kg)
+    let totalWeight = colIdx.totalWeight >= 0 && row[colIdx.totalWeight] !== '' && !isNaN(Number(row[colIdx.totalWeight]))
+      ? Number(row[colIdx.totalWeight])
+      : 0;
+
+    // 3. Piece count priority:
+    // Read directly from Production Qty (FG). If missing, sum Shift A (Pcs) + Shift B (Pcs).
+    // If still zero but Total Weight (kg) > 0 and Unit Weight > 0, calculate Math.round(totalWeight / unitWeight).
+    let qty = 0;
+    if (colIdx.fgQty >= 0 && row[colIdx.fgQty] !== '' && !isNaN(Number(row[colIdx.fgQty])) && Number(row[colIdx.fgQty]) > 0) {
+      qty = Number(row[colIdx.fgQty]);
+    } else if (colIdx.altQty >= 0 && row[colIdx.altQty] !== '' && !isNaN(Number(row[colIdx.altQty])) && Number(row[colIdx.altQty]) > 0) {
+      qty = Number(row[colIdx.altQty]);
+    }
+
+    if (qty <= 0) {
+      const shiftA = colIdx.shiftA >= 0 && row[colIdx.shiftA] !== '' && !isNaN(Number(row[colIdx.shiftA])) ? Number(row[colIdx.shiftA]) : 0;
+      const shiftB = colIdx.shiftB >= 0 && row[colIdx.shiftB] !== '' && !isNaN(Number(row[colIdx.shiftB])) ? Number(row[colIdx.shiftB]) : 0;
+      if (shiftA > 0 || shiftB > 0) {
+        qty = shiftA + shiftB;
+      }
+    }
+
+    // Zero-piece recovery
+    if (qty <= 0 && totalWeight > 0 && unitWeight > 0) {
+      qty = Math.round(totalWeight / unitWeight);
+    }
+
+    // If unitWeight was missing but totalWeight and qty exist:
+    if (unitWeight <= 0 && totalWeight > 0 && qty > 0) {
+      unitWeight = round1(totalWeight / qty, 2);
+    }
+
+    // If totalWeight was 0 but qty and unitWeight exist:
+    if (totalWeight <= 0 && qty > 0 && unitWeight > 0) {
+      totalWeight = Math.round(qty * unitWeight);
+    }
+
     const scrapKg = colIdx.scrapKg >= 0 ? Number(row[colIdx.scrapKg]) || 0 : 0;
     const opHoursRaw = colIdx.opHours >= 0 ? Number(row[colIdx.opHours]) : 24;
     const operatingHours = Math.min(24, Math.max(0, Number.isNaN(opHoursRaw) ? 24 : opHoursRaw));
@@ -559,17 +603,7 @@ export function convertLogRowToReport(row, options = {}) {
   const nominalCap = getMachineNominalCapacity(matched.id, dynMaster) || Number(row.nominalCapacityKgH || matched.capacityKgH || matched.nominalCapacity || 0);
 
   // Flexible extraction of production quantities
-  const targetOutput = Number(
-    row.productionQty ??
-    row['Production Qty (FG)'] ??
-    row['Production Qty'] ??
-    row.qty ??
-    row.totalOutput ??
-    row.actual ??
-    0
-  ) || 0;
-
-  const q1 = Number(
+  let q1 = Number(
     item1.productionQty ??
     item1['Production Qty (FG)'] ??
     item1['Production Qty'] ??
@@ -577,15 +611,38 @@ export function convertLogRowToReport(row, options = {}) {
     item1.totalOutput ??
     0
   ) || 0;
+  if (q1 <= 0) {
+    const sA1 = Number(item1['Shift A (Pcs)'] ?? item1['Shift A'] ?? item1.shiftA ?? 0) || 0;
+    const sB1 = Number(item1['Shift B (Pcs)'] ?? item1['Shift B'] ?? item1.shiftB ?? 0) || 0;
+    if (sA1 > 0 || sB1 > 0) {
+      q1 = sA1 + sB1;
+    } else if (Number(item1.totalWeight) > 0 && Number(item1.unitWeight) > 0) {
+      q1 = Math.round(Number(item1.totalWeight) / Number(item1.unitWeight));
+    }
+  }
 
-  const q2 = item2 ? (Number(
-    item2.productionQty ??
-    item2['Production Qty (FG)'] ??
-    item2['Production Qty'] ??
-    item2.qty ??
-    item2.totalOutput ??
-    0
-  ) || 0) : 0;
+  let q2 = 0;
+  if (item2) {
+    q2 = Number(
+      item2.productionQty ??
+      item2['Production Qty (FG)'] ??
+      item2['Production Qty'] ??
+      item2.qty ??
+      item2.totalOutput ??
+      0
+    ) || 0;
+    if (q2 <= 0) {
+      const sA2 = Number(item2['Shift A (Pcs)'] ?? item2['Shift A'] ?? item2.shiftA ?? 0) || 0;
+      const sB2 = Number(item2['Shift B (Pcs)'] ?? item2['Shift B'] ?? item2.shiftB ?? 0) || 0;
+      if (sA2 > 0 || sB2 > 0) {
+        q2 = sA2 + sB2;
+      } else if (Number(item2.totalWeight) > 0 && Number(item2.unitWeight) > 0) {
+        q2 = Math.round(Number(item2.totalWeight) / Number(item2.unitWeight));
+      }
+    }
+  }
+
+  const targetOutput = isMulti ? (q1 + q2) : (q1 || Number(row.productionQty ?? row['Production Qty (FG)'] ?? row.qty ?? 0));
 
   // 1. Compute benchmark target pcs/h for Item 1
   const unitWeight1 = Number(specs1.stdWeight || uw1) || 0;

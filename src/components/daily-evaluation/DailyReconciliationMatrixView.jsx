@@ -172,7 +172,8 @@ export default function DailyReconciliationMatrixView({
       const row = rows.find((r) => r.lineId === lineId);
       if (!row) return;
 
-      const baseReport = loadReportByDateAndMachine(selectedDate, lineId);
+      const targetLineId = row.baseLineId || row.lineId;
+      const baseReport = loadReportByDateAndMachine(selectedDate, targetLineId);
       const reconciledRep = reconcileMatrixRow(row, baseReport, machineMaster);
 
       // Persist report in storage
@@ -189,7 +190,7 @@ export default function DailyReconciliationMatrixView({
       }
 
       if (onNotify) {
-        onNotify(`Line ${lineId} (${row.lineName}) reconciled & saved successfully!`);
+        onNotify(`Line ${row.lineIdDisplay || lineId} (${row.lineName}) reconciled & saved successfully!`);
       }
     },
     [rows, selectedDate, machineMaster, onReportSaved, onNotify]
@@ -205,7 +206,8 @@ export default function DailyReconciliationMatrixView({
       let lastReconciled = null;
 
       rows.forEach((row) => {
-        const baseReport = loadReportByDateAndMachine(selectedDate, row.lineId);
+        const targetLineId = row.baseLineId || row.lineId;
+        const baseReport = loadReportByDateAndMachine(selectedDate, targetLineId);
         const reconciledRep = reconcileMatrixRow(row, baseReport, machineMaster);
         saveReportByDateAndMachine(reconciledRep);
         savedCount += 1;
@@ -250,10 +252,13 @@ export default function DailyReconciliationMatrixView({
   // Filtered rows for display
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
-      if (showOperatingOnly && !r.isOperating) return false;
+      const isRowOperating = Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0;
+      if (showOperatingOnly && !isRowOperating) return false;
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const lineMatch = r.lineId.toLowerCase().includes(query);
+        const lineMatch = r.lineId.toLowerCase().includes(query) ||
+          (r.baseLineId && r.baseLineId.toLowerCase().includes(query)) ||
+          (r.lineIdDisplay && r.lineIdDisplay.toLowerCase().includes(query));
         const nameMatch = r.lineName.toLowerCase().includes(query);
         const codeMatch = (r.productCode || '').toLowerCase().includes(query);
         const sizeMatch = (r.pipeSize || '').toLowerCase().includes(query) || (r.productDescription || '').toLowerCase().includes(query);
@@ -271,14 +276,14 @@ export default function DailyReconciliationMatrixView({
     const totalActualPcs = rows.reduce((s, r) => s + (Number(r.actualPcs) || 0), 0);
     const totalLostHours = rows.reduce((s, r) => s + (Number(r.lostHours) || 0), 0);
     const balancedCount = rows.filter((r) => r.balanceStatus === 'balanced').length;
-    const operatingCount = rows.filter((r) => r.isOperating).length;
+    const operatingCount = rows.filter((r) => Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0).length;
 
     const opHoursSum = rows.reduce((s, r) => s + (Number(r.operatingHours) || 0), 0);
     const maxCapacityHours = rows.length * 24;
     const avgAvailability = maxCapacityHours > 0 ? (opHoursSum / maxCapacityHours) * 100 : 0;
 
     // Operating rows average OEE
-    const operatingRows = rows.filter((r) => r.isOperating);
+    const operatingRows = rows.filter((r) => Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0);
     const avgOee = operatingRows.length > 0
       ? operatingRows.reduce((s, r) => s + (Number(r.oeePct) || 0), 0) / operatingRows.length
       : 0;
@@ -590,19 +595,37 @@ export default function DailyReconciliationMatrixView({
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((row) => (
-                  <tr
-                    key={row.lineId}
-                    className={`transition hover:bg-slate-800/40 ${
-                      !row.isOperating ? 'opacity-70 bg-slate-950/40' : ''
-                    }`}
-                  >
-                    {/* 1. Line ID */}
-                    <td className="px-3 py-2 font-bold text-slate-100">
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs">
-                        {row.lineId}
-                      </span>
-                    </td>
+                filteredRows.map((row) => {
+                  const isRowOperating = Number(row.actualPcs) > 0 || Number(row.operatingHours) > 0;
+                  return (
+                    <tr
+                      key={row.lineId}
+                      className={`transition hover:bg-slate-800/40 ${
+                        row.isMultiRun ? 'border-l-2 border-l-blue-500 bg-blue-950/10' : ''
+                      } ${!isRowOperating ? 'opacity-70 bg-slate-950/40' : ''}`}
+                    >
+                      {/* 1. Line ID */}
+                      <td className="px-3 py-2 font-bold text-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`px-2 py-0.5 rounded border text-xs font-mono ${
+                              row.isMultiRun
+                                ? 'bg-blue-950 border-blue-500/60 text-blue-300 font-bold'
+                                : 'bg-slate-800 border-slate-700 text-slate-100'
+                            }`}
+                          >
+                            {row.lineIdDisplay || row.lineId}
+                          </span>
+                          {row.isMultiRun && (
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold"
+                              title={`Run ${row.runIndex} of ${row.totalRuns} on ${row.baseLineId}`}
+                            >
+                              R{row.runIndex}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
                     {/* 2. Machine Name */}
                     <td className="px-3 py-2 text-slate-300 font-medium">
@@ -884,7 +907,7 @@ export default function DailyReconciliationMatrixView({
                         {onSelectMachineAndOpenSheet && (
                           <button
                             type="button"
-                            onClick={() => onSelectMachineAndOpenSheet(row.lineId, selectedDate)}
+                            onClick={() => onSelectMachineAndOpenSheet(row.baseLineId || row.lineId, selectedDate)}
                             className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
                             title="Open 24-hour production follow sheet for this machine"
                           >
@@ -894,8 +917,9 @@ export default function DailyReconciliationMatrixView({
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
+                );
+              })
+            )}
             </tbody>
           </table>
         </div>

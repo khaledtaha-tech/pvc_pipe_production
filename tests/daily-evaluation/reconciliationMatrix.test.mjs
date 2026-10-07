@@ -11,6 +11,7 @@ import {
   isDowntimeField
 } from '../../src/logic/reconciliationMatrixHelper.js';
 import { MACHINES } from '../../src/config/machines.js';
+import { normalizeProductionRow } from '../../src/logic/oeeReconciler.js';
 
 console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
 
@@ -544,4 +545,173 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 14 Passed: Engineering rate derivation and active line defaults verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (14/14) ---');
+// Test 15: Dynamic Multi-Run Extrusion per Machine
+{
+  const testMachines = [
+    { id: 'L-01', name: 'Line 01', nominalCapacity: 150 },
+    { id: 'L-02', name: 'Battenfeld-02', nominalCapacity: 200 },
+    { id: 'L-03', name: 'Line 03', nominalCapacity: 250 }
+  ];
+
+  const testDatasets = [
+    // L-01: Single run (95% of plant)
+    {
+      date: '2026-10-06',
+      machineId: 'L-01',
+      itemCode: 'PIPE-110',
+      description: '110 mm Class 4',
+      productionQty: 800,
+      unitWeight: 3.0,
+      totalWeight: 2400
+    },
+    // L-02: Multi-run with 2 distinct items on the same date
+    // Item 1: Item 255 (609 pcs @ 3.8kg)
+    {
+      date: '2026-10-06',
+      machineId: 'L-02',
+      itemCode: '255',
+      description: '50X2.4MM Class 4',
+      productionQty: 609,
+      unitWeight: 3.8,
+      totalWeight: 2314.2
+    },
+    // Item 2: Item 239 (35 pcs @ 7.0kg)
+    {
+      date: '2026-10-06',
+      machineId: 'L-02',
+      itemCode: '239',
+      description: '90X2.7MM Class 3',
+      productionQty: 35,
+      unitWeight: 7.0,
+      totalWeight: 245.0
+    }
+    // L-03: Idle (no production records)
+  ];
+
+  const matrixRows = buildMatrixRowsForDate({
+    date: '2026-10-06',
+    machineMaster: testMachines,
+    combinedDatasets: testDatasets,
+    loadReportByDateAndMachineFn: () => null
+  });
+
+  // Verify total row count: 1 (L-01) + 2 (L-02 multi-run) + 1 (L-03 idle) = 4 rows
+  assert.strictEqual(matrixRows.length, 4, 'Must output 4 rows total: L-01 (1), L-02 (2 sub-runs), L-03 (1 idle)');
+
+  // Verify L-01 remains clean single row
+  const l01Rows = matrixRows.filter((r) => r.baseLineId === 'L-01');
+  assert.strictEqual(l01Rows.length, 1);
+  assert.strictEqual(l01Rows[0].lineId, 'L-01');
+  assert.strictEqual(l01Rows[0].isMultiRun, false);
+  assert.strictEqual(l01Rows[0].actualPcs, 800);
+
+  // Verify L-03 remains clean single row
+  const l03Rows = matrixRows.filter((r) => r.baseLineId === 'L-03');
+  assert.strictEqual(l03Rows.length, 1);
+  assert.strictEqual(l03Rows[0].lineId, 'L-03');
+  assert.strictEqual(l03Rows[0].isMultiRun, false);
+  assert.strictEqual(l03Rows[0].operatingHours, 0.0);
+  assert.strictEqual(l03Rows[0].materialNoOrderHours, 24.0);
+
+  // Verify L-02 is split into 2 distinct sub-run rows
+  const l02Rows = matrixRows.filter((r) => r.baseLineId === 'L-02');
+  assert.strictEqual(l02Rows.length, 2, 'L-02 must be split into exactly 2 sub-run rows');
+
+  const run1 = l02Rows.find((r) => r.runIndex === 1);
+  const run2 = l02Rows.find((r) => r.runIndex === 2);
+  assert.ok(run1, 'Run 1 must exist');
+  assert.ok(run2, 'Run 2 must exist');
+
+  // Verify Run 1 metadata & metrics
+  assert.strictEqual(run1.lineId, 'L-02-run-1');
+  assert.strictEqual(run1.baseLineId, 'L-02');
+  assert.strictEqual(run1.lineIdDisplay, 'L-02 [R1]');
+  assert.strictEqual(run1.isMultiRun, true);
+  assert.strictEqual(run1.totalRuns, 2);
+  assert.strictEqual(run1.productCode, '255');
+  assert.strictEqual(run1.stdWeight, 3.8);
+  assert.strictEqual(run1.actualPcs, 609);
+  assert.strictEqual(run1.actualKg, 2314);
+  assert.strictEqual(run1.targetRate, 52.6, 'Run 1 target rate: 200 / 3.8 = 52.6 pcs/h');
+  assert.strictEqual(run1.moldChangeHours, 0.0, 'Run 1 has 0 mold change downtime');
+  assert.strictEqual(run1.operatingHours, 19.9, 'Run 1 operating hours: proportional allocation = 19.9h');
+  assert.strictEqual(run1.actualRatePcsH, 30.6, '609 / 19.9 = 30.6 pcs/h');
+  assert.strictEqual(run1.actualRateKgH, 116.3, '2314.2 / 19.9 = 116.3 kg/h');
+  assert.strictEqual(run1.speedEfficiencyPct, 58.2, '(116.3 / 200) * 100 = 58.2%');
+
+  // Verify Run 2 metadata & metrics
+  assert.strictEqual(run2.lineId, 'L-02-run-2');
+  assert.strictEqual(run2.baseLineId, 'L-02');
+  assert.strictEqual(run2.lineIdDisplay, 'L-02 [R2]');
+  assert.strictEqual(run2.isMultiRun, true);
+  assert.strictEqual(run2.totalRuns, 2);
+  assert.strictEqual(run2.productCode, '239');
+  assert.strictEqual(run2.stdWeight, 7.0);
+  assert.strictEqual(run2.actualPcs, 35);
+  assert.strictEqual(run2.actualKg, 245.0);
+  assert.strictEqual(run2.targetRate, 28.6, 'Run 2 target rate: 200 / 7.0 = 28.6 pcs/h');
+  assert.strictEqual(run2.moldChangeHours, 2.0, 'Run 2 must default to 2.0h die/mold changeover downtime');
+  assert.strictEqual(run2.operatingHours, 2.1, 'Run 2 operating hours: remaining available op hours = 2.1h');
+  assert.strictEqual(run2.actualRatePcsH, 16.7, '35 / 2.1 = 16.7 pcs/h');
+  assert.strictEqual(run2.actualRateKgH, 116.7, '245.0 / 2.1 = 116.7 kg/h');
+  assert.strictEqual(run2.speedEfficiencyPct, 58.4, '(116.7 / 200) * 100 = 58.4%');
+
+  // Verify machine total hours balance: 19.9 (op1) + 2.1 (op2) + 2.0 (mold change) = 24.0h
+  const totalMachineHours = run1.operatingHours + run2.operatingHours + run1.moldChangeHours + run2.moldChangeHours;
+  assert.strictEqual(totalMachineHours, 24.0, 'Total machine accounted hours must equal 24.0h');
+
+  // Reconcile Run 1 and Run 2 into persistent report
+  const rep1 = reconcileMatrixRow(run1, null, testMachines);
+  assert.strictEqual(rep1.header.lineId, 'L-02');
+  assert.strictEqual(rep1.refs['1'].targetRate, 52.6);
+  assert.strictEqual(rep1.refs['1'].stdWeight, 3.8);
+
+  const rep2 = reconcileMatrixRow(run2, rep1, testMachines);
+  assert.strictEqual(rep2.header.lineId, 'L-02');
+  assert.strictEqual(rep2.refs['2'].targetRate, 28.6);
+  assert.strictEqual(rep2.refs['2'].stdWeight, 7.0);
+
+  // Verify Excel Export contains multi-run display IDs
+  const wb = exportMatrixToWorkbook(matrixRows, '2026-10-06');
+  const ws = wb.Sheets['Reconciliation_2026-10-06'];
+  assert.strictEqual(ws['A3'].v, 'L-02 [R1]');
+  assert.strictEqual(ws['A4'].v, 'L-02 [R2]');
+
+  console.log('Test 15 Passed: Dynamic multi-run extrusion splitting and metrics verified');
+}
+
+// Test 16: Production Log Parser Shift Summing, Unit Weight Precedence & Zero-Piece Recovery
+{
+  // 1. Shift summing when Production Qty (FG) is blank
+  const shiftOutputRow = {
+    'Machine': 'KTS-700',
+    'Item Code': '259',
+    'Product Description & Specs': '500mm SN8 Corrugated Pipe',
+    'Unit Weight (kg)': 50.0,
+    'Total Weight (kg)': 2650,
+    'Shift A (Pcs)': 30,
+    'Shift B (Pcs)': 23
+  };
+  const parsed1 = normalizeProductionRow(shiftOutputRow);
+  assert.strictEqual(parsed1.productionQty, 53, 'Must sum Shift A (30) + Shift B (23) = 53 pcs when FG is omitted');
+  assert.strictEqual(parsed1.unitWeight, 50.0, 'Must extract explicit Unit Weight (kg) = 50.0');
+  assert.strictEqual(parsed1.totalWeight, 2650, 'Total weight must be 2650 kg');
+
+  // 2. Zero-piece recovery when piece columns are 0 but Total Weight and Unit Weight exist
+  const zeroPieceRow = {
+    'Machine': 'KTS-700',
+    'Item Code': '259',
+    'Product Description & Specs': '500mm SN8 Corrugated Pipe',
+    'Production Qty (FG)': 0,
+    'Unit Weight (kg)': 50.0,
+    'Total Weight (kg)': 2650
+  };
+  const parsed2 = normalizeProductionRow(zeroPieceRow);
+  assert.strictEqual(parsed2.productionQty, 53, 'Zero-piece recovery: 2650 / 50 = 53 pcs');
+  assert.strictEqual(parsed2.unitWeight, 50.0);
+  assert.strictEqual(parsed2.totalWeight, 2650);
+
+  console.log('Test 16 Passed: Shift summing, unit weight precedence & zero-piece recovery verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (16/16) ---');

@@ -279,17 +279,8 @@ export function buildMatrixRowsForDate({
     date,
     machineMaster
   });
-  const consolidatedForDate = consolidateDailyMachineRecords(recordsForDate, machineMaster);
 
-  // Map of lineId -> consolidated record
-  const recordMap = new Map();
-  consolidatedForDate.forEach((r) => {
-    const matched = matchMachine(r.machineId || r.machineRaw, machineMaster);
-    const lid = matched?.id || r.machineId || r.machineRaw;
-    if (lid) recordMap.set(lid, r);
-  });
-
-  return machineMaster.map((machine) => {
+  return machineMaster.flatMap((machine) => {
     const lineId = machine.id;
     const lineName = machine.name || lineId;
     const nominalCapacity = getMachineNominalCapacity(lineId, machineMaster);
@@ -299,8 +290,247 @@ export function buildMatrixRowsForDate({
       ? loadReportByDateAndMachineFn(date, lineId)
       : null;
 
-    // 2. Ingested production record
-    const record = recordMap.get(lineId) || null;
+    // 2. Find matching records for this machine from ingested dataset
+    const machineRecords = recordsForDate.filter((r) => {
+      const matched = matchMachine(r.machineId || r.machineRaw, machineMaster);
+      const lid = matched?.id || r.machineId || r.machineRaw;
+      return lid === machine.id;
+    });
+
+    // Unpack any nested items array if record was pre-consolidated
+    const allMachineItems = [];
+    machineRecords.forEach((r) => {
+      if (Array.isArray(r.items) && r.items.length > 1) {
+        allMachineItems.push(...r.items);
+      } else {
+        allMachineItems.push(r);
+      }
+    });
+
+    // Group by distinct item code / description
+    const runsMap = new Map();
+    allMachineItems.forEach((item) => {
+      const code = String(
+        item.itemCode ||
+        item['Item Code'] ||
+        item.productCode ||
+        item.code ||
+        ''
+      ).trim();
+
+      const desc = String(
+        item.description ||
+        item['Product Description & Specs'] ||
+        item.productDescription ||
+        item.productName ||
+        item.pipeSize ||
+        item.size ||
+        ''
+      ).trim();
+
+      const groupKey = code || desc || 'default';
+      if (!runsMap.has(groupKey)) {
+        runsMap.set(groupKey, []);
+      }
+      runsMap.get(groupKey).push(item);
+    });
+
+    // Case 1: Multi-run detected from dataset (>1 distinct item runs)
+    if (runsMap.size > 1) {
+      const distinctRuns = Array.from(runsMap.entries()).map(([key, groupItems]) => {
+        const first = groupItems[0];
+        const itemCode = first.itemCode || first['Item Code'] || first.productCode || first.code || '';
+        const description = first.description || first['Product Description & Specs'] || first.productDescription || first.productName || '';
+        const pipeSize = first.pipeSize || first.size || first.dimension || description || '';
+        const pipeLength = Number(first.cutLength || first.pipeLength || 6.0) || 6.0;
+
+        let productionQty = groupItems.reduce((sum, it) => sum + (Number(it.productionQty ?? it.totalOutput ?? it.actual) || 0), 0);
+        let totalWeight = groupItems.reduce((sum, it) => sum + (Number(it.totalWeight ?? it.weightKg) || 0), 0);
+
+        let unitWeight = 0;
+        for (const it of groupItems) {
+          if (Number(it.unitWeight) > 0) {
+            unitWeight = Number(it.unitWeight);
+            break;
+          }
+          if (Number(it.weightPerPiece) > 0) {
+            unitWeight = Number(it.weightPerPiece);
+            break;
+          }
+          if (Number(it.raw?.weightPerPiece) > 0) {
+            unitWeight = Number(it.raw.weightPerPiece);
+            break;
+          }
+          if (Number(it.raw?.unitWeight) > 0) {
+            unitWeight = Number(it.raw.unitWeight);
+            break;
+          }
+        }
+        if (unitWeight <= 0 && productionQty > 0 && totalWeight > 0) {
+          unitWeight = round1(totalWeight / productionQty, 2);
+        }
+        if (totalWeight <= 0 && productionQty > 0 && unitWeight > 0) {
+          totalWeight = round1(productionQty * unitWeight);
+        }
+        if (productionQty <= 0 && totalWeight > 0 && unitWeight > 0) {
+          productionQty = Math.round(totalWeight / unitWeight);
+        }
+
+        const hasExplicitOp = groupItems.some((it) => {
+          const rawObj = it.raw || it;
+          return rawObj['Operating Hours'] != null || rawObj.operating_hours != null || (rawObj.operatingHours != null && rawObj.operatingHours < 24);
+        });
+
+        let explicitOpHours = null;
+        if (hasExplicitOp) {
+          explicitOpHours = groupItems.reduce((sum, it) => {
+            const rawObj = it.raw || it;
+            const val = rawObj['Operating Hours'] ?? rawObj.operating_hours ?? rawObj.operatingHours;
+            return sum + (val != null ? Number(val) || 0 : 0);
+          }, 0);
+        }
+
+        return {
+          itemCode,
+          description,
+          pipeSize,
+          pipeLength,
+          actualPcs: productionQty,
+          actualKg: totalWeight,
+          unitWeight,
+          explicitOpHours: explicitOpHours != null && explicitOpHours > 0 ? explicitOpHours : null
+        };
+      });
+
+      const totalMachineKg = distinctRuns.reduce((sum, r) => sum + r.actualKg, 0);
+      const totalRuns = distinctRuns.length;
+      const totalMoldChangeHours = (totalRuns - 1) * 2.0;
+      const availableOpHours = Math.max(0, round1(24.0 - totalMoldChangeHours));
+
+      let allocatedOpHoursSoFar = 0;
+      return distinctRuns.map((run, idx) => {
+        const runIndex = idx + 1;
+        const isLast = runIndex === totalRuns;
+
+        let runOpHours = 0;
+        if (run.explicitOpHours != null && run.explicitOpHours > 0) {
+          runOpHours = round1(run.explicitOpHours);
+        } else if (isLast) {
+          runOpHours = Math.max(0, round1(availableOpHours - allocatedOpHoursSoFar));
+        } else if (totalMachineKg > 0) {
+          runOpHours = round1((run.actualKg / totalMachineKg) * availableOpHours);
+        } else {
+          runOpHours = round1(availableOpHours / totalRuns);
+        }
+        allocatedOpHoursSoFar = round1(allocatedOpHoursSoFar + runOpHours);
+
+        const moldChangeHours = runIndex === 1 ? 0 : 2.0;
+
+        let stdWeight = run.unitWeight > 0 ? run.unitWeight : 0;
+        if (stdWeight <= 0 && run.actualPcs > 0 && run.actualKg > 0) {
+          stdWeight = round1(run.actualKg / run.actualPcs, 2);
+        }
+        let targetRate = (nominalCapacity > 0 && stdWeight > 0) ? round1(nominalCapacity / stdWeight) : 0;
+
+        const pipeSizeDisplay = run.description || run.pipeSize || run.itemCode || `Run ${runIndex}`;
+        const rawRow = {
+          lineId: `${machine.id}-run-${runIndex}`,
+          baseLineId: machine.id,
+          runIndex,
+          totalRuns,
+          isMultiRun: true,
+          lineIdDisplay: `${machine.id} [R${runIndex}]`,
+          lineName: `${machine.name} [Run ${runIndex}: ${run.itemCode || runIndex}]`,
+          nominalCapacity,
+          productCode: run.itemCode,
+          productDescription: run.description || pipeSizeDisplay,
+          pipeSize: pipeSizeDisplay,
+          pipeLength: run.pipeLength,
+          stdWeight,
+          targetRate,
+          actualPcs: run.actualPcs,
+          actualKg: run.actualKg,
+          operatingHours: runOpHours,
+          moldChangeHours,
+          purgeCleaningHours: 0,
+          heaterFailureHours: 0,
+          mechanicalHours: 0,
+          materialNoOrderHours: 0,
+          otherHours: 0,
+          isOperating: run.actualPcs > 0 || runOpHours > 0,
+          isSaved: Boolean(savedRep?.isReconciled),
+          isReconciled: Boolean(savedRep?.isReconciled)
+        };
+        return calculateMatrixRowMetrics(rawRow);
+      });
+    }
+
+    // Case 2: Multi-run detected from saved report refs (when no records in dataset, but savedRep has refs['2'])
+    if (runsMap.size === 0 && savedRep?.refs?.['2'] && (Number(savedRep.refs['2'].stdWeight) > 0 || Number(savedRep.refs['2'].targetRate) > 0 || savedRep.refs['2'].productDescription)) {
+      const ref1 = savedRep.refs['1'] || {};
+      const ref2 = savedRep.refs['2'] || {};
+      const runs = [
+        {
+          itemCode: ref1.itemCode || savedRep.header?.itemCode || '',
+          description: ref1.productDescription || '',
+          pipeSize: ref1.productDescription || '',
+          pipeLength: Number(ref1.pipeLength) || 6.0,
+          stdWeight: Number(ref1.stdWeight) || 0,
+          targetRate: Number(ref1.targetRate) || 0,
+          runIndex: 1
+        },
+        {
+          itemCode: ref2.itemCode || '',
+          description: ref2.productDescription || '',
+          pipeSize: ref2.productDescription || '',
+          pipeLength: Number(ref2.pipeLength) || 6.0,
+          stdWeight: Number(ref2.stdWeight) || 0,
+          targetRate: Number(ref2.targetRate) || 0,
+          runIndex: 2
+        }
+      ];
+
+      return runs.map((run) => {
+        const moldChangeHours = run.runIndex === 1 ? 0 : 2.0;
+        const opHours = run.runIndex === 1 ? 20.0 : 2.0;
+        let targetRate = run.targetRate;
+        if (targetRate <= 0 && nominalCapacity > 0 && run.stdWeight > 0) {
+          targetRate = round1(nominalCapacity / run.stdWeight);
+        }
+        const rawRow = {
+          lineId: `${machine.id}-run-${run.runIndex}`,
+          baseLineId: machine.id,
+          runIndex: run.runIndex,
+          totalRuns: 2,
+          isMultiRun: true,
+          lineIdDisplay: `${machine.id} [R${run.runIndex}]`,
+          lineName: `${machine.name} [Run ${run.runIndex}: ${run.itemCode || run.runIndex}]`,
+          nominalCapacity,
+          productCode: run.itemCode,
+          productDescription: run.description || run.pipeSize,
+          pipeSize: run.pipeSize || run.description,
+          pipeLength: run.pipeLength,
+          stdWeight: run.stdWeight,
+          targetRate,
+          actualPcs: 0,
+          actualKg: 0,
+          operatingHours: opHours,
+          moldChangeHours,
+          purgeCleaningHours: 0,
+          heaterFailureHours: 0,
+          mechanicalHours: 0,
+          materialNoOrderHours: 0,
+          otherHours: 0,
+          isOperating: true,
+          isSaved: Boolean(savedRep.isReconciled),
+          isReconciled: Boolean(savedRep.isReconciled)
+        };
+        return calculateMatrixRowMetrics(rawRow);
+      });
+    }
+
+    // Case 3: Clean Single Row (Single-item lines = 95% of the plant, or idle machine)
+    const record = allMachineItems.length > 0 ? allMachineItems[0] : null;
 
     // Product specs & Pipe Size
     const ref1 = savedRep?.refs?.['1'] || {};
@@ -320,11 +550,6 @@ export function buildMatrixRowsForDate({
       record?.specDescription ||
       record?.size ||
       '';
-
-    if (!productDescription && Array.isArray(record?.items) && record.items.length > 0) {
-      const firstItem = record.items[0];
-      productDescription = firstItem.description || firstItem.productName || firstItem.productDescription || '';
-    }
 
     const pipeSize = record?.pipeSize ||
       record?.size ||
@@ -355,20 +580,25 @@ export function buildMatrixRowsForDate({
     }
 
     // Production output
-    const actualPcs = savedRep?.summary?.totalOutput != null && savedRep.summary.totalOutput !== ''
+    let actualPcs = savedRep?.summary?.totalOutput != null && savedRep.summary.totalOutput !== ''
       ? Math.round(Number(savedRep.summary.totalOutput) || 0)
       : (record ? Math.round(Number(record.productionQty ?? record.totalOutput ?? record.actual) || 0) : 0);
 
-    const actualKg = Number(savedRep?.engineering?.totalWeightKg) ||
+    let actualKg = Number(savedRep?.engineering?.totalWeightKg) ||
       (record ? Number(record.totalWeight ?? record.weightKg) || 0 : 0) ||
       (stdWeight > 0 ? round1(actualPcs * stdWeight) : 0);
 
+    if (actualPcs <= 0 && actualKg > 0 && stdWeight > 0) {
+      actualPcs = Math.round(actualKg / stdWeight);
+    }
     if (stdWeight <= 0 && actualPcs > 0 && actualKg > 0) {
       stdWeight = round1(actualKg / actualPcs, 2);
     }
+    if (actualKg <= 0 && actualPcs > 0 && stdWeight > 0) {
+      actualKg = round1(actualPcs * stdWeight);
+    }
 
     // Standard rate
-    // Derive stdRate dynamically: (nominalCap > 0 && stdWeight > 0) ? round1(nominalCap / stdWeight) : (saved/record rate)
     let targetRate = 0;
     if (nominalCapacity > 0 && stdWeight > 0) {
       targetRate = round1(nominalCapacity / stdWeight);
@@ -403,7 +633,6 @@ export function buildMatrixRowsForDate({
         ? round1(Number(savedRep.engineering.operatingHours))
         : round1(savedRep.slots.filter((s) => (Number(s.downtime) || 0) < 60).length);
 
-      // Categorize downtime events from saved report
       const events = Array.isArray(savedRep.downtimeEvents) ? savedRep.downtimeEvents : [];
       events.forEach((ev) => {
         const cat = categorizeDowntimeReason(ev.reason);
@@ -416,7 +645,6 @@ export function buildMatrixRowsForDate({
         else otherHours = round1(otherHours + hrs);
       });
 
-      // If slots had downtime but no explicit events list, derive from slots
       if (events.length === 0) {
         savedRep.slots.forEach((s) => {
           const dt = Number(s.downtime) || 0;
@@ -442,14 +670,12 @@ export function buildMatrixRowsForDate({
         otherHours
       );
 
-      // If actual output exists but operatingHours was 0, default intelligently to 24h minus downtime
       if (actualPcs > 0 && operatingHours <= 0) {
         operatingHours = Math.max(0, round1(24.0 - totalDt));
       } else if (totalDt > 0 && operatingHours + totalDt > 24.05) {
         operatingHours = Math.max(0, round1(24.0 - totalDt));
       }
     } else if (record) {
-      // Ingested record without prior saved report
       const recOp = record.operatingHours != null ? Number(record.operatingHours) : null;
       const recDt = record.downtimeHours != null ? Number(record.downtimeHours) : null;
 
@@ -459,15 +685,12 @@ export function buildMatrixRowsForDate({
         operatingHours = Math.max(0, round1(24.0 - recDt));
         otherHours = round1(recDt);
       } else if (actualPcs > 0) {
-        // Line produced output: default intelligently to 24.0 operating hours
         operatingHours = 24.0;
       } else {
-        // Line produced 0 pcs: full day idle
         operatingHours = 0.0;
         materialNoOrderHours = 24.0;
       }
 
-      // If operatingHours < 24 and other downtime is 0, allocate remainder
       const remainingDowntime = Math.max(0, round1(24.0 - operatingHours));
       if (remainingDowntime > 0 && (moldChangeHours + purgeCleaningHours + heaterFailureHours + mechanicalHours + materialNoOrderHours + otherHours) === 0) {
         if (actualPcs === 0) {
@@ -489,17 +712,20 @@ export function buildMatrixRowsForDate({
         operatingHours = Math.max(0, round1(24.0 - totalDt));
       }
     } else {
-      // Idle line on this date (Full 24h No Order)
       operatingHours = 0.0;
       materialNoOrderHours = 24.0;
     }
 
     const isOperating = actualPcs > 0 || (record != null && (Number(record.operatingHours) > 0 || Number(record.productionQty) > 0));
-
     const pipeSizeDisplay = productDescription || pipeSize || productCode || (isOperating ? 'Standard Extrusion Run' : 'Idle / No Order');
 
     const rawRow = {
       lineId,
+      baseLineId: lineId,
+      runIndex: 1,
+      totalRuns: 1,
+      isMultiRun: false,
+      lineIdDisplay: lineId,
       lineName,
       nominalCapacity,
       productCode,
@@ -522,7 +748,7 @@ export function buildMatrixRowsForDate({
       isReconciled: Boolean(savedRep?.isReconciled)
     };
 
-    return calculateMatrixRowMetrics(rawRow);
+    return [calculateMatrixRowMetrics(rawRow)];
   });
 }
 
@@ -532,11 +758,12 @@ export function buildMatrixRowsForDate({
 export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHINES) {
   const metrics = calculateMatrixRowMetrics(row);
   const targetDate = metrics.date || baseReport?.header?.date;
+  const targetLineId = row.baseLineId || row.lineId || metrics.lineId;
 
   // Initialize report if not supplied
   let rep = baseReport;
   if (!rep || !Array.isArray(rep.slots) || rep.slots.length !== 24) {
-    rep = blankReportForMachine(targetDate, metrics.lineId, machineMaster);
+    rep = blankReportForMachine(targetDate, targetLineId, machineMaster);
   }
 
   // Construct active presets based on allocated category hours
@@ -611,12 +838,23 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
 
   // Prepare ref specs in report
   rep.refs = rep.refs || {};
-  rep.refs['1'] = rep.refs['1'] || makeRefSpec();
-  rep.refs['1'].targetRate = metrics.targetRate;
-  rep.refs['1'].stdWeight = metrics.stdWeight;
-  if (metrics.productCode) rep.header.itemCode = metrics.productCode;
-  if (metrics.productDescription) rep.refs['1'].productDescription = metrics.productDescription;
-  if (metrics.pipeLength > 0) rep.refs['1'].pipeLength = metrics.pipeLength;
+  const refKey = row.isMultiRun && row.runIndex ? String(row.runIndex) : '1';
+  rep.refs[refKey] = rep.refs[refKey] || makeRefSpec();
+  rep.refs[refKey].targetRate = metrics.targetRate;
+  rep.refs[refKey].stdWeight = metrics.stdWeight;
+  if (metrics.productCode) {
+    if (refKey === '1') rep.header.itemCode = metrics.productCode;
+    rep.refs[refKey].itemCode = metrics.productCode;
+  }
+  if (metrics.productDescription) {
+    rep.refs[refKey].productDescription = metrics.productDescription;
+  }
+  if (metrics.pipeLength > 0) {
+    rep.refs[refKey].pipeLength = metrics.pipeLength;
+  }
+
+  rep.header.lineId = targetLineId;
+  rep.header.machineId = targetLineId;
 
   const totalDowntimeMin = presets.reduce((sum, p) => sum + p.durationMin, 0);
 
@@ -631,7 +869,7 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
   const opHours = metrics.operatingHours;
   const totalWeightKg = metrics.actualKg > 0 ? metrics.actualKg : round1(metrics.actualPcs * metrics.stdWeight);
   const actualRateKgH = opHours > 0 && totalWeightKg > 0 ? round1(totalWeightKg / opHours) : 0;
-  const nominalCap = metrics.nominalCapacity > 0 ? metrics.nominalCapacity : getMachineNominalCapacity(metrics.lineId, machineMaster);
+  const nominalCap = metrics.nominalCapacity > 0 ? metrics.nominalCapacity : getMachineNominalCapacity(targetLineId, machineMaster);
   const capacityUtilizationPct = nominalCap > 0 ? round1((actualRateKgH / nominalCap) * 100) : 0;
   const actualRatePcsH = opHours > 0 ? round1(metrics.actualPcs / opHours) : 0;
 
@@ -696,7 +934,7 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
   ];
 
   const dataRows = rows.map((r) => [
-    r.lineId,
+    r.lineIdDisplay || r.lineId,
     r.lineName,
     r.pipeSize || r.productDescription || '-',
     r.nominalCapacity,

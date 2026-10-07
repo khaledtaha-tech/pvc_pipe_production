@@ -439,9 +439,53 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
   const description = String(raw['Product Description & Specs'] ?? raw.description ?? raw.productName ?? raw.product_name ?? raw.desc ?? raw['Product'] ?? raw['Description'] ?? raw.size ?? raw.pipeSize ?? '').trim();
   const machineRaw = String(raw.Machine ?? raw.machine ?? raw.machineRaw ?? raw.machineName ?? raw.machineId ?? '').trim();
 
-  const qty = Number(raw['Production Qty (FG)'] ?? raw.productionQty ?? raw.qty ?? raw.production_qty ?? raw['Production Qty'] ?? raw.ProductionQty ?? 0) || 0;
-  const unitWeight = Number(raw['Unit Weight (kg)'] ?? raw.unitWeight ?? raw.unit_weight ?? raw['Unit Weight'] ?? raw.UnitWeight ?? 0) || 0;
-  const totalWeight = Number(raw['Total Weight (kg)'] ?? raw.totalWeight ?? raw.total_weight ?? raw['Total Weight'] ?? (qty * unitWeight)) || 0;
+  let unitWeight = Number(
+    raw['Unit Weight (kg)'] ??
+    raw.unitWeight ??
+    raw.unit_weight ??
+    raw['Unit Weight'] ??
+    raw.UnitWeight ??
+    0
+  ) || 0;
+
+  let totalWeight = Number(
+    raw['Total Weight (kg)'] ??
+    raw.totalWeight ??
+    raw.total_weight ??
+    raw['Total Weight'] ??
+    0
+  ) || 0;
+
+  let qty = Number(
+    raw['Production Qty (FG)'] ??
+    raw.productionQty ??
+    raw.qty ??
+    raw.production_qty ??
+    raw['Production Qty'] ??
+    raw.ProductionQty ??
+    raw['Total Production (Pcs)'] ??
+    0
+  ) || 0;
+
+  if (qty <= 0) {
+    const shiftA = Number(raw['Shift A (Pcs)'] ?? raw['Shift A'] ?? raw.shiftA ?? 0) || 0;
+    const shiftB = Number(raw['Shift B (Pcs)'] ?? raw['Shift B'] ?? raw.shiftB ?? 0) || 0;
+    if (shiftA > 0 || shiftB > 0) {
+      qty = shiftA + shiftB;
+    }
+  }
+
+  if (qty <= 0 && totalWeight > 0 && unitWeight > 0) {
+    qty = Math.round(totalWeight / unitWeight);
+  }
+
+  if (unitWeight <= 0 && totalWeight > 0 && qty > 0) {
+    unitWeight = round1(totalWeight / qty, 2);
+  }
+
+  if (totalWeight <= 0 && qty > 0 && unitWeight > 0) {
+    totalWeight = Math.round(qty * unitWeight);
+  }
   const scrapKg = Number(raw['Scrap / Rejection (kg)'] ?? raw.scrapKg ?? raw.scrap_rejection ?? raw['Scrap (kg)'] ?? raw['Scrap'] ?? 0) || 0;
   const operatingHours = Number(raw['Operating Hours'] ?? raw.operatingHours ?? raw.operating_hours ?? raw['OperatingHours'] ?? 24) || 24;
   const reasonOfStop = String(raw['Reason of Stop'] ?? raw.reasonOfStop ?? raw.reason_of_stop ?? raw['ReasonOfStop'] ?? '').trim();

@@ -714,4 +714,81 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 16 Passed: Shift summing, unit weight precedence & zero-piece recovery verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (16/16) ---');
+// Test 17: Matrix Initialization Defaults Operating Hours to 24h for Any Machine with Output (L-07, L-08, etc.) and Immediately Computes Realized Pace
+{
+  const activePlantDataset = [
+    // L-07: Reported pipe extrusion output without explicit operating hours
+    {
+      date: '2026-10-07',
+      machineId: 'L-07',
+      itemCode: 'PIPE-50',
+      description: '50 mm Class 4',
+      productionQty: 1200,
+      unitWeight: 1.5,
+      totalWeight: 1800
+    },
+    // L-08: Reported compounding output (e.g. from AlManar_2 with 12h in raw row)
+    {
+      date: '2026-10-07',
+      machineId: 'L-08',
+      itemCode: 'COMP-PVC',
+      description: 'PVC Compound Pellets',
+      productionQty: 3000,
+      unitWeight: 1.0,
+      totalWeight: 3000,
+      operatingHours: 12.0 // Raw row has 12h, but must default to 24.0h in initial matrix load
+    }
+  ];
+
+  const rows = buildMatrixRowsForDate({
+    date: '2026-10-07',
+    machineMaster: MACHINES,
+    combinedDatasets: activePlantDataset,
+    loadReportByDateAndMachineFn: () => null
+  });
+
+  // 1. Line L-07 validation
+  const l07 = rows.find((r) => r.lineId === 'L-07');
+  assert.ok(l07, 'L-07 must exist in matrix rows');
+  assert.strictEqual(l07.actualPcs, 1200);
+  assert.strictEqual(l07.actualKg, 1800);
+  assert.strictEqual(l07.operatingHours, 24.0, 'L-07 must default to 24.0h operating hours on initial load');
+  assert.strictEqual(l07.totalDowntimeHours, 0.0, 'L-07 must default to 0.0h downtime on initial load');
+  assert.strictEqual(l07.totalAccountedHours, 24.0);
+  assert.strictEqual(l07.balanceStatus, 'balanced');
+  assert.strictEqual(l07.balanceLabel, '24.0h Balanced');
+  assert.strictEqual(l07.actualRatePcsH, 50.0, '1200 / 24 = 50.0 pcs/h realized pace');
+  assert.strictEqual(l07.actualRateKgH, 75.0, '1800 / 24 = 75.0 kg/h realized pace');
+  assert.strictEqual(l07.speedEfficiencyPct, 37.5, '(75.0 / 200) * 100 = 37.5%');
+
+  // 2. Line L-08 validation
+  const l08 = rows.find((r) => r.lineId === 'L-08');
+  assert.ok(l08, 'L-08 must exist in matrix rows');
+  assert.strictEqual(l08.actualPcs, 3000);
+  assert.strictEqual(l08.actualKg, 3000);
+  assert.strictEqual(l08.operatingHours, 24.0, 'L-08 must default to 24.0h operating hours on initial load');
+  assert.strictEqual(l08.totalDowntimeHours, 0.0, 'L-08 must default to 0.0h downtime on initial load');
+  assert.strictEqual(l08.totalAccountedHours, 24.0);
+  assert.strictEqual(l08.balanceStatus, 'balanced');
+  assert.strictEqual(l08.balanceLabel, '24.0h Balanced');
+  assert.strictEqual(l08.actualRatePcsH, 125.0, '3000 / 24 = 125.0 pcs/h realized pace');
+  assert.strictEqual(l08.actualRateKgH, 125.0, '3000 / 24 = 125.0 kg/h realized pace');
+  assert.strictEqual(l08.speedEfficiencyPct, 31.3, '(125.0 / 400) * 100 = 31.3%');
+
+  // 3. True idle line validation (L-01 had 0 pcs and 0 kg)
+  const l01 = rows.find((r) => r.lineId === 'L-01');
+  assert.ok(l01, 'L-01 must exist in matrix rows');
+  assert.strictEqual(l01.actualPcs, 0);
+  assert.strictEqual(l01.actualKg, 0);
+  assert.strictEqual(l01.operatingHours, 0.0, 'True idle machine must have 0 operating hours');
+  assert.strictEqual(l01.materialNoOrderHours, 24.0, 'True idle machine must have Material/No Order = 24.0h');
+  assert.strictEqual(l01.totalAccountedHours, 24.0);
+  assert.strictEqual(l01.balanceStatus, 'balanced');
+  assert.strictEqual(l01.actualRatePcsH, 0.0);
+  assert.strictEqual(l01.actualRateKgH, 0.0);
+  assert.strictEqual(l01.speedEfficiencyPct, 0.0);
+
+  console.log('Test 17 Passed: Matrix initialization 24h operating default & non-zero realized pace verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (17/17) ---');

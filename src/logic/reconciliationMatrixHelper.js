@@ -139,7 +139,7 @@ export function calculateMatrixRowMetrics(row) {
   const lostHours = targetRate > 0 ? round1(deficitPcs / targetRate) : 0;
 
   // 24-hour time allocation hours
-  const operatingHours = Math.max(0, round1(Number(row.operatingHours) || 0));
+  let operatingHours = Math.max(0, round1(Number(row.operatingHours) || 0));
   const moldChangeHours = Math.max(0, round1(Number(row.moldChangeHours) || 0));
   const purgeCleaningHours = Math.max(0, round1(Number(row.purgeCleaningHours) || 0));
   const heaterFailureHours = Math.max(0, round1(Number(row.heaterFailureHours) || 0));
@@ -155,6 +155,10 @@ export function calculateMatrixRowMetrics(row) {
     materialNoOrderHours +
     otherHours
   );
+
+  if ((actualPcs > 0 || actualKg > 0) && (row.operatingHours == null || row.operatingHours === '' || (operatingHours === 0 && row.isOperating !== false && totalDowntimeHours < 24))) {
+    operatingHours = Math.max(0, round1(24.0 - totalDowntimeHours));
+  }
 
   const totalAccountedHours = round1(operatingHours + totalDowntimeHours);
   const varianceHours = round1(24.0 - totalAccountedHours);
@@ -182,13 +186,20 @@ export function calculateMatrixRowMetrics(row) {
   const oeePct = round1((availabilityPct / 100) * (performancePct / 100) * 100);
 
   // Realized Pace / Actual Operating Rate
-  const actualRatePcsH = (operatingHours > 0 && actualPcs > 0)
+  let actualRatePcsH = (operatingHours > 0 && actualPcs > 0)
     ? round1(actualPcs / operatingHours)
     : 0;
 
-  const actualRateKgH = (operatingHours > 0 && actualKg > 0)
+  let actualRateKgH = (operatingHours > 0 && actualKg > 0)
     ? round1(actualKg / operatingHours)
-    : round1(actualRatePcsH * stdWeight);
+    : (stdWeight > 0 ? round1(actualRatePcsH * stdWeight) : 0);
+
+  if (actualRatePcsH <= 0 && actualRateKgH > 0 && stdWeight > 0) {
+    actualRatePcsH = round1(actualRateKgH / stdWeight);
+  }
+  if (actualRateKgH <= 0 && actualRatePcsH > 0 && stdWeight > 0) {
+    actualRateKgH = round1(actualRatePcsH * stdWeight);
+  }
 
   const speedEfficiencyPct = nominalCap > 0
     ? round1((actualRateKgH / nominalCap) * 100)
@@ -426,6 +437,10 @@ export function buildMatrixRowsForDate({
 
         const moldChangeHours = runIndex === 1 ? 0 : 2.0;
 
+        if ((run.actualPcs > 0 || run.actualKg > 0) && runOpHours <= 0) {
+          runOpHours = Math.max(0, round1(24.0 - moldChangeHours));
+        }
+
         let stdWeight = run.unitWeight > 0 ? run.unitWeight : 0;
         if (stdWeight <= 0 && run.actualPcs > 0 && run.actualKg > 0) {
           stdWeight = round1(run.actualKg / run.actualPcs, 2);
@@ -599,6 +614,12 @@ export function buildMatrixRowsForDate({
     if (actualKg <= 0 && actualPcs > 0 && stdWeight > 0) {
       actualKg = round1(actualPcs * stdWeight);
     }
+    if (actualPcs <= 0 && actualKg > 0) {
+      actualPcs = actualKg;
+      if (stdWeight <= 0) stdWeight = 1.0;
+    }
+
+    const hasProduction = actualPcs > 0 || actualKg > 0;
 
     // Standard rate
     let targetRate = 0;
@@ -629,12 +650,14 @@ export function buildMatrixRowsForDate({
     let materialNoOrderHours = 0;
     let otherHours = 0;
 
-    if (savedRep && Array.isArray(savedRep.slots) && savedRep.slots.length === 24) {
-      // Restore from saved report
-      operatingHours = savedRep.engineering?.operatingHours != null
-        ? round1(Number(savedRep.engineering.operatingHours))
-        : round1(savedRep.slots.filter((s) => (Number(s.downtime) || 0) < 60).length);
+    const hasSavedReport = Boolean(savedRep && Array.isArray(savedRep.slots) && savedRep.slots.length === 24);
+    const hasExplicitSavedBreakdown = Boolean(
+      hasSavedReport &&
+      (savedRep.isReconciled || (Array.isArray(savedRep.downtimeEvents) && savedRep.downtimeEvents.length > 0))
+    );
 
+    if (hasExplicitSavedBreakdown) {
+      // Restore from saved report
       const events = Array.isArray(savedRep.downtimeEvents) ? savedRep.downtimeEvents : [];
       events.forEach((ev) => {
         const cat = categorizeDowntimeReason(ev.reason);
@@ -672,53 +695,51 @@ export function buildMatrixRowsForDate({
         otherHours
       );
 
-      if (actualPcs > 0 && operatingHours <= 0) {
-        operatingHours = Math.max(0, round1(24.0 - totalDt));
-      } else if (totalDt > 0 && operatingHours + totalDt > 24.05) {
-        operatingHours = Math.max(0, round1(24.0 - totalDt));
-      }
-    } else if (record) {
-      const recOp = record.operatingHours != null ? Number(record.operatingHours) : null;
-      const recDt = record.downtimeHours != null ? Number(record.downtimeHours) : null;
+      if (hasProduction) {
+        const savedOpHours = savedRep.engineering?.operatingHours != null
+          ? round1(Number(savedRep.engineering.operatingHours))
+          : round1(savedRep.slots.filter((s) => (Number(s.downtime) || 0) < 60).length);
 
-      if (recOp != null && recOp > 0) {
-        operatingHours = round1(recOp);
-      } else if (recDt != null && recDt > 0) {
-        operatingHours = Math.max(0, round1(24.0 - recDt));
-        otherHours = round1(recDt);
-      } else if (actualPcs > 0) {
-        operatingHours = 24.0;
+        if (savedOpHours > 0 && totalDt + savedOpHours <= 24.05) {
+          operatingHours = savedOpHours;
+        } else {
+          operatingHours = Math.max(0, round1(24.0 - totalDt));
+        }
+
+        if (operatingHours <= 0) {
+          operatingHours = Math.max(0, round1(24.0 - totalDt));
+        }
       } else {
         operatingHours = 0.0;
-        materialNoOrderHours = 24.0;
-      }
-
-      const remainingDowntime = Math.max(0, round1(24.0 - operatingHours));
-      if (remainingDowntime > 0 && (moldChangeHours + purgeCleaningHours + heaterFailureHours + mechanicalHours + materialNoOrderHours + otherHours) === 0) {
-        if (actualPcs === 0) {
-          materialNoOrderHours = remainingDowntime;
-        } else {
-          otherHours = remainingDowntime;
+        if (totalDt === 0) {
+          materialNoOrderHours = 24.0;
         }
       }
-
-      const totalDt = round1(
-        moldChangeHours +
-        purgeCleaningHours +
-        heaterFailureHours +
-        mechanicalHours +
-        materialNoOrderHours +
-        otherHours
-      );
-      if (totalDt > 0 && operatingHours + totalDt > 24.05) {
-        operatingHours = Math.max(0, round1(24.0 - totalDt));
-      }
     } else {
-      operatingHours = 0.0;
-      materialNoOrderHours = 24.0;
+      if (hasProduction) {
+        // Every machine that reported actual production (actualPcs > 0 or actualKg > 0)
+        // MUST default to operatingHours = 24.0h and 0.0h downtime on initial matrix load
+        operatingHours = 24.0;
+        moldChangeHours = 0;
+        purgeCleaningHours = 0;
+        heaterFailureHours = 0;
+        mechanicalHours = 0;
+        materialNoOrderHours = 0;
+        otherHours = 0;
+      } else {
+        // Only true idle machines (0 pieces and 0 kg produced) should have
+        // operatingHours = 0 and Material/No Order = 24h
+        operatingHours = 0.0;
+        moldChangeHours = 0;
+        purgeCleaningHours = 0;
+        heaterFailureHours = 0;
+        mechanicalHours = 0;
+        materialNoOrderHours = 24.0;
+        otherHours = 0;
+      }
     }
 
-    const isOperating = actualPcs > 0 || (record != null && (Number(record.operatingHours) > 0 || Number(record.productionQty) > 0));
+    const isOperating = hasProduction || (record != null && (Number(record.operatingHours) > 0 || Number(record.productionQty) > 0 || Number(record.totalWeight) > 0));
     const pipeSizeDisplay = productDescription || pipeSize || productCode || (isOperating ? 'Standard Extrusion Run' : 'Idle / No Order');
 
     const rawRow = {

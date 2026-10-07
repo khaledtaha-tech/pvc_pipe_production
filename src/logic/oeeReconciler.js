@@ -7,6 +7,7 @@ import {
 } from '../config/downtimeReasons.js';
 import { round1, roundToSum, HOUR_WINDOWS, makeRefSpec, emptySlots } from './engine.js';
 import { normalizeExcelDate, consolidateDailyMachineRecords, convertLogRowToReport } from './excelParser.js';
+import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
 
 export {
   STANDARD_DOWNTIME_PRESETS,
@@ -484,6 +485,14 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
 
   if (unitWeight <= 0 && totalWeight > 0 && qty > 0) {
     unitWeight = round1(totalWeight / qty, 2);
+  }
+
+  // Catalog lookup by Item Code only if unitWeight is still 0
+  if (unitWeight <= 0 && itemCode) {
+    const catalogMatch = SOP_FACTORY_PRESETS.find((p) => p.itemCode && p.itemCode.toUpperCase() === String(itemCode).trim().toUpperCase());
+    if (catalogMatch && catalogMatch.unitWeight > 0) {
+      unitWeight = catalogMatch.unitWeight;
+    }
   }
 
   if (totalWeight <= 0 && qty > 0 && unitWeight > 0) {

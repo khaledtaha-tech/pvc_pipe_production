@@ -440,4 +440,64 @@ if (fs.existsSync(alManarPath)) {
   console.log('AlManar_2.xlsx real workbook parsing (including 2026-09-17): OK');
 }
 
+// 9. Strict Sheet Targeting & Header Disambiguation (Row 119 KTS-700 / Item 259)
+const mockMultiSheetWb = {
+  SheetNames: ['Mixing Department', 'Recipe_History', 'Daily Production Log', 'Summary'],
+  Sheets: {
+    'Mixing Department': XLSX.utils.aoa_to_sheet([
+      ['Batch No', 'Formula', 'Raw Unit Weight', 'Mixing Time'],
+      ['B-101', 'PVC-DRY', 25.0, 15]
+    ]),
+    Recipe_History: XLSX.utils.aoa_to_sheet([
+      ['Recipe ID', 'Resin kg', 'Additive Unit Weight'],
+      ['R-01', 100, 5.0]
+    ]),
+    Summary: XLSX.utils.aoa_to_sheet([
+      ['Report Date', 'Total Plant Output'],
+      ['2026-10-06', 45000]
+    ]),
+    'Daily Production Log': XLSX.utils.aoa_to_sheet([
+      // Duplicated unit weight and auxiliary headers in production log
+      [
+        'Date',
+        'Item Code',
+        'Product Description & Specs',
+        'Machine',
+        'Additive Unit Weight',
+        'Production Qty (FG)',
+        'Unit Weight (kg)',
+        'Total Weight (kg)',
+        'Operating Hours',
+        'Reason of Stop'
+      ],
+      // Row 119 scenario: KTS-700 running Item 259 (PVC PIPE 160X11.8MM PN20)
+      [
+        '2026-10-06',
+        '259',
+        'PVC PIPE 160X11.8MM PN20',
+        'KTS-700',
+        '', // Additive unit weight is empty/non-FG
+        53, // Production Qty (FG) = 53 pcs
+        50.00, // FG Unit Weight = 50.00 kg
+        2650.00, // Total Weight = 2650 kg
+        24,
+        ''
+      ]
+    ])
+  }
+};
+
+const parsedMultiSheet = parseDailyLog(mockMultiSheetWb);
+assert.equal(parsedMultiSheet.sheetName, 'Daily Production Log', 'Must strictly target Daily Production Log over Mixing/Recipe tabs');
+assert.equal(parsedMultiSheet.rows.length, 1);
+const r119 = parsedMultiSheet.rows[0];
+assert.equal(r119.machineId, 'L-06', 'KTS-700 must resolve to canonical line L-06');
+assert.equal(r119.itemCode, '259');
+assert.equal(r119.description, 'PVC PIPE 160X11.8MM PN20');
+assert.equal(r119.productionQty, 53, 'Must extract 53 pcs from Production Qty (FG)');
+assert.equal(r119.unitWeight, 50.0, 'Must disambiguate and extract 50.0 kg from Unit Weight (kg)');
+assert.equal(r119.totalWeight, 2650, 'Must extract 2650 kg Total Weight');
+assert.equal(r119.operatingHours, 24);
+
+console.log('Strict sheet targeting & header disambiguation (Row 119): OK');
 console.log('All Excel parser, machine master, and OEE formula tests passed successfully!');

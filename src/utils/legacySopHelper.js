@@ -190,6 +190,7 @@ export const SOP_FACTORY_PRESETS = [
   { itemCode: '195', description: 'uPVC PIPE 75MM 2.2MM GRAY PN-6 EN 1452', unitWeight: 0.95, stdWeight: 0.95, pipeLength: 6.0 },
   { itemCode: '197', description: 'PVC 1" PIPE SCH40 ASTMD 2241', unitWeight: 0.50, stdWeight: 0.50, pipeLength: 6.0 },
   { itemCode: '230', description: 'PVC PIPE 160MM EN1452 PN7.5 4.7MM GRAY R/R', unitWeight: 3.80, stdWeight: 3.80, pipeLength: 6.0 },
+  { itemCode: '259', description: 'PVC PIPE 160X11.8MM PN20', unitWeight: 50.0, stdWeight: 50.0, pipeLength: 6.0 },
   { itemCode: '500', description: 'BLACK MANARCO ELECTRICAL UPVC PIPE CONDUIT 20X1.6mm', unitWeight: 0.55, stdWeight: 0.55, pipeLength: 6.0 },
   { itemCode: '549', description: 'MANARCO ELECTRICAL UPVC PIPE CONDUIT 25X1.9mm', unitWeight: 0.65, stdWeight: 0.65, pipeLength: 6.0 }
 ];

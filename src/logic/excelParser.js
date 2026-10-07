@@ -13,6 +13,7 @@ import {
   roundToSum
 } from './engine.js';
 import { newId } from '../data/store.js';
+import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
 
 /**
  * Format and normalize Excel date (Date object, serial number, or date string) into YYYY-MM-DD
@@ -277,14 +278,37 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     throw new Error('Workbook contains no readable sheets.');
   }
 
-  // Locate target production log sheet (Daily Production Log, Pipe Production, Prod Log, etc.)
-  const targetSheetName =
-    wb.SheetNames.find((name) => /daily.*prod/i.test(name)) ||
-    wb.SheetNames.find((name) => /pipe.*prod/i.test(name)) ||
-    wb.SheetNames.find((name) => /prod.*log/i.test(name)) ||
-    wb.SheetNames.find((name) => /production/i.test(name)) ||
-    wb.SheetNames.find((name) => !/machine.*master/i.test(name)) ||
-    wb.SheetNames[0];
+  // Reject non-extrusion, auxiliary, recipe, master, and summary tabs
+  const isExcludedSheet = (name) => /mixing|mixer|recipe|history|master|summary|dashboard|setting|config|raw\s*material/i.test(name);
+
+  // Strict Precedence for target sheet selection:
+  // 1. Exact canonical Daily Production Log
+  let targetSheetName = wb.SheetNames.find((name) => /daily\s*production\s*log/i.test(name) && !isExcludedSheet(name));
+
+  // 2. Extrusion aliases (e.g. Pipe Production)
+  if (!targetSheetName) {
+    targetSheetName = wb.SheetNames.find((name) => /pipe\s*(?:production|prod)/i.test(name) && !isExcludedSheet(name));
+  }
+
+  // 3. General Daily Prod / Prod Log
+  if (!targetSheetName) {
+    targetSheetName = wb.SheetNames.find((name) => (/daily\s*prod/i.test(name) || /prod.*log/i.test(name)) && !isExcludedSheet(name));
+  }
+
+  // 4. Any production sheet that is not explicitly excluded
+  if (!targetSheetName) {
+    targetSheetName = wb.SheetNames.find((name) => /production/i.test(name) && !isExcludedSheet(name));
+  }
+
+  // 5. Fallback: first non-excluded sheet
+  if (!targetSheetName) {
+    targetSheetName = wb.SheetNames.find((name) => !isExcludedSheet(name));
+  }
+
+  // 6. Final safety fallback
+  if (!targetSheetName) {
+    targetSheetName = wb.SheetNames[0];
+  }
 
   if (!targetSheetName) {
     throw new Error('Workbook contains no readable production sheets.');
@@ -333,17 +357,96 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     }
   }
 
+  // Disambiguate FG Quantity column
+  let fgQtyIdx = headers.findIndex((h) => /^production\s*qty\s*\(?fg\)?$/i.test(h));
+  if (fgQtyIdx === -1) {
+    fgQtyIdx = headers.findIndex((h) => /production\s*qty\s*\(?fg\)?|finished\s*goods|^fg\s*qty|^fg\b/i.test(h));
+  }
+  if (fgQtyIdx === -1) {
+    fgQtyIdx = headers.findIndex((h) => /total\s*production\s*\(?pcs\)?/i.test(h));
+  }
+
+  let altQtyIdx = headers.findIndex((h) => /^(?:production\s*qty|prod\s*qty|total\s*qty|quantity|qty)$/i.test(h));
+  if (altQtyIdx === -1) {
+    altQtyIdx = headers.findIndex((h) => /(?:prod.*qty|quantity|^qty\b)/i.test(h) && !/scrap|reject|waste|purge/i.test(h));
+  }
+
+  const shiftAIdx = headers.findIndex((h) => /shift\s*a\b/i.test(h) && !/hour|time|rate/i.test(h));
+  const shiftBIdx = headers.findIndex((h) => /shift\s*b\b/i.test(h) && !/hour|time|rate/i.test(h));
+
+  // Disambiguate Total Weight column
+  let totalWeightIdx = headers.findIndex((h) => /^total\s*weight\s*(?:\(kg\))?$/i.test(h));
+  if (totalWeightIdx === -1) {
+    totalWeightIdx = headers.findIndex((h) =>
+      (/total\s*w(?:eight)?|total\s*kg|^weight\s*\(?kg\)?/i.test(h) ||
+        (/\bweight\b/i.test(h) && !/unit/i.test(h))) &&
+      !/unit/i.test(h) &&
+      !/meter|\/m\b|per\s*m/i.test(h) &&
+      !/additive|raw|resin|compound|batch|formula|recipe|mixing/i.test(h) &&
+      !/scrap|reject/i.test(h)
+    );
+  }
+
+  // Disambiguate Unit Weight column (Finished Goods unit weight)
+  const unitWeightCandidates = [];
+  headers.forEach((h, idx) => {
+    if (/unit\s*w(?:eight)?|wt\s*\/?\s*pc|weight\s*\/?\s*pc|kg\s*\/?\s*(?:pc|pipe)|unit.*wt/i.test(h)) {
+      if (
+        !/total/i.test(h) &&
+        !/meter|\/m\b|per\s*m/i.test(h) &&
+        !/additive|raw|resin|compound|batch|formula|recipe|mixing/i.test(h) &&
+        !/scrap|reject|waste|purge/i.test(h)
+      ) {
+        unitWeightCandidates.push({ idx, header: h });
+      }
+    }
+  });
+
+  let unitWeightIdx = -1;
+  if (unitWeightCandidates.length === 1) {
+    unitWeightIdx = unitWeightCandidates[0].idx;
+  } else if (unitWeightCandidates.length > 1) {
+    const exactMatch = unitWeightCandidates.find((c) => /^unit\s*weight\s*(?:\(kg\))?$/i.test(c.header) || /finished\s*goods\s*unit\s*weight/i.test(c.header));
+    if (exactMatch) {
+      unitWeightIdx = exactMatch.idx;
+    } else {
+      const kgMatch = unitWeightCandidates.find((c) => /kg/i.test(c.header));
+      if (kgMatch) {
+        unitWeightIdx = kgMatch.idx;
+      } else {
+        const anchor = fgQtyIdx >= 0 ? fgQtyIdx : (totalWeightIdx >= 0 ? totalWeightIdx : 0);
+        let bestCandidate = unitWeightCandidates[0];
+        let bestDist = Math.abs(bestCandidate.idx - anchor);
+        for (const c of unitWeightCandidates) {
+          const dist = Math.abs(c.idx - anchor);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestCandidate = c;
+          }
+        }
+        unitWeightIdx = bestCandidate.idx;
+      }
+    }
+  } else {
+    unitWeightIdx = headers.findIndex((h) =>
+      /unit\s*w(?:eight)?|wt\s*\/?\s*pc|weight\s*\/?\s*pc|kg\s*\/?\s*(?:pc|pipe)|unit.*wt/i.test(h) &&
+      !/total/i.test(h) &&
+      !/meter|\/m\b|per\s*m/i.test(h) &&
+      !/additive|raw|resin|compound|mixing/i.test(h)
+    );
+  }
+
   const colIdx = {
     date: headers.findIndex((h) => /^date/i.test(h)),
     itemCode: itemCodeCol,
-    desc: headers.findIndex((h) => /desc|product|spec/i.test(h)),
+    desc: headers.findIndex((h) => /desc|product|spec/i.test(h) && !/^item\s*code$/i.test(h)),
     machine: headers.findIndex((h) => /machine|line|extruder/i.test(h)),
-    fgQty: headers.findIndex((h) => /production\s*qty\s*\(?fg\)?|finished\s*goods|^fg\b|total\s*production\s*\(?pcs\)?/i.test(h)),
-    altQty: headers.findIndex((h) => /prod.*qty|quantity|^qty\b|total\s*qty/i.test(h)),
-    shiftA: headers.findIndex((h) => /shift\s*a/i.test(h)),
-    shiftB: headers.findIndex((h) => /shift\s*b/i.test(h)),
-    unitWeight: headers.findIndex((h) => /unit\s*w(?:eight)?|weight\s*\/?\s*pc|wt\s*\/?\s*pc|kg\s*\/?\s*(?:pc|pipe)|unit.*wt/i.test(h) && !/total/i.test(h)),
-    totalWeight: headers.findIndex((h) => (/total\s*w(?:eight)?|total\s*kg|^weight\s*\(?kg\)?/i.test(h) || (/\bweight\b/i.test(h) && !/unit/i.test(h))) && !/unit/i.test(h)),
+    fgQty: fgQtyIdx,
+    altQty: altQtyIdx,
+    shiftA: shiftAIdx,
+    shiftB: shiftBIdx,
+    unitWeight: unitWeightIdx,
+    totalWeight: totalWeightIdx,
     scrapKg: headers.findIndex((h) => /scrap|reject/i.test(h)),
     opHours: headers.findIndex((h) => /operat.*hour|run.*hour|^hours/i.test(h)),
     reasonOfStop: headers.findIndex((h) => /reason.*stop|stop.*reason|downtime.*reason|^reason/i.test(h))
@@ -404,6 +507,14 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     // If unitWeight was missing but totalWeight and qty exist:
     if (unitWeight <= 0 && totalWeight > 0 && qty > 0) {
       unitWeight = round1(totalWeight / qty, 2);
+    }
+
+    // Catalog lookup by Item Code only if unitWeight is still 0
+    if (unitWeight <= 0 && itemCode) {
+      const catalogMatch = SOP_FACTORY_PRESETS.find((p) => p.itemCode && p.itemCode.toUpperCase() === String(itemCode).trim().toUpperCase());
+      if (catalogMatch && catalogMatch.unitWeight > 0) {
+        unitWeight = catalogMatch.unitWeight;
+      }
     }
 
     // If totalWeight was 0 but qty and unitWeight exist:

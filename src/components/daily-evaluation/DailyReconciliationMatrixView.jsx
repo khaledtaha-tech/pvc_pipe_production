@@ -656,6 +656,7 @@ export default function DailyReconciliationMatrixView({
                         step="0.01"
                         min="0"
                         value={row.stdWeight ?? ''}
+                        title={row.sourceAudit ? row.sourceAudit.summary : 'Standard pipe unit weight in kg'}
                         onChange={(e) => handleCellChange(row.lineId, 'stdWeight', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'stdWeight')}
                         className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"

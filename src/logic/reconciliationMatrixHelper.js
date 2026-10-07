@@ -3,6 +3,7 @@ import { round1, makeRefSpec, HOUR_WINDOWS } from './engine.js';
 import { consolidateDailyMachineRecords, convertLogRowToReport } from './excelParser.js';
 import { queryProductionRecords, queryProductionRecordsForDate, reconcileShiftRun, blankReportForMachine } from './oeeReconciler.js';
 import { getMachineNominalCapacity } from './machineSettingsConfig.js';
+import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
 import * as XLSX from 'xlsx';
 
 /**
@@ -442,12 +443,31 @@ export function buildMatrixRowsForDate({
         }
 
         let stdWeight = run.unitWeight > 0 ? run.unitWeight : 0;
+        let unitWeightSource = run.unitWeight > 0 ? 'Daily Production Log (Unit Weight)' : '';
         if (stdWeight <= 0 && run.actualPcs > 0 && run.actualKg > 0) {
           stdWeight = round1(run.actualKg / run.actualPcs, 2);
+          unitWeightSource = 'Derived from Actual Kg / Actual Pcs';
+        }
+        if (stdWeight <= 0 && run.itemCode) {
+          const catMatch = SOP_FACTORY_PRESETS.find((p) => p.itemCode && p.itemCode.toUpperCase() === String(run.itemCode).trim().toUpperCase());
+          if (catMatch && catMatch.unitWeight > 0) {
+            stdWeight = catMatch.unitWeight;
+            unitWeightSource = `Catalog Preset [Item ${run.itemCode}]`;
+          }
         }
         let targetRate = (nominalCapacity > 0 && stdWeight > 0) ? round1(nominalCapacity / stdWeight) : 0;
 
         const pipeSizeDisplay = run.description || run.pipeSize || run.itemCode || `Run ${runIndex}`;
+        const sourceAudit = {
+          sheet: 'Daily Production Log',
+          unitWeightSource: unitWeightSource || 'Default / Derived',
+          qtySource: 'Production Qty (FG)',
+          stdWeight,
+          actualPcs: run.actualPcs,
+          actualKg: run.actualKg,
+          nominalCapacity,
+          summary: `Run ${runIndex}: ${run.actualPcs} pcs @ ${stdWeight} kg/pc (${run.actualKg} kg) | Unit Wt: ${unitWeightSource || 'N/A'}`
+        };
         const rawRow = {
           lineId: `${machine.id}-run-${runIndex}`,
           baseLineId: machine.id,
@@ -476,7 +496,8 @@ export function buildMatrixRowsForDate({
           otherHours: 0,
           isOperating: run.actualPcs > 0 || runOpHours > 0,
           isSaved: Boolean(savedRep?.isReconciled),
-          isReconciled: Boolean(savedRep?.isReconciled)
+          isReconciled: Boolean(savedRep?.isReconciled),
+          sourceAudit
         };
         return calculateMatrixRowMetrics(rawRow);
       });
@@ -514,6 +535,16 @@ export function buildMatrixRowsForDate({
         if (targetRate <= 0 && nominalCapacity > 0 && run.stdWeight > 0) {
           targetRate = round1(nominalCapacity / run.stdWeight);
         }
+        const sourceAudit = {
+          sheet: 'Saved Report',
+          unitWeightSource: 'Saved Report Reference',
+          qtySource: 'Saved Report',
+          stdWeight: run.stdWeight,
+          actualPcs: 0,
+          actualKg: 0,
+          nominalCapacity,
+          summary: `Saved Ref [Run ${run.runIndex}]: Std Wt ${run.stdWeight} kg/pc`
+        };
         const rawRow = {
           lineId: `${machine.id}-run-${run.runIndex}`,
           baseLineId: machine.id,
@@ -540,7 +571,8 @@ export function buildMatrixRowsForDate({
           otherHours: 0,
           isOperating: true,
           isSaved: Boolean(savedRep.isReconciled),
-          isReconciled: Boolean(savedRep.isReconciled)
+          isReconciled: Boolean(savedRep.isReconciled),
+          sourceAudit
         };
         return calculateMatrixRowMetrics(rawRow);
       });
@@ -580,36 +612,101 @@ export function buildMatrixRowsForDate({
 
     const pipeLength = Number(ref1.pipeLength) || Number(record?.cutLength) || 6.0;
 
-    // Unit weight
-    let stdWeight = Number(ref1.stdWeight) || 0;
-    if (stdWeight <= 0 && record) {
-      if (Number(record.unitWeight) > 0) {
-        stdWeight = Number(record.unitWeight);
-      } else if (Number(record.weightPerPiece) > 0) {
-        stdWeight = Number(record.weightPerPiece);
-      } else if (Number(record.weightPerMeter) > 0 && pipeLength > 0) {
-        stdWeight = round1(Number(record.weightPerMeter) * pipeLength);
-      } else if (Number(record.raw?.weightPerPiece) > 0) {
-        stdWeight = Number(record.raw.weightPerPiece);
-      } else if (Number(record.raw?.unitWeight) > 0) {
-        stdWeight = Number(record.raw.unitWeight);
+    // Strict Precedence Hierarchy for Unit Weight:
+    // 1. Explicit user override from reconciled saved report
+    // 2. Parsed row Unit Weight (kg) (50.00 kg from Daily Production Log)
+    // 3. Weight per piece from record
+    // 4. Raw record unit weight / weight per piece
+    // 5. Saved report ref1.stdWeight (if unreconciled)
+    // 6. Weight per meter * pipeLength
+    // 7. Division fallback: totalWeight / productionQty
+    // 8. Catalog lookup by Item Code (only if row unit weight is 0)
+    let stdWeight = 0;
+    let unitWeightSource = '';
+
+    if (savedRep?.isReconciled && Number(ref1.stdWeight) > 0) {
+      stdWeight = Number(ref1.stdWeight);
+      unitWeightSource = 'Reconciled Report Override';
+    } else if (record && Number(record.unitWeight) > 0) {
+      stdWeight = Number(record.unitWeight);
+      unitWeightSource = 'Daily Production Log (Unit Weight)';
+    } else if (record && Number(record.weightPerPiece) > 0) {
+      stdWeight = Number(record.weightPerPiece);
+      unitWeightSource = 'Record Weight Per Piece';
+    } else if (record && Number(record.raw?.unitWeight) > 0) {
+      stdWeight = Number(record.raw.unitWeight);
+      unitWeightSource = 'Raw Record Unit Weight';
+    } else if (record && Number(record.raw?.weightPerPiece) > 0) {
+      stdWeight = Number(record.raw.weightPerPiece);
+      unitWeightSource = 'Raw Record Weight Per Piece';
+    } else if (Number(ref1.stdWeight) > 0) {
+      stdWeight = Number(ref1.stdWeight);
+      unitWeightSource = 'Saved Report Reference';
+    } else if (record && Number(record.weightPerMeter) > 0 && pipeLength > 0) {
+      stdWeight = round1(Number(record.weightPerMeter) * pipeLength);
+      unitWeightSource = 'Weight Per Meter Calculation';
+    } else if (record && Number(record.totalWeight) > 0 && Number(record.productionQty) > 0) {
+      stdWeight = round1(Number(record.totalWeight) / Number(record.productionQty), 2);
+      unitWeightSource = 'Total Weight / Production Qty';
+    } else if (productCode) {
+      const catMatch = SOP_FACTORY_PRESETS.find((p) => p.itemCode && p.itemCode.toUpperCase() === String(productCode).trim().toUpperCase());
+      if (catMatch && catMatch.unitWeight > 0) {
+        stdWeight = catMatch.unitWeight;
+        unitWeightSource = `Catalog Preset [Item ${productCode}]`;
       }
     }
 
-    // Production output
-    let actualPcs = savedRep?.summary?.totalOutput != null && savedRep.summary.totalOutput !== ''
-      ? Math.round(Number(savedRep.summary.totalOutput) || 0)
-      : (record ? Math.round(Number(record.productionQty ?? record.totalOutput ?? record.actual) || 0) : 0);
+    // Production output:
+    // Precedence: Reconciled Report > Production Qty (FG) > Shift A + Shift B > Saved Slots Output > Zero-piece recovery
+    let actualPcs = 0;
+    let qtySource = '';
 
-    let actualKg = Number(savedRep?.engineering?.totalWeightKg) ||
-      (record ? Number(record.totalWeight ?? record.weightKg) || 0 : 0) ||
-      (stdWeight > 0 ? round1(actualPcs * stdWeight) : 0);
+    if (savedRep?.isReconciled && savedRep?.summary?.totalOutput != null && savedRep.summary.totalOutput !== '') {
+      actualPcs = Math.round(Number(savedRep.summary.totalOutput) || 0);
+      qtySource = 'Reconciled Report';
+    } else if (record) {
+      const fgQty = Number(record.productionQty ?? record['Production Qty (FG)'] ?? record.totalOutput ?? record.actual);
+      if (!isNaN(fgQty) && fgQty > 0) {
+        actualPcs = Math.round(fgQty);
+        qtySource = 'Production Qty (FG)';
+      } else {
+        const shiftA = Number(record['Shift A (Pcs)'] ?? record['Shift A'] ?? record.shiftA ?? 0) || 0;
+        const shiftB = Number(record['Shift B (Pcs)'] ?? record['Shift B'] ?? record.shiftB ?? 0) || 0;
+        if (shiftA > 0 || shiftB > 0) {
+          actualPcs = shiftA + shiftB;
+          qtySource = 'Shift A + Shift B';
+        }
+      }
+    } else if (savedRep?.summary?.totalOutput != null && savedRep.summary.totalOutput !== '') {
+      actualPcs = Math.round(Number(savedRep.summary.totalOutput) || 0);
+      qtySource = 'Saved Summary Output';
+    } else if (Array.isArray(savedRep?.slots) && savedRep.slots.length > 0) {
+      const slotSum = savedRep.slots.reduce((sum, s) => sum + (Number(s.actual) || 0), 0);
+      if (slotSum > 0) {
+        actualPcs = Math.round(slotSum);
+        qtySource = 'Saved Slots Output';
+      }
+    }
 
+    let actualKg = 0;
+    if (savedRep?.isReconciled && Number(savedRep?.engineering?.totalWeightKg) > 0) {
+      actualKg = Number(savedRep.engineering.totalWeightKg);
+    } else if (record && Number(record.totalWeight ?? record.weightKg) > 0) {
+      actualKg = Number(record.totalWeight ?? record.weightKg);
+    } else if (Number(savedRep?.engineering?.totalWeightKg) > 0) {
+      actualKg = Number(savedRep.engineering.totalWeightKg);
+    } else if (stdWeight > 0 && actualPcs > 0) {
+      actualKg = round1(actualPcs * stdWeight);
+    }
+
+    // Zero-piece recovery
     if (actualPcs <= 0 && actualKg > 0 && stdWeight > 0) {
       actualPcs = Math.round(actualKg / stdWeight);
+      qtySource = 'Recovered from Total Weight / Std Weight';
     }
     if (stdWeight <= 0 && actualPcs > 0 && actualKg > 0) {
       stdWeight = round1(actualKg / actualPcs, 2);
+      unitWeightSource = 'Derived from Actual Kg / Actual Pcs';
     }
     if (actualKg <= 0 && actualPcs > 0 && stdWeight > 0) {
       actualKg = round1(actualPcs * stdWeight);
@@ -640,6 +737,17 @@ export function buildMatrixRowsForDate({
     } else if (Number(record?.raw?.speed) > 0 && pipeLength > 0) {
       targetRate = round1((Number(record.raw.speed) * 60) / pipeLength);
     }
+
+    const sourceAudit = {
+      sheet: record?.sheetName || 'Daily Production Log',
+      unitWeightSource: unitWeightSource || 'Default',
+      qtySource: qtySource || 'Default',
+      stdWeight,
+      actualPcs,
+      actualKg,
+      nominalCapacity,
+      summary: `Logged: ${actualPcs} pcs @ ${stdWeight} kg/pc (${actualKg} kg) | Unit Wt: ${unitWeightSource || 'N/A'}`
+    };
 
     // Initial operating and downtime hours
     let operatingHours = 24.0;
@@ -768,7 +876,8 @@ export function buildMatrixRowsForDate({
       otherHours,
       isOperating,
       isSaved: Boolean(savedRep?.isReconciled),
-      isReconciled: Boolean(savedRep?.isReconciled)
+      isReconciled: Boolean(savedRep?.isReconciled),
+      sourceAudit
     };
 
     return [calculateMatrixRowMetrics(rawRow)];

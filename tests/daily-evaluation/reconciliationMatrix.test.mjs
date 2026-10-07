@@ -791,4 +791,86 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 17 Passed: Matrix initialization 24h operating default & non-zero realized pace verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (17/17) ---');
+// Test 18: Line L-06 (KTS-700) Item 259 Weight, Piece Ingestion, and Source Audit Verification
+{
+  const testMaster = [
+    { id: 'L-06', name: 'KTS 700', capacityKgH: 500, nominalCapacity: 500 }
+  ];
+
+  // 1. Ingested record with explicit Unit Weight 50.0kg and 53 pcs
+  const l06Record = {
+    date: '2026-10-06',
+    machineId: 'L-06',
+    machineRaw: 'KTS-700',
+    itemCode: '259',
+    description: 'PVC PIPE 160X11.8MM PN20',
+    productionQty: 53,
+    unitWeight: 50.0,
+    totalWeight: 2650.0
+  };
+
+  const rows = buildMatrixRowsForDate({
+    date: '2026-10-06',
+    machineMaster: testMaster,
+    combinedDatasets: [l06Record],
+    loadReportByDateAndMachineFn: () => null
+  });
+
+  assert.strictEqual(rows.length, 1);
+  const l06 = rows[0];
+
+  assert.strictEqual(l06.lineId, 'L-06');
+  assert.strictEqual(l06.productCode, '259');
+  assert.strictEqual(l06.stdWeight, 50.0, 'Std weight must strictly be 50.0kg, NEVER 5.6kg fallback');
+  assert.strictEqual(l06.actualPcs, 53, 'Actual output must strictly be 53 pcs, NEVER 473 pcs');
+  assert.strictEqual(l06.actualKg, 2650.0, 'Actual kg must be 2650 kg');
+  assert.strictEqual(l06.nominalCapacity, 500);
+
+  // Engineering pace and balance derivations:
+  assert.strictEqual(l06.targetRate, 10.0, 'Std rate: 500 / 50.0 = 10.0 pcs/h');
+  assert.strictEqual(l06.expectedPcs, 240.0, 'Expected output: 24h * 10.0 pcs/h = 240 pcs');
+  assert.strictEqual(l06.expectedKg, 12000.0, 'Expected weight: 240 * 50.0 = 12,000 kg');
+  assert.strictEqual(l06.deficitPcs, 187.0, 'Deficit pcs: 240 - 53 = 187 pcs');
+  assert.strictEqual(l06.deficitKg, 9350.0, 'Deficit kg: 12000 - 2650 = 9350 kg');
+  assert.strictEqual(l06.operatingHours, 24.0, 'Operating hours must default to 24.0h');
+  assert.strictEqual(l06.totalAccountedHours, 24.0);
+  assert.strictEqual(l06.balanceStatus, 'balanced');
+
+  // Realized rate & Speed efficiency:
+  assert.strictEqual(l06.actualRatePcsH, 2.2, '53 / 24.0 = 2.2 pcs/h');
+  assert.strictEqual(l06.actualRateKgH, 110.4, '2650 / 24.0 = 110.4 kg/h');
+  assert.strictEqual(l06.speedEfficiencyPct, 22.1, '(110.4 / 500) * 100 = 22.1%');
+
+  // Data audit metadata:
+  assert.ok(l06.sourceAudit, 'Row must include sourceAudit metadata');
+  assert.strictEqual(l06.sourceAudit.stdWeight, 50.0);
+  assert.strictEqual(l06.sourceAudit.actualPcs, 53);
+  assert.strictEqual(l06.sourceAudit.actualKg, 2650.0);
+  assert.strictEqual(l06.sourceAudit.nominalCapacity, 500);
+
+  // 2. Catalog fallback test: when unitWeight is omitted (0), itemCode 259 must resolve 50.0kg from catalog
+  const zeroWeightRecord = {
+    date: '2026-10-06',
+    machineId: 'L-06',
+    itemCode: '259',
+    description: 'PVC PIPE 160X11.8MM PN20',
+    productionQty: 53,
+    unitWeight: 0,
+    totalWeight: 2650.0
+  };
+
+  const rows2 = buildMatrixRowsForDate({
+    date: '2026-10-06',
+    machineMaster: testMaster,
+    combinedDatasets: [zeroWeightRecord],
+    loadReportByDateAndMachineFn: () => null
+  });
+
+  const l06Fallback = rows2[0];
+  assert.strictEqual(l06Fallback.stdWeight, 50.0, 'Catalog preset lookup must resolve 50.0kg for Item 259');
+  assert.strictEqual(l06Fallback.actualPcs, 53);
+
+  console.log('Test 18 Passed: Line L-06 (KTS-700) Item 259 weight, piece ingestion, and source audit verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (18/18) ---');

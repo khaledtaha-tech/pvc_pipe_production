@@ -101,6 +101,10 @@ export function applyMatrixRowInput(row, field, rawValue) {
   } else if (field === 'stdWeight') {
     const actualPcs = cleanPositiveNumber(row.actualPcs, 0);
     updated.actualKg = round1(actualPcs * cleanVal);
+    // If stdWeight is updated and nominalCapacity exists, dynamically derive stdRate:
+    if (cleanVal > 0 && Number(row.nominalCapacity) > 0) {
+      updated.targetRate = round1(Number(row.nominalCapacity) / cleanVal);
+    }
   }
 
   return calculateMatrixRowMetrics(updated);
@@ -110,9 +114,12 @@ export function applyMatrixRowInput(row, field, rawValue) {
  * Calculate mathematical metrics for a single matrix row
  */
 export function calculateMatrixRowMetrics(row) {
-  const targetRate = Math.max(0, Number(row.targetRate) || 0);
   const stdWeight = Math.max(0, Number(row.stdWeight) || 0);
   const nominalCap = Math.max(0, Number(row.nominalCapacity) || 0);
+  let targetRate = Math.max(0, Number(row.targetRate ?? row.stdRate) || 0);
+  if (targetRate <= 0 && nominalCap > 0 && stdWeight > 0) {
+    targetRate = round1(nominalCap / stdWeight);
+  }
   const actualPcs = Math.max(0, Math.round(Number(row.actualPcs) || 0));
   
   // Actual weight (kg)
@@ -295,10 +302,40 @@ export function buildMatrixRowsForDate({
     // 2. Ingested production record
     const record = recordMap.get(lineId) || null;
 
-    // Product specs
+    // Product specs & Pipe Size
     const ref1 = savedRep?.refs?.['1'] || {};
-    const productCode = savedRep?.header?.itemCode || record?.productCode || '';
-    const productDescription = ref1.productDescription || record?.productName || '';
+    const productCode = savedRep?.header?.itemCode ||
+      record?.productCode ||
+      record?.itemCode ||
+      record?.['Item Code'] ||
+      record?.code ||
+      '';
+
+    let productDescription = ref1.productDescription ||
+      record?.productDescription ||
+      record?.description ||
+      record?.productName ||
+      record?.['Product Description & Specs'] ||
+      record?.desc ||
+      record?.specDescription ||
+      record?.size ||
+      '';
+
+    if (!productDescription && Array.isArray(record?.items) && record.items.length > 0) {
+      const firstItem = record.items[0];
+      productDescription = firstItem.description || firstItem.productName || firstItem.productDescription || '';
+    }
+
+    const pipeSize = record?.pipeSize ||
+      record?.size ||
+      record?.dimension ||
+      record?.raw?.size ||
+      '';
+
+    if (!productDescription && pipeSize) {
+      productDescription = pipeSize;
+    }
+
     const pipeLength = Number(ref1.pipeLength) || Number(record?.cutLength) || 6.0;
 
     // Unit weight
@@ -317,36 +354,39 @@ export function buildMatrixRowsForDate({
       }
     }
 
-    // Standard rate
-    let targetRate = Number(ref1.targetRate) || 0;
-    if (targetRate <= 0 && savedRep?.slots?.[0]?.rate > 0) {
-      targetRate = Number(savedRep.slots[0].rate);
-    }
-    if (targetRate <= 0 && record) {
-      if (Number(record.standardRate) > 0) {
-        targetRate = Number(record.standardRate);
-      } else if (Number(record.raw?.standardRate) > 0) {
-        targetRate = Number(record.raw.standardRate);
-      } else if (Number(record.raw?.targetRate) > 0) {
-        targetRate = Number(record.raw.targetRate);
-      } else if (Number(record.speed) > 0 && pipeLength > 0) {
-        targetRate = round1((Number(record.speed) * 60) / pipeLength);
-      } else if (Number(record.raw?.speed) > 0 && pipeLength > 0) {
-        targetRate = round1((Number(record.raw.speed) * 60) / pipeLength);
-      }
-    }
-    if (targetRate <= 0) {
-      targetRate = 100;
-    }
-
     // Production output
     const actualPcs = savedRep?.summary?.totalOutput != null && savedRep.summary.totalOutput !== ''
       ? Math.round(Number(savedRep.summary.totalOutput) || 0)
-      : (record ? Math.round(Number(record.productionQty) || 0) : 0);
+      : (record ? Math.round(Number(record.productionQty ?? record.totalOutput ?? record.actual) || 0) : 0);
 
     const actualKg = Number(savedRep?.engineering?.totalWeightKg) ||
-      (record ? Number(record.totalWeight) || 0 : 0) ||
-      round1(actualPcs * stdWeight);
+      (record ? Number(record.totalWeight ?? record.weightKg) || 0 : 0) ||
+      (stdWeight > 0 ? round1(actualPcs * stdWeight) : 0);
+
+    if (stdWeight <= 0 && actualPcs > 0 && actualKg > 0) {
+      stdWeight = round1(actualKg / actualPcs, 2);
+    }
+
+    // Standard rate
+    // Derive stdRate dynamically: (nominalCap > 0 && stdWeight > 0) ? round1(nominalCap / stdWeight) : (saved/record rate)
+    let targetRate = 0;
+    if (nominalCapacity > 0 && stdWeight > 0) {
+      targetRate = round1(nominalCapacity / stdWeight);
+    } else if (Number(ref1.targetRate) > 0) {
+      targetRate = Number(ref1.targetRate);
+    } else if (savedRep?.slots?.[0]?.rate > 0) {
+      targetRate = Number(savedRep.slots[0].rate);
+    } else if (Number(record?.standardRate) > 0) {
+      targetRate = Number(record.standardRate);
+    } else if (Number(record?.raw?.standardRate) > 0) {
+      targetRate = Number(record.raw.standardRate);
+    } else if (Number(record?.raw?.targetRate) > 0) {
+      targetRate = Number(record.raw.targetRate);
+    } else if (Number(record?.speed) > 0 && pipeLength > 0) {
+      targetRate = round1((Number(record.speed) * 60) / pipeLength);
+    } else if (Number(record?.raw?.speed) > 0 && pipeLength > 0) {
+      targetRate = round1((Number(record.raw.speed) * 60) / pipeLength);
+    }
 
     // Initial operating and downtime hours
     let operatingHours = 24.0;
@@ -393,7 +433,6 @@ export function buildMatrixRowsForDate({
         });
       }
 
-      // Ensure total accounted hours does not exceed 24.0 on initial load if downtime exists
       const totalDt = round1(
         moldChangeHours +
         purgeCleaningHours +
@@ -402,23 +441,35 @@ export function buildMatrixRowsForDate({
         materialNoOrderHours +
         otherHours
       );
-      if (totalDt > 0 && operatingHours + totalDt > 24.05) {
+
+      // If actual output exists but operatingHours was 0, default intelligently to 24h minus downtime
+      if (actualPcs > 0 && operatingHours <= 0) {
+        operatingHours = Math.max(0, round1(24.0 - totalDt));
+      } else if (totalDt > 0 && operatingHours + totalDt > 24.05) {
         operatingHours = Math.max(0, round1(24.0 - totalDt));
       }
     } else if (record) {
       // Ingested record without prior saved report
-      if (record.operatingHours != null && Number(record.operatingHours) >= 0) {
-        operatingHours = round1(Number(record.operatingHours));
+      const recOp = record.operatingHours != null ? Number(record.operatingHours) : null;
+      const recDt = record.downtimeHours != null ? Number(record.downtimeHours) : null;
+
+      if (recOp != null && recOp > 0) {
+        operatingHours = round1(recOp);
+      } else if (recDt != null && recDt > 0) {
+        operatingHours = Math.max(0, round1(24.0 - recDt));
+        otherHours = round1(recDt);
+      } else if (actualPcs > 0) {
+        // Line produced output: default intelligently to 24.0 operating hours
+        operatingHours = 24.0;
       } else {
-        const theoretical = 24 * targetRate;
-        const deficit = Math.max(0, theoretical - actualPcs);
-        const lost = targetRate > 0 ? round1(deficit / targetRate) : 0;
-        operatingHours = actualPcs > 0 ? Math.max(0, round1(24 - lost)) : 0;
+        // Line produced 0 pcs: full day idle
+        operatingHours = 0.0;
+        materialNoOrderHours = 24.0;
       }
 
-      // If operatingHours < 24, allocate remainder to other or no order
+      // If operatingHours < 24 and other downtime is 0, allocate remainder
       const remainingDowntime = Math.max(0, round1(24.0 - operatingHours));
-      if (remainingDowntime > 0) {
+      if (remainingDowntime > 0 && (moldChangeHours + purgeCleaningHours + heaterFailureHours + mechanicalHours + materialNoOrderHours + otherHours) === 0) {
         if (actualPcs === 0) {
           materialNoOrderHours = remainingDowntime;
         } else {
@@ -445,12 +496,15 @@ export function buildMatrixRowsForDate({
 
     const isOperating = actualPcs > 0 || (record != null && (Number(record.operatingHours) > 0 || Number(record.productionQty) > 0));
 
+    const pipeSizeDisplay = productDescription || pipeSize || productCode || (isOperating ? 'Standard Extrusion Run' : 'Idle / No Order');
+
     const rawRow = {
       lineId,
       lineName,
       nominalCapacity,
       productCode,
-      productDescription,
+      productDescription: productDescription || pipeSizeDisplay,
+      pipeSize: pipeSizeDisplay,
       pipeLength,
       stdWeight,
       targetRate,
@@ -612,9 +666,9 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
   const headers = [
     'Line ID',
     'Machine Name',
+    'Pipe Size & Specs',
     'Nominal Cap (kg/h)',
     'Product Code',
-    'Product Description',
     'Std Weight (kg/pc)',
     'Std Rate (Pcs/h)',
     'Expected 24h (Pcs)',
@@ -644,9 +698,9 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
   const dataRows = rows.map((r) => [
     r.lineId,
     r.lineName,
+    r.pipeSize || r.productDescription || '-',
     r.nominalCapacity,
     r.productCode || '-',
-    r.productDescription || '-',
     r.stdWeight,
     r.targetRate,
     r.expectedPcs,
@@ -679,9 +733,9 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
   ws['!cols'] = [
     { wch: 10 }, // Line ID
     { wch: 18 }, // Machine Name
+    { wch: 28 }, // Pipe Size & Specs
     { wch: 18 }, // Nominal Cap
     { wch: 16 }, // Product Code
-    { wch: 25 }, // Description
     { wch: 16 }, // Std Weight
     { wch: 15 }, // Std Rate
     { wch: 16 }, // Expected Pcs

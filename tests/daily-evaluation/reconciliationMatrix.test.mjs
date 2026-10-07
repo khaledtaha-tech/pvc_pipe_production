@@ -169,7 +169,8 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   assert.strictEqual(l01.actualPcs, 800);
   assert.strictEqual(l01.actualKg, 3040);
   assert.strictEqual(l01.stdWeight, 3.8);
-  assert.strictEqual(l01.targetRate, 40);
+  assert.strictEqual(l01.targetRate, 78.9, 'Target rate must be dynamically derived from machine engineering: 300 kg/h / 3.8 kg/pc = 78.9 pcs/h');
+  assert.strictEqual(l01.pipeSize, '110 mm Class 4', 'Running pipe size must be extracted from productName/description');
   assert.strictEqual(l01.isOperating, true);
 
   // Machines with no production default to full day idle / No Order
@@ -291,6 +292,8 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   assert.ok(sheet);
   assert.strictEqual(sheet['A1'].v, 'Line ID');
   assert.strictEqual(sheet['B1'].v, 'Machine Name');
+  assert.strictEqual(sheet['C1'].v, 'Pipe Size & Specs');
+  assert.strictEqual(sheet['D1'].v, 'Nominal Cap (kg/h)');
   assert.strictEqual(sheet['A2'].v, 'L-01');
   assert.strictEqual(sheet['A3'].v, 'L-02');
 
@@ -496,4 +499,49 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 13 Passed: Actual operating rates and speed efficiency verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (13/13) ---');
+// Test 14: Engineering Std Rate Derivation (eliminate 100 pcs/h anomaly) and Ingested Operating Hours Default
+{
+  // 1. Dynamic derivation when stdWeight is edited
+  const initialRow = {
+    nominalCapacity: 250,
+    stdWeight: 5.0,
+    actualPcs: 1000
+  };
+  const derived = calculateMatrixRowMetrics(initialRow);
+  assert.strictEqual(derived.targetRate, 50.0, 'Std Rate must be nominal 250 / 5.0 = 50.0 pcs/h');
+  assert.strictEqual(derived.expectedPcs, 1200, 'Expected 24h must be 24 * 50 = 1200 pcs (NOT 2400 pcs)');
+
+  // 2. Editing stdWeight re-derives targetRate dynamically
+  const updatedWeight = applyMatrixRowInput(derived, 'stdWeight', 2.5);
+  assert.strictEqual(updatedWeight.stdWeight, 2.5);
+  assert.strictEqual(updatedWeight.targetRate, 100.0, 'Std Rate must dynamically update to 250 / 2.5 = 100.0 pcs/h');
+  assert.strictEqual(updatedWeight.expectedPcs, 2400);
+
+  // 3. Operating hours defaults to 24h when output is produced and no prior report exists
+  const activeRecordDataset = [
+    {
+      date: '2026-03-22',
+      machineId: 'L-02',
+      itemCode: 'PIPE-63',
+      description: '63 mm Class 3 SDR 21',
+      productionQty: 1500,
+      unitWeight: 1.2
+    }
+  ];
+  const activeRows = buildMatrixRowsForDate({
+    date: '2026-03-22',
+    machineMaster: [{ id: 'L-02', name: 'Battenfeld-02', nominalCapacity: 200 }],
+    combinedDatasets: activeRecordDataset,
+    loadReportByDateAndMachineFn: () => null
+  });
+  const l02 = activeRows.find((r) => r.lineId === 'L-02');
+  assert.ok(l02);
+  assert.strictEqual(l02.operatingHours, 24.0, 'Operating hours must default to 24.0h for line with output when no downtime is specified');
+  assert.strictEqual(l02.totalAccountedHours, 24.0);
+  assert.strictEqual(l02.balanceStatus, 'balanced');
+  assert.strictEqual(l02.pipeSize, '63 mm Class 3 SDR 21', 'Running pipe size must match description');
+
+  console.log('Test 14 Passed: Engineering rate derivation and active line defaults verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (14/14) ---');

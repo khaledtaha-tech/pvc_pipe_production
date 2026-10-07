@@ -436,7 +436,7 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
   const rawDate = raw.Date ?? raw.date ?? raw['DATE'] ?? '';
   const date = normalizeExcelDate(rawDate);
   const itemCode = String(raw['Item Code'] ?? raw.itemCode ?? raw.item_code ?? raw['Item'] ?? raw['item'] ?? '').trim();
-  const description = String(raw['Product Description & Specs'] ?? raw.description ?? raw.desc ?? raw['Product'] ?? raw['Description'] ?? '').trim();
+  const description = String(raw['Product Description & Specs'] ?? raw.description ?? raw.productName ?? raw.product_name ?? raw.desc ?? raw['Product'] ?? raw['Description'] ?? raw.size ?? raw.pipeSize ?? '').trim();
   const machineRaw = String(raw.Machine ?? raw.machine ?? raw.machineRaw ?? raw.machineName ?? raw.machineId ?? '').trim();
 
   const qty = Number(raw['Production Qty (FG)'] ?? raw.productionQty ?? raw.qty ?? raw.production_qty ?? raw['Production Qty'] ?? raw.ProductionQty ?? 0) || 0;
@@ -473,6 +473,7 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
     reasonOfStop,
     actualRateKgH,
     capacityUtilizationPct,
+    pipeSize: raw.pipeSize ?? raw.size ?? description,
     raw
   };
 }

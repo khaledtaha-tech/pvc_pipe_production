@@ -256,7 +256,8 @@ export default function DailyReconciliationMatrixView({
         const lineMatch = r.lineId.toLowerCase().includes(query);
         const nameMatch = r.lineName.toLowerCase().includes(query);
         const codeMatch = (r.productCode || '').toLowerCase().includes(query);
-        if (!lineMatch && !nameMatch && !codeMatch) return false;
+        const sizeMatch = (r.pipeSize || '').toLowerCase().includes(query) || (r.productDescription || '').toLowerCase().includes(query);
+        if (!lineMatch && !nameMatch && !codeMatch && !sizeMatch) return false;
       }
       return true;
     });
@@ -496,18 +497,18 @@ export default function DailyReconciliationMatrixView({
         </div>
       </div>
 
-      {/* Wide Horizontal Scrollable Table */}
+      {/* Wide Horizontal Scrollable Table with Sticky Headers & Viewport Scroll */}
       <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[1850px]">
+        <div className="overflow-x-auto overflow-y-auto max-h-[72vh] relative">
+          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[1950px]">
             {/* Top Multi-Header Row */}
-            <thead>
-              <tr className="bg-slate-950/90 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
-                <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-slate-300">
-                  Machine Info
+            <thead className="sticky top-0 z-20 shadow-md bg-slate-900 border-b border-slate-800">
+              <tr className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
+                <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-slate-300 bg-slate-950">
+                  Machine &amp; Running Job Info
                 </th>
-                <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-blue-300 bg-blue-950/20">
-                  Active Extrusion Job Specs
+                <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-blue-300 bg-blue-950/30">
+                  Job Engineering Specs
                 </th>
                 <th colSpan={4} className="px-3 py-2 border-r border-slate-800 text-emerald-300 bg-emerald-950/20">
                   Production Balance (Theoretical vs Actual)
@@ -518,22 +519,24 @@ export default function DailyReconciliationMatrixView({
                 <th colSpan={4} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
                   Audit &amp; Telemetry
                 </th>
-                <th className="px-3 py-2 text-center text-slate-300">
+                <th className="px-3 py-2 text-center text-slate-300 bg-slate-950">
                   Actions
                 </th>
               </tr>
 
               {/* Specific Column Names */}
               <tr className="bg-slate-900 text-slate-300 font-semibold border-b border-slate-800 text-[11px]">
-                {/* Machine Info */}
+                {/* Machine & Running Job Info */}
                 <th className="px-3 py-2.5">Line ID</th>
                 <th className="px-3 py-2.5">Machine Name</th>
-                <th className="px-3 py-2.5 border-r border-slate-800" title="Configured Nominal Extrusion Capacity">
-                  Nominal Cap (kg/h)
+                <th className="px-3 py-2.5 border-r border-slate-800" title="Running Pipe Size, Diameter, Wall Thickness &amp; Specs">
+                  Running Pipe Size &amp; Specs
                 </th>
 
-                {/* Job Specs */}
-                <th className="px-3 py-2.5">Product Code &amp; Specs</th>
+                {/* Job Engineering Specs */}
+                <th className="px-3 py-2.5" title="Configured Nominal Extrusion Capacity">
+                  Nominal Cap (kg/h)
+                </th>
                 <th className="px-3 py-2.5" title="Pipe Unit Weight in kg">
                   Std Wt (kg/pc)
                 </th>
@@ -582,7 +585,7 @@ export default function DailyReconciliationMatrixView({
             <tbody className="divide-y divide-slate-800/60">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={24} className="text-center py-8 text-slate-400">
+                  <td colSpan={23} className="text-center py-8 text-slate-400">
                     No machine lines match the active filter for {selectedDate}.
                   </td>
                 </tr>
@@ -606,19 +609,21 @@ export default function DailyReconciliationMatrixView({
                       {row.lineName}
                     </td>
 
-                    {/* 3. Nominal Capacity */}
-                    <td className="px-3 py-2 text-slate-300 border-r border-slate-800 font-mono">
-                      {row.nominalCapacity} <span className="text-[10px] text-slate-500">kg/h</span>
+                    {/* 3. Running Pipe Size & Specs (Directly After Machine Name) */}
+                    <td className="px-3 py-2 border-r border-slate-800 text-slate-200">
+                      <div className="font-semibold text-cyan-300 max-w-[220px] truncate" title={row.pipeSize || row.productDescription || '-'}>
+                        {row.pipeSize || row.productDescription || (row.isOperating ? 'Standard Extrusion Run' : 'Idle / No Order')}
+                      </div>
+                      {row.productCode && row.productCode !== row.pipeSize && (
+                        <div className="text-[10px] text-slate-400 font-mono max-w-[220px] truncate" title={row.productCode}>
+                          {row.productCode}
+                        </div>
+                      )}
                     </td>
 
-                    {/* 4. Product Code & Specs */}
-                    <td className="px-3 py-2 text-slate-200">
-                      <div className="font-semibold text-slate-100 max-w-[180px] truncate" title={row.productCode}>
-                        {row.productCode || '-'}
-                      </div>
-                      <div className="text-[10px] text-slate-400 max-w-[180px] truncate" title={row.productDescription}>
-                        {row.productDescription || (row.isOperating ? 'Standard Extrusion Run' : 'Idle / No Order')}
-                      </div>
+                    {/* 4. Nominal Capacity */}
+                    <td className="px-3 py-2 text-slate-300 font-mono">
+                      {row.nominalCapacity} <span className="text-[10px] text-slate-500">kg/h</span>
                     </td>
 
                     {/* 5. Std Weight (kg/pc) - Editable input */}

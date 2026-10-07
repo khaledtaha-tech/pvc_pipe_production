@@ -479,32 +479,53 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
  * a single 24-hour machine record.
  * Handles cases where a machine changed pipe sizes/orders during the day (e.g. 10h item 1 + 14h item 2).
  */
-export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES) {
+export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES, options = {}) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
 
-  const groups = new Map();
+  const collapseMulti = Boolean(options.collapseMultiItemRuns);
+
+  // Group rows by:
+  // - If collapseMulti: `${date}__${machineId}`
+  // - Otherwise: `${date}__${machineId}__${itemKey}` (preserving distinct items while merging shifts)
+  const itemRunGroups = new Map();
   const groupOrder = [];
 
   for (const row of rows) {
     if (!row) continue;
     const date = row.date || '';
-    const machineId = row.machineId || (row.matchedMachine ? row.matchedMachine.id : row.machineRaw) || 'L-01';
-    const key = `${date}__${machineId}`;
+    const matchedMachine = matchMachine(row.parentLineId || row.machineId || row.machineRaw || (row.matchedMachine ? row.matchedMachine.id : ''), dynamicMaster);
+    const machineId = matchedMachine ? matchedMachine.id : (row.parentLineId || row.machineId || row.machineRaw || 'L-01');
 
-    if (!groups.has(key)) {
-      groups.set(key, []);
-      groupOrder.push(key);
+    const rawItemCode = String(
+      row.itemCode ??
+      row['Item Code'] ??
+      row.item_code ??
+      row.productCode ??
+      row.code ??
+      ''
+    ).trim();
+
+    const itemKey = collapseMulti
+      ? ''
+      : (rawItemCode || String(row.description ?? row['Product Description & Specs'] ?? row.pipeSize ?? row.size ?? '').trim().toLowerCase());
+
+    const groupKey = collapseMulti ? `${date}__${machineId}` : `${date}__${machineId}__${itemKey}`;
+
+    if (!itemRunGroups.has(groupKey)) {
+      itemRunGroups.set(groupKey, []);
+      groupOrder.push(groupKey);
     }
-    groups.get(key).push(row);
+    itemRunGroups.get(groupKey).push({ ...row, date, machineId, matchedMachine: matchedMachine || row.matchedMachine });
   }
 
-  const consolidated = [];
+  // First pass: Consolidate shift rows within each group
+  const consolidatedItemRuns = [];
 
-  for (const key of groupOrder) {
-    const group = groups.get(key);
-    if (group.length === 1) {
+  for (const groupKey of groupOrder) {
+    const group = itemRunGroups.get(groupKey);
+    if (group.length === 1 && !collapseMulti) {
       const single = { ...group[0], items: group[0].items || [group[0]] };
-      consolidated.push(single);
+      consolidatedItemRuns.push(single);
       continue;
     }
 
@@ -517,14 +538,8 @@ export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES) {
     );
     const downtimeHours = round1(Math.max(0, 24 - totalOpHours));
 
-    const itemCodes = group
-      .map((r) => r.itemCode)
-      .filter(Boolean)
-      .join(' / ');
-    const descriptions = group
-      .map((r) => r.description)
-      .filter(Boolean)
-      .join(' / ');
+    const itemCodes = Array.from(new Set(group.map((r) => r.itemCode).filter(Boolean))).join(' / ');
+    const descriptions = Array.from(new Set(group.map((r) => r.description).filter(Boolean))).join(' / ');
 
     const explicitReasons = group
       .map((r) => r.reasonOfStop)
@@ -542,13 +557,13 @@ export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES) {
     const capacityUtilizationPct =
       nominalCapacityKgH > 0 ? round1((actualRateKgH / nominalCapacityKgH) * 100) : 0;
 
-    const unitWeight = totalQty > 0 ? round1(totalWeight / totalQty) : (first.unitWeight || 0);
+    let unitWeight = Number(first.unitWeight) > 0 ? Number(first.unitWeight) : (totalQty > 0 ? round1(totalWeight / totalQty, 2) : 0);
 
-    consolidated.push({
+    consolidatedItemRuns.push({
       ...first,
-      id: `consolidated_${first.date}_${first.machineId}`,
-      itemCode: itemCodes,
-      description: descriptions,
+      id: `consolidated_${first.date}_${first.machineId}_${first.itemCode || 'run'}`,
+      itemCode: itemCodes || first.itemCode,
+      description: descriptions || first.description,
       productionQty: totalQty,
       unitWeight,
       totalWeight,
@@ -562,7 +577,51 @@ export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES) {
     });
   }
 
-  return consolidated;
+  // Second pass: Group by `${date}__${machineId}` to determine totalRuns and assign multi-run properties
+  const machineDayMap = new Map();
+  const machineDayOrder = [];
+
+  for (const itemRun of consolidatedItemRuns) {
+    const mDayKey = `${itemRun.date}__${itemRun.machineId}`;
+    if (!machineDayMap.has(mDayKey)) {
+      machineDayMap.set(mDayKey, []);
+      machineDayOrder.push(mDayKey);
+    }
+    machineDayMap.get(mDayKey).push(itemRun);
+  }
+
+  const finalConsolidated = [];
+
+  for (const mDayKey of machineDayOrder) {
+    const runs = machineDayMap.get(mDayKey);
+    const totalRuns = runs.length;
+    const isMultiRun = totalRuns > 1;
+
+    runs.forEach((run, idx) => {
+      const runIndex = idx + 1;
+      const canonicalMachineId = run.machineId;
+      const parentLineId = canonicalMachineId;
+      const runId = isMultiRun ? `${canonicalMachineId}-R${runIndex}` : canonicalMachineId;
+      const itemCode = run.itemCode || '';
+      const compositeKey = `${run.date}_${canonicalMachineId}_${itemCode || runIndex}`;
+      const id = run.id || `log_${run.date}_${canonicalMachineId}_${itemCode || runIndex}`;
+
+      finalConsolidated.push({
+        ...run,
+        id,
+        runIndex,
+        totalRuns,
+        isMultiRun,
+        runId,
+        parentLineId,
+        compositeKey,
+        items: run.items || [run],
+        siblingRuns: isMultiRun ? runs : undefined
+      });
+    });
+  }
+
+  return finalConsolidated;
 }
 
 /**
@@ -583,7 +642,14 @@ export function parseExcelWorkbook(fileBuffer) {
  * Seamlessly handles single-item and multi-item machines (Reference 1 & Reference 2).
  */
 export function convertLogRowToReport(row, options = {}) {
-  const isMulti = Array.isArray(row.items) && row.items.length > 1;
+  const hasDistinctSecondItem =
+    Array.isArray(row.items) &&
+    row.items.length > 1 &&
+    Boolean(
+      (row.items[1].itemCode && row.items[1].itemCode !== row.items[0].itemCode) ||
+      (row.items[1].description && row.items[1].description !== row.items[0].description)
+    );
+  const isMulti = hasDistinctSecondItem;
   const item1 = isMulti ? row.items[0] : row;
   const item2 = isMulti ? row.items[1] : null;
 
@@ -896,7 +962,12 @@ export function convertLogRowToReport(row, options = {}) {
     updatedAt: Date.now(),
     header: {
       date: dateStr,
-      lineId: matched.id,
+      lineId: row.runId || matched.id,
+      parentLineId: matched.id,
+      runId: row.runId || (row.isMultiRun && row.runIndex ? `${matched.id}-R${row.runIndex}` : undefined),
+      runIndex: row.runIndex || 1,
+      isMultiRun: Boolean(row.isMultiRun),
+      totalRuns: row.totalRuns || 1,
       lineCustom: machineCustomName,
       plantName: PLANT_NAME,
       itemCode: row.itemCode || item1?.itemCode || ''

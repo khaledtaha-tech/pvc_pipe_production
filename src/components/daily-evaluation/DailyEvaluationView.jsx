@@ -1290,8 +1290,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       // Must be actively operating (operatingHours > 0 or productionQty > 0 or totalWeight > 0)
       if (!isRecordOperating(r)) return;
 
-      const matched = matchMachine(r.machineId || r.machineRaw || r.matchedMachine?.id, machineMaster);
-      const lid = matched?.id || r.machineId || r.matchedMachine?.id || r.machineRaw;
+      const matched = matchMachine(r.parentLineId || r.machineId || r.machineRaw || r.matchedMachine?.id, machineMaster);
+      const parentId = matched?.id || r.parentLineId || r.machineId || r.matchedMachine?.id || r.machineRaw;
 
       const mName =
         matched?.name ||
@@ -1299,10 +1299,19 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         (r.machineName ? r.machineName.replace(/^[A-Z0-9-]+\s*-\s*/, '') : r.machineRaw);
       const qty = Number(r.productionQty) || 0;
       const qtyText = qty > 0 ? ` (${qty.toLocaleString()} Pcs)` : '';
-      const label = mName ? `${lid} - ${mName}${qtyText}` : `${lid}${qtyText}`;
+
+      let label = '';
+      if (r.isMultiRun && (r.runIndex || r.runId)) {
+        const itemInfo = r.itemCode ? `Item ${r.itemCode}` : `Run ${r.runIndex}`;
+        label = `${parentId} - ${mName} [Run ${r.runIndex}: ${itemInfo}]${qtyText}`;
+      } else {
+        label = mName ? `${parentId} - ${mName}${qtyText}` : `${parentId}${qtyText}`;
+      }
 
       list.push({
-        lineId: lid,
+        lineId: r.isMultiRun && r.runId ? r.runId : parentId,
+        runId: r.runId,
+        parentLineId: parentId,
         label,
         record: r,
         isActive: true,
@@ -1310,19 +1319,21 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       });
     });
 
-    list.sort((a, b) => a.lineId.localeCompare(b.lineId));
+    list.sort((a, b) => (a.lineId || '').localeCompare(b.lineId || '', undefined, { numeric: true }));
     return list;
   }, [combinedDatasets, selectedDate, machineMaster]);
 
   // Registered factory lines that are idle on selected date
   const idleLinesForDate = useMemo(() => {
-    const activeLineIds = new Set(activeLinesForDate.map((item) => item.lineId));
+    const activeLineIds = new Set(activeLinesForDate.map((item) => item.parentLineId || item.lineId));
     const list = [];
 
     machineMaster.forEach((m) => {
       if (!activeLineIds.has(m.id)) {
         list.push({
           lineId: m.id,
+          runId: m.id,
+          parentLineId: m.id,
           label: `${m.id} - ${m.name} (Idle / 0 Pcs)`,
           record: null,
           isActive: false,
@@ -1345,24 +1356,31 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     return [...activeLinesForDate, ...idleLinesForDate];
   }, [hasOperatingLinesOnDate, showAllLines, activeLinesForDate, idleLinesForDate]);
 
-  // Canonical machine ID of the active report for robust, unambiguous binding
+  // Canonical line or run ID of the active report for robust, unambiguous binding
   const canonicalCurrentLineId = useMemo(() => {
+    const runId = report?.header?.runId;
     const rawId = report?.header?.lineId;
-    if (!rawId) return 'L-01';
-    const matched = matchMachine(rawId, machineMaster);
-    return matched?.id || rawId;
-  }, [report?.header?.lineId, machineMaster]);
+    if (runId) return runId;
+    if (rawId) {
+      if (rawId.includes('-R') || rawId.includes('_run_')) return rawId;
+      const matched = matchMachine(rawId, machineMaster);
+      return matched?.id || rawId;
+    }
+    return 'L-01';
+  }, [report?.header?.runId, report?.header?.lineId, machineMaster]);
 
   // Ensure current machine is always in the dropdown options so value binding never breaks
   const displayLinesWithCurrent = useMemo(() => {
     if (!canonicalCurrentLineId) return displayLines;
-    const exists = displayLines.some((item) => item.lineId === canonicalCurrentLineId);
+    const exists = displayLines.some((item) => item.lineId === canonicalCurrentLineId || item.runId === canonicalCurrentLineId);
     if (exists) return displayLines;
 
     const matched = matchMachine(canonicalCurrentLineId, machineMaster);
     const mName = matched?.name || canonicalCurrentLineId;
     const fallbackItem = {
       lineId: canonicalCurrentLineId,
+      runId: canonicalCurrentLineId,
+      parentLineId: matched?.id || canonicalCurrentLineId,
       label: `${canonicalCurrentLineId} - ${mName} (Idle / 0 Pcs)`,
       record: null,
       isActive: false,
@@ -1374,27 +1392,31 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const loadAndBindReportForLineAndDate = useCallback((targetDate, targetLineId) => {
     if (!targetDate || !targetLineId) return;
 
+    const isSubRun = Boolean(targetLineId.match(/[-_ ]*(?:R|RUN)[-_ ]*\d+/i));
     const matchedMachineObj = matchMachine(targetLineId, machineMaster);
-    const canonicalId = matchedMachineObj?.id || targetLineId;
+    const parentId = matchedMachineObj?.id || targetLineId;
+    const lookupKey = isSubRun ? targetLineId : parentId;
 
-    // STEP 0: Check if a saved or reconciled report already exists in store for (targetDate, canonicalId)
-    const existing = loadReportByDateAndMachine(targetDate, canonicalId);
+    // STEP 0: Check if a saved or reconciled report already exists in store for (targetDate, lookupKey)
+    const existing = loadReportByDateAndMachine(targetDate, lookupKey);
     if (existing && Array.isArray(existing.slots) && existing.slots.length === 24) {
-      const machineCustomName = matchedMachineObj?.name || existing.header?.lineCustom || canonicalId;
+      const machineCustomName = matchedMachineObj?.name || existing.header?.lineCustom || parentId;
       const restored = {
         ...existing,
         updatedAt: Date.now(),
         header: {
           ...existing.header,
           date: targetDate,
-          lineId: canonicalId,
+          lineId: lookupKey,
+          parentLineId: parentId,
+          runId: isSubRun ? targetLineId : existing.header?.runId,
           lineCustom: machineCustomName
         }
       };
       setReport(restored);
       savePersistedActiveReport(restored);
       saveReportByDateAndMachine(restored);
-      notify(`Restored saved 24h follow sheet for ${canonicalId} (${targetDate})`);
+      notify(`Restored saved 24h follow sheet for ${lookupKey} (${targetDate})`);
       return restored;
     }
 
@@ -1404,7 +1426,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     // 1. Check activeLinesForDate first if targetDate matches selectedDate
     if (targetDate === selectedDate && activeLinesForDate.length > 0) {
       const foundInActive = activeLinesForDate.find(
-        (item) => (item.lineId === canonicalId || item.lineId === targetLineId) && item.record
+        (item) => (item.lineId === targetLineId || item.runId === targetLineId || (!isSubRun && item.parentLineId === parentId)) && item.record
       );
       if (foundInActive) {
         activeRecord = foundInActive.record;
@@ -1416,12 +1438,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       const matchedRecords = queryProductionRecords({
         dataset: combinedDatasets,
         date: targetDate,
-        machine: canonicalId,
+        machine: isSubRun ? targetLineId : parentId,
         machineMaster
       });
       if (matchedRecords.length > 0) {
         const consolidated = consolidateDailyMachineRecords(matchedRecords, machineMaster);
-        activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+        if (isSubRun) {
+          activeRecord = consolidated.find((r) => r.runId === targetLineId || r.id === targetLineId) || consolidated[0];
+        } else {
+          activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+        }
       }
     }
 
@@ -1429,28 +1455,45 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     if (!activeRecord && Array.isArray(combinedDatasets)) {
       const directMatches = combinedDatasets.filter((r) => {
         const rDate = r.Date ?? r.date ?? r['DATE'];
-        const rMachine = r.Machine ?? r.machine ?? r.machineRaw ?? r.machineName ?? r.machineId;
-        return isDateMatch(rDate, targetDate) && isMachineMatch(rMachine, canonicalId, machineMaster);
+        const rMachine = r.runId ?? r.Machine ?? r.machine ?? r.machineRaw ?? r.machineName ?? r.machineId;
+        return isDateMatch(rDate, targetDate) && (
+          (isSubRun && r.runId === targetLineId) ||
+          isMachineMatch(rMachine, parentId, machineMaster)
+        );
       });
       if (directMatches.length > 0) {
         const normalizedList = directMatches.map((m) => normalizeProductionRow(m, machineMaster));
         const consolidated = consolidateDailyMachineRecords(normalizedList, machineMaster);
-        activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+        if (isSubRun) {
+          activeRecord = consolidated.find((r) => r.runId === targetLineId || r.id === targetLineId) || consolidated[0];
+        } else {
+          activeRecord = consolidated.find(isRecordOperating) || consolidated[0];
+        }
       }
     }
 
     // If no matching operating record found, generate clean blank report for that machine and date
     if (!activeRecord) {
-      const blankRep = blankReportForMachine(targetDate, canonicalId, machineMaster);
+      const blankRep = blankReportForMachine(targetDate, parentId, machineMaster);
+      if (isSubRun) {
+        blankRep.header.lineId = targetLineId;
+        blankRep.header.runId = targetLineId;
+        blankRep.header.parentLineId = parentId;
+      }
       setReport(blankRep);
       savePersistedActiveReport(blankRep);
       saveReportByDateAndMachine(blankRep);
-      notify(`Selected ${canonicalId} (${targetDate}): No records found (Blank/Zero State)`);
+      notify(`Selected ${lookupKey} (${targetDate}): No records found (Blank/Zero State)`);
       return blankRep;
     }
 
     // Step b: Automatically populate the report header (specs, target output, line speed, nominal capacity)
     let newRep = convertLogRowToReport(activeRecord);
+    if (isSubRun) {
+      newRep.header.lineId = targetLineId;
+      newRep.header.runId = targetLineId;
+      newRep.header.parentLineId = parentId;
+    }
 
     // Step c: Automatically populate or synthesize active 24-hour slots with imported pieces/run data
     const totalActual = Number(newRep.summary?.totalOutput) || Number(activeRecord.productionQty) || 0;
@@ -1475,7 +1518,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     savePersistedActiveReport(newRep);
     saveReportByDateAndMachine(newRep);
 
-    notify(`Auto-bound production log for ${canonicalId} (${targetDate}): ${newRep.summary.totalOutput} Pcs`);
+    notify(`Auto-bound production log for ${lookupKey} (${targetDate}): ${newRep.summary.totalOutput} Pcs`);
     return newRep;
   }, [
     machineMaster,

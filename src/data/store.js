@@ -52,35 +52,67 @@ export function isDateEqual(dateA, dateB) {
 export function isMachineEqual(machineA, machineB) {
   if (!machineA || !machineB) return false;
   const mA = typeof machineA === 'object' && machineA !== null
-    ? (machineA.id || machineA.machineId || machineA.name || machineA.machineRaw)
+    ? (machineA.runId || machineA.id || machineA.machineId || machineA.name || machineA.machineRaw)
     : String(machineA);
   const mB = typeof machineB === 'object' && machineB !== null
-    ? (machineB.id || machineB.machineId || machineB.name || machineB.machineRaw)
+    ? (machineB.runId || machineB.id || machineB.machineId || machineB.name || machineB.machineRaw)
     : String(machineB);
+
+  if (String(mA).trim().toLowerCase() === String(mB).trim().toLowerCase()) {
+    return true;
+  }
+
+  // If either has a specific sub-run (e.g. -R1, -R2), they only match if both specify the same run
+  const subA = String(mA).match(/[-_ ]*(?:R|RUN)[-_ ]*(\d+)/i);
+  const subB = String(mB).match(/[-_ ]*(?:R|RUN)[-_ ]*(\d+)/i);
+  if (subA || subB) {
+    if (!subA || !subB || subA[1] !== subB[1]) {
+      return false;
+    }
+  }
 
   const matchedA = matchMachine(mA, MACHINES);
   const matchedB = matchMachine(mB, MACHINES);
   if (matchedA && matchedB && matchedA.id === matchedB.id) {
     return true;
   }
-  return String(mA).trim().toLowerCase() === String(mB).trim().toLowerCase();
+  return false;
 }
 
 /**
  * Builds standard unique composite key for per-machine per-date storage
- * Example: '2026-09-28_L-06'
+ * Example: '2026-09-28_L-06' or '2026-10-06_L-02_R1'
  */
-export function makeReportKey(date, machineId) {
+export function makeReportKey(date, machineId, itemCodeOrRun) {
   if (!date || !machineId) return '';
   const d = normalizeDateStr(date);
-  const matched = matchMachine(machineId, MACHINES);
-  const m = matched ? matched.id : String(machineId).trim();
+
+  const clean = String(machineId).trim();
+  const subRunMatch = clean.match(/^([A-Za-z0-9-]+?)[-_ ]*(?:R|RUN)[-_ ]*(\d+)/i);
+  let baseId = clean;
+  let runSuffix = '';
+
+  if (subRunMatch) {
+    baseId = subRunMatch[1];
+    runSuffix = `_R${subRunMatch[2]}`;
+  }
+
+  const matched = matchMachine(baseId, MACHINES);
+  const m = matched ? matched.id : baseId;
+
+  if (itemCodeOrRun) {
+    return `${d}_${m}_${itemCodeOrRun}`;
+  }
+  if (runSuffix) {
+    return `${d}_${m}${runSuffix}`;
+  }
   return `${d}_${m}`;
 }
 
 /**
  * Sanitizes a report object header against canonical machine definitions.
  * Fixes misaligned Line ID and name combinations (e.g. L-01 - KTS 550 -> L-08 - KTS 550).
+ * Preserves sub-run identifiers (e.g. L-02-R1).
  */
 export function sanitizeStoredReport(report) {
   if (!report || typeof report !== 'object') return report;
@@ -88,14 +120,20 @@ export function sanitizeStoredReport(report) {
   if (updated.header) {
     const custom = (updated.header.lineCustom || '').trim();
     const rawId = (updated.header.lineId || '').trim();
+    const runId = (updated.header.runId || '').trim();
+    const isSubRun = Boolean(runId || rawId.match(/[-_ ]*(?:R|RUN)[-_ ]*\d+/i));
+
     const matchedCustom = custom ? matchMachine(custom, MACHINES) : null;
     const matchedId = rawId ? matchMachine(rawId, MACHINES) : null;
     const matched = matchedCustom || matchedId;
 
     if (matched) {
+      const preservedLineId = isSubRun ? (runId || rawId) : matched.id;
       updated.header = {
         ...updated.header,
-        lineId: matched.id,
+        lineId: preservedLineId,
+        parentLineId: matched.id,
+        runId: isSubRun ? preservedLineId : updated.header.runId,
         lineCustom: matchedCustom ? matched.name : (custom || matched.name)
       };
     }
@@ -105,17 +143,21 @@ export function sanitizeStoredReport(report) {
 
 /**
  * Sanitizes a single persisted production record to guarantee canonical Line ID and machine name.
+ * Preserves sub-run identifiers.
  */
 export function sanitizeStoredRecord(rec) {
   if (!rec || typeof rec !== 'object') return rec;
-  const rawKey = rec.machineRaw || rec.machineName || rec.machineId || '';
+  const rawKey = rec.parentLineId || rec.machineRaw || rec.machineName || rec.machineId || '';
   const matched = matchMachine(rawKey, MACHINES) || matchMachine(rec.machineId, MACHINES);
   if (matched) {
     const machineName = `${matched.id} - ${matched.name}`;
     const nominalCapacityKgH = matched.capacityKgH || rec.nominalCapacityKgH || 0;
+    const isSubRun = Boolean(rec.isMultiRun && (rec.runId || rec.runIndex));
     return {
       ...rec,
-      machineId: matched.id,
+      machineId: isSubRun && rec.runId ? rec.runId : matched.id,
+      parentLineId: matched.id,
+      runId: isSubRun && rec.runId ? rec.runId : rec.runId,
       machineName,
       matchedMachine: matched,
       nominalCapacityKgH

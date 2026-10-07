@@ -9,10 +9,12 @@ import {
   parseMachineMaster,
   parseProductSpecs,
   convertLogRowToReport,
+  consolidateDailyMachineRecords,
   normalizeExcelDate,
   formatExcelDate,
   parseDailyLog
 } from '../../src/logic/excelParser.js';
+import { normalizeProductionRow, queryProductionRecords } from '../../src/logic/oeeReconciler.js';
 import { generateReport } from '../../src/logic/engine.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -216,21 +218,131 @@ assert.equal(opSlots.length, 12, 'Must have 12 operating hour slots');
 assert.equal(report1.sourceRecordId, r1.id, 'Report should track source record ID');
 assert.equal(report1.header.lineCustom, 'Kabra 90', 'Header should store matched machine name');
 
-// Test reactive switching by date and line
-const targetRow = parsed.rows.find((r) => r.date === '2026-09-08' && r.machineId === 'L-01');
-assert.ok(targetRow, 'Target row for 2026-09-08 and L-01 must exist');
-assert.ok(targetRow.items && targetRow.items.length === 2, 'L-01 on 2026-09-08 ran 2 items');
-const reportSwitched = convertLogRowToReport(targetRow);
+// Test multi-item machine date 2026-09-08: preserve unique run rows per machine per date
+const l01Runs = parsed.rows.filter((r) => r.date === '2026-09-08' && (r.machineId === 'L-01' || r.parentLineId === 'L-01'));
+assert.equal(l01Runs.length, 2, 'L-01 on 2026-09-08 ran 2 items and both runs must be preserved as distinct rows');
+
+const run1 = l01Runs.find((r) => r.runIndex === 1);
+const run2 = l01Runs.find((r) => r.runIndex === 2);
+assert.ok(run1, 'Run 1 must exist');
+assert.ok(run2, 'Run 2 must exist');
+assert.equal(run1.runId, 'L-01-R1');
+assert.equal(run1.parentLineId, 'L-01');
+assert.equal(run1.itemCode, '253');
+assert.equal(run1.productionQty, 298);
+assert.equal(run1.unitWeight, 8.2);
+
+assert.equal(run2.runId, 'L-01-R2');
+assert.equal(run2.parentLineId, 'L-01');
+assert.equal(run2.itemCode, '195');
+assert.equal(run2.productionQty, 400);
+assert.equal(run2.unitWeight, 4);
+
+const reportSwitched = convertLogRowToReport(run1);
 assert.equal(reportSwitched.header.date, '2026-09-08');
-assert.equal(reportSwitched.header.lineId, 'L-01');
+assert.equal(reportSwitched.header.lineId, 'L-01-R1');
+assert.equal(reportSwitched.header.parentLineId, 'L-01');
 assert.equal(reportSwitched.header.lineCustom, 'KTS 350 TDH');
-assert.ok(reportSwitched.header.itemCode, 'Multi-item header must contain itemCode');
-assert.equal(reportSwitched.sourceRecordId, targetRow.id);
+assert.equal(reportSwitched.header.itemCode, '253');
+assert.equal(reportSwitched.sourceRecordId, run1.id);
 assert.equal(reportSwitched.slots.length, 24);
 assert.ok(reportSwitched.refs['1'].pipeSpec, 'Ref 1 spec must exist for 1st item');
-assert.ok(reportSwitched.refs['2'].pipeSpec, 'Ref 2 spec must exist for 2nd item');
 
 console.log('Log row conversion to 24h follow sheet & reactive switching: OK');
+
+// 5b. Multi-Run Excel Ingestion & Granular Sub-Run Query Isolation Tests
+const multiRunRawRows = [
+  {
+    date: '2026-10-06',
+    itemCode: '255',
+    description: 'PVC Pipe 50x2.0 (Item 255)',
+    machineRaw: 'KTS 170',
+    productionQty: 609,
+    unitWeight: 3.8,
+    totalWeight: 2314.2,
+    scrapKg: 15,
+    operatingHours: 20,
+    downtimeHours: 4,
+    reasonOfStop: 'Tooling / Size Change'
+  },
+  {
+    date: '2026-10-06',
+    itemCode: '239',
+    description: 'PVC Pipe 75x3.0 (Item 239)',
+    machineRaw: 'KTS 170',
+    productionQty: 35,
+    unitWeight: 7.0,
+    totalWeight: 245,
+    scrapKg: 0,
+    operatingHours: 4,
+    downtimeHours: 0,
+    reasonOfStop: ''
+  }
+];
+
+const consolidatedKts170 = consolidateDailyMachineRecords(multiRunRawRows);
+assert.equal(consolidatedKts170.length, 2, 'KTS-170 with 2 distinct items must yield 2 distinct runs');
+const ktsRun1 = consolidatedKts170[0];
+const ktsRun2 = consolidatedKts170[1];
+
+assert.equal(ktsRun1.runId, 'L-02-R1');
+assert.equal(ktsRun1.parentLineId, 'L-02');
+assert.equal(ktsRun1.runIndex, 1);
+assert.equal(ktsRun1.totalRuns, 2);
+assert.equal(ktsRun1.isMultiRun, true);
+assert.equal(ktsRun1.compositeKey, '2026-10-06_L-02_255');
+assert.equal(ktsRun1.productionQty, 609);
+assert.equal(ktsRun1.unitWeight, 3.8);
+
+assert.equal(ktsRun2.runId, 'L-02-R2');
+assert.equal(ktsRun2.parentLineId, 'L-02');
+assert.equal(ktsRun2.runIndex, 2);
+assert.equal(ktsRun2.totalRuns, 2);
+assert.equal(ktsRun2.isMultiRun, true);
+assert.equal(ktsRun2.compositeKey, '2026-10-06_L-02_239');
+assert.equal(ktsRun2.productionQty, 35);
+assert.equal(ktsRun2.unitWeight, 7.0);
+
+// Verify queryProductionRecords preservation & granular sub-run matching
+const queryAllRuns = queryProductionRecords({
+  records: consolidatedKts170,
+  date: '2026-10-06',
+  machine: 'L-02'
+});
+assert.equal(queryAllRuns.length, 2, 'Querying parent L-02 must return both runs without collapsing');
+
+const queryRun1Only = queryProductionRecords({
+  records: consolidatedKts170,
+  date: '2026-10-06',
+  machine: 'L-02-R1'
+});
+assert.equal(queryRun1Only.length, 1, 'Querying L-02-R1 must return exactly 1 record');
+assert.equal(queryRun1Only[0].itemCode, '255');
+assert.equal(queryRun1Only[0].productionQty, 609);
+
+const queryRun2Only = queryProductionRecords({
+  records: consolidatedKts170,
+  date: '2026-10-06',
+  machine: 'L-02-R2'
+});
+assert.equal(queryRun2Only.length, 1, 'Querying L-02-R2 must return exactly 1 record');
+assert.equal(queryRun2Only[0].itemCode, '239');
+assert.equal(queryRun2Only[0].productionQty, 35);
+
+// Verify converted report headers
+const repKts1 = convertLogRowToReport(ktsRun1);
+assert.equal(repKts1.header.lineId, 'L-02-R1');
+assert.equal(repKts1.header.parentLineId, 'L-02');
+assert.equal(repKts1.header.itemCode, '255');
+assert.equal(repKts1.summary.totalOutput, '609');
+
+const repKts2 = convertLogRowToReport(ktsRun2);
+assert.equal(repKts2.header.lineId, 'L-02-R2');
+assert.equal(repKts2.header.parentLineId, 'L-02');
+assert.equal(repKts2.header.itemCode, '239');
+assert.equal(repKts2.summary.totalOutput, '35');
+
+console.log('Multi-run Excel ingestion & granular sub-run query isolation: OK');
 
 // 6. Explicit Transparent OEE Formula Verification with True Benchmark Target
 const genReport = generateReport(report1);

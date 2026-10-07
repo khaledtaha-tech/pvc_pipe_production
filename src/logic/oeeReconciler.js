@@ -494,21 +494,33 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
   const operatingHours = rawOpH != null && rawOpH !== '' && !Number.isNaN(Number(rawOpH)) ? Number(rawOpH) : 24;
   const reasonOfStop = String(raw['Reason of Stop'] ?? raw.reasonOfStop ?? raw.reason_of_stop ?? raw['ReasonOfStop'] ?? '').trim();
 
-  const matchedMachine = matchMachine(machineRaw, dynamicMaster);
-  const machineId = matchedMachine ? matchedMachine.id : (machineRaw || 'L-01');
+  const matchedMachine = matchMachine(raw.parentLineId || machineRaw || raw.machineId, dynamicMaster);
+  const canonicalMachineId = matchedMachine ? matchedMachine.id : (raw.parentLineId || machineRaw || 'L-01');
+  const parentLineId = raw.parentLineId || canonicalMachineId;
+  const runIndex = raw.runIndex != null ? Number(raw.runIndex) : undefined;
+  const isMultiRun = Boolean(raw.isMultiRun);
+  const runId = raw.runId || (isMultiRun && runIndex ? `${parentLineId}-R${runIndex}` : undefined);
+  const machineId = runId || canonicalMachineId;
   const machineName = matchedMachine ? `${matchedMachine.id} - ${matchedMachine.name}` : machineRaw;
   const nominalCapacityKgH = matchedMachine?.capacityKgH || matchedMachine?.nominalCapacity || 0;
 
   const actualRateKgH = operatingHours > 0 ? round1(totalWeight / operatingHours) : 0;
   const capacityUtilizationPct = nominalCapacityKgH > 0 ? round1((actualRateKgH / nominalCapacityKgH) * 100) : 0;
 
+  const id = raw.id || `log_${date}_${parentLineId}_${itemCode || runIndex || 'row'}`;
+
   return {
-    id: raw.id || `log_${date}_${machineId}_${itemCode || 'row'}`,
+    id,
     date,
     itemCode,
     description,
     machineRaw,
     machineId,
+    parentLineId,
+    runId,
+    runIndex: raw.runIndex,
+    isMultiRun,
+    totalRuns: raw.totalRuns,
     machineName,
     matchedMachine,
     nominalCapacityKgH,
@@ -535,12 +547,14 @@ export function normalizeProductionRow(raw, dynamicMaster = MACHINES) {
  * Query matching production records for a specific line/machine and date from any dataset
  */
 export function queryProductionRecords({
-  dataset = [],
+  dataset: inputDataset,
+  records: inputRecords,
   date,
   machine,
   machineMaster = MACHINES
 }) {
-  if (!date || !machine || !Array.isArray(dataset) || dataset.length === 0) {
+  const dataset = Array.isArray(inputDataset) ? inputDataset : (Array.isArray(inputRecords) ? inputRecords : []);
+  if (!date || !machine || dataset.length === 0) {
     return [];
   }
 
@@ -552,8 +566,15 @@ export function queryProductionRecords({
     const row = normalizeProductionRow(item, machineMaster);
     if (!row || !row.date) continue;
 
-    if (isDateMatch(row.date, date) && isMachineMatch(row.machineId || row.machineRaw, machine, machineMaster)) {
-      const sig = `${row.date}__${normalizeMachineKey(row.machineId)}__${row.itemCode}__${row.productionQty}`;
+    const machineToMatch = row.runId || row.machineId || row.machineRaw || row.parentLineId;
+    const isTargetSubRun = Boolean(String(machine).match(/[-_ ]*(?:R|RUN)[-_ ]*\d+/i));
+
+    const matchesMachine = isTargetSubRun
+      ? (row.runId === machine || row.machineId === machine)
+      : (isMachineMatch(row.parentLineId || row.machineId || row.machineRaw, machine, machineMaster));
+
+    if (isDateMatch(row.date, date) && matchesMachine) {
+      const sig = `${row.date}__${normalizeMachineKey(row.parentLineId || row.machineId)}__${row.itemCode}__${row.productionQty}__${row.runIndex || ''}`;
       if (!seenSignatures.has(sig)) {
         seenSignatures.add(sig);
         results.push(row);
@@ -568,11 +589,13 @@ export function queryProductionRecords({
  * Query all production records operating on a specific date across any dataset
  */
 export function queryProductionRecordsForDate({
-  dataset = [],
+  dataset: inputDataset,
+  records: inputRecords,
   date,
   machineMaster = MACHINES
 }) {
-  if (!date || !Array.isArray(dataset) || dataset.length === 0) {
+  const dataset = Array.isArray(inputDataset) ? inputDataset : (Array.isArray(inputRecords) ? inputRecords : []);
+  if (!date || dataset.length === 0) {
     return [];
   }
 
@@ -585,7 +608,7 @@ export function queryProductionRecordsForDate({
     if (!row || !row.date) continue;
 
     if (isDateMatch(row.date, date)) {
-      const sig = `${row.date}__${normalizeMachineKey(row.machineId)}__${row.itemCode}__${row.productionQty}`;
+      const sig = `${row.date}__${normalizeMachineKey(row.parentLineId || row.machineId)}__${row.itemCode}__${row.productionQty}__${row.runIndex || ''}`;
       if (!seenSignatures.has(sig)) {
         seenSignatures.add(sig);
         results.push(row);
@@ -687,7 +710,7 @@ export function autoBindProductionLogToReport({
   }
 
   // Consolidate matched rows (handles single and multi-item runs on same day)
-  const consolidated = consolidateDailyMachineRecords(matchedRows, machineMaster);
+  const consolidated = consolidateDailyMachineRecords(matchedRows, machineMaster, { collapseMultiItemRuns: true });
   const primaryRow = consolidated[0] || matchedRows[0];
   const report = convertLogRowToReport(primaryRow);
 

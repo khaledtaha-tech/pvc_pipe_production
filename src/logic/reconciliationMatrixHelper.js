@@ -436,6 +436,8 @@ export function buildMatrixRowsForDate({
         const rawRow = {
           lineId: `${machine.id}-run-${runIndex}`,
           baseLineId: machine.id,
+          parentLineId: machine.id,
+          runId: `${machine.id}-R${runIndex}`,
           runIndex,
           totalRuns,
           isMultiRun: true,
@@ -855,6 +857,10 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
 
   rep.header.lineId = targetLineId;
   rep.header.machineId = targetLineId;
+  if (row.runId) rep.header.runId = row.runId;
+  if (row.baseLineId || row.parentLineId) rep.header.parentLineId = row.baseLineId || row.parentLineId;
+  if (row.runIndex) rep.header.runIndex = row.runIndex;
+  if (row.isMultiRun) rep.header.isMultiRun = true;
 
   const totalDowntimeMin = presets.reduce((sum, p) => sum + p.durationMin, 0);
 

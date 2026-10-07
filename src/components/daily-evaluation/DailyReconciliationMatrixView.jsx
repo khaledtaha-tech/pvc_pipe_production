@@ -172,7 +172,7 @@ export default function DailyReconciliationMatrixView({
       const row = rows.find((r) => r.lineId === lineId);
       if (!row) return;
 
-      const targetLineId = row.baseLineId || row.lineId;
+      const targetLineId = (row.isMultiRun && (row.runId || row.lineId)) ? (row.runId || row.lineId) : (row.baseLineId || row.lineId);
       const baseReport = loadReportByDateAndMachine(selectedDate, targetLineId);
       const reconciledRep = reconcileMatrixRow(row, baseReport, machineMaster);
 
@@ -206,7 +206,7 @@ export default function DailyReconciliationMatrixView({
       let lastReconciled = null;
 
       rows.forEach((row) => {
-        const targetLineId = row.baseLineId || row.lineId;
+        const targetLineId = (row.isMultiRun && (row.runId || row.lineId)) ? (row.runId || row.lineId) : (row.baseLineId || row.lineId);
         const baseReport = loadReportByDateAndMachine(selectedDate, targetLineId);
         const reconciledRep = reconcileMatrixRow(row, baseReport, machineMaster);
         saveReportByDateAndMachine(reconciledRep);

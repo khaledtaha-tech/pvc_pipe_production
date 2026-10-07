@@ -285,7 +285,17 @@ export function normalizeLineId(str, masterList = MACHINES) {
 export function matchMachine(str, dynamicList = MACHINES) {
   if (!str) return null;
   const list = dynamicList && dynamicList.length > 0 ? dynamicList : MACHINES;
-  const rawNorm = normalizeMachineKey(str);
+
+  let cleanStr = String(str).trim();
+  // Strip sub-run patterns e.g. "L-02-R1", "L-02_run_1", "L-02 [Run 1: Item 255]"
+  const subRunMatch = cleanStr.match(/^([A-Za-z0-9-]+?)[-_ ]*(?:R|RUN)[-_ ]*\d+/i);
+  if (subRunMatch) {
+    cleanStr = subRunMatch[1];
+  } else if (cleanStr.includes('[')) {
+    cleanStr = cleanStr.split('[')[0].trim();
+  }
+
+  const rawNorm = normalizeMachineKey(cleanStr);
 
   // IMMUTABLE MODEL RULES: Machine model strictly dictates canonical Line ID
   // 1. KTS 350 TDH -> L-01

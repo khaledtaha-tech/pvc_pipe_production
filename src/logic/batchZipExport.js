@@ -43,7 +43,7 @@ export function getOperatingRecordsForDate(records, targetDate, machineMaster) {
     return isRecordOperating(r);
   });
 
-  return consolidateDailyMachineRecords(filtered, machineMaster);
+  return consolidateDailyMachineRecords(filtered, machineMaster, { collapseMultiItemRuns: true });
 }
 
 /**
@@ -120,7 +120,7 @@ export function getOperatingRecordsForDateRange(records, fromDate, toDate, machi
     return isRecordOperating(r);
   });
 
-  return consolidateDailyMachineRecords(filtered, machineMaster).sort((a, b) => {
+  return consolidateDailyMachineRecords(filtered, machineMaster, { collapseMultiItemRuns: true }).sort((a, b) => {
     const dComp = String(a.date).localeCompare(String(b.date));
     if (dComp !== 0) return dComp;
     return String(a.machineId || '').localeCompare(String(b.machineId || ''));

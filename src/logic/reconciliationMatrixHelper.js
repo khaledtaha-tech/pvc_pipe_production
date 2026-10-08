@@ -178,13 +178,21 @@ export function calculateMatrixRowMetrics(row) {
     balanceLabel = `+${round1(Math.abs(varianceHours))}h Exceeded`;
   }
 
+  // Scrap & Quality Formulation (Industrial Plastics OEE)
+  const scrapKg = cleanPositiveNumber(row.scrapKg, 1);
+  const totalMeltProcessedKg = round1(actualKg + scrapKg);
+  const totalProcessedKg = totalMeltProcessedKg;
+  const qualityPct = totalMeltProcessedKg > 0
+    ? round1((actualKg / totalMeltProcessedKg) * 100)
+    : 100.0;
+
   // OEE Telemetry
   const availabilityPct = round1((operatingHours / 24.0) * 100);
   const targetOutputForOperating = round1(operatingHours * targetRate);
   const performancePct = targetOutputForOperating > 0
     ? round1(Math.min(100, (actualPcs / targetOutputForOperating) * 100))
     : (operatingHours === 0 && actualPcs === 0 ? 0 : 0);
-  const oeePct = round1((availabilityPct / 100) * (performancePct / 100) * 100);
+  const oeePct = round1((availabilityPct / 100) * (performancePct / 100) * (qualityPct / 100) * 100);
 
   // Realized Pace / Actual Operating Rate
   let actualRatePcsH = (operatingHours > 0 && actualPcs > 0)
@@ -213,6 +221,10 @@ export function calculateMatrixRowMetrics(row) {
     nominalCapacity: nominalCap,
     actualPcs,
     actualKg,
+    scrapKg: row.scrapKg === '' ? '' : scrapKg,
+    totalMeltProcessedKg,
+    totalProcessedKg,
+    qualityPct,
     expectedPcs,
     expectedKg,
     deficitPcs,
@@ -402,6 +414,12 @@ export function buildMatrixRowsForDate({
           }, 0);
         }
 
+        const scrapKg = groupItems.reduce((sum, it) => {
+          const rawObj = it.raw || it;
+          const val = rawObj.scrapKg ?? rawObj['Scrap (kg)'] ?? rawObj.scrap;
+          return sum + (val != null && !isNaN(Number(val)) ? Number(val) : 0);
+        }, 0);
+
         return {
           itemCode,
           description,
@@ -409,6 +427,7 @@ export function buildMatrixRowsForDate({
           pipeLength,
           actualPcs: productionQty,
           actualKg: totalWeight,
+          scrapKg: round1(scrapKg),
           unitWeight,
           explicitOpHours: explicitOpHours != null && explicitOpHours > 0 ? explicitOpHours : null
         };
@@ -465,8 +484,9 @@ export function buildMatrixRowsForDate({
           stdWeight,
           actualPcs: run.actualPcs,
           actualKg: run.actualKg,
+          scrapKg: run.scrapKg || 0,
           nominalCapacity,
-          summary: `Run ${runIndex}: ${run.actualPcs} pcs @ ${stdWeight} kg/pc (${run.actualKg} kg) | Unit Wt: ${unitWeightSource || 'N/A'}`
+          summary: `Run ${runIndex}: ${run.actualPcs} pcs @ ${stdWeight} kg/pc (${run.actualKg} kg, ${round1(run.scrapKg || 0)} kg scrap) | Unit Wt: ${unitWeightSource || 'N/A'}`
         };
         const rawRow = {
           lineId: `${machine.id}-run-${runIndex}`,
@@ -487,6 +507,7 @@ export function buildMatrixRowsForDate({
           targetRate,
           actualPcs: run.actualPcs,
           actualKg: run.actualKg,
+          scrapKg: run.scrapKg || 0,
           operatingHours: runOpHours,
           moldChangeHours,
           purgeCleaningHours: 0,
@@ -542,6 +563,7 @@ export function buildMatrixRowsForDate({
           stdWeight: run.stdWeight,
           actualPcs: 0,
           actualKg: 0,
+          scrapKg: 0,
           nominalCapacity,
           summary: `Saved Ref [Run ${run.runIndex}]: Std Wt ${run.stdWeight} kg/pc`
         };
@@ -562,6 +584,7 @@ export function buildMatrixRowsForDate({
           targetRate,
           actualPcs: 0,
           actualKg: 0,
+          scrapKg: 0,
           operatingHours: opHours,
           moldChangeHours,
           purgeCleaningHours: 0,
@@ -738,6 +761,17 @@ export function buildMatrixRowsForDate({
       targetRate = round1((Number(record.raw.speed) * 60) / pipeLength);
     }
 
+    let scrapKg = 0;
+    if (savedRep?.isReconciled && savedRep?.engineering?.scrapKg != null) {
+      scrapKg = Math.max(0, cleanPositiveNumber(savedRep.engineering.scrapKg, 1));
+    } else if (record && (record.scrapKg != null || record['Scrap (kg)'] != null || record.scrap != null)) {
+      scrapKg = Math.max(0, cleanPositiveNumber(record.scrapKg ?? record['Scrap (kg)'] ?? record.scrap, 1));
+    } else if (record?.raw && (record.raw.scrapKg != null || record.raw['Scrap (kg)'] != null || record.raw.scrap != null)) {
+      scrapKg = Math.max(0, cleanPositiveNumber(record.raw.scrapKg ?? record.raw['Scrap (kg)'] ?? record.raw.scrap, 1));
+    } else if (savedRep?.engineering?.scrapKg != null) {
+      scrapKg = Math.max(0, cleanPositiveNumber(savedRep.engineering.scrapKg, 1));
+    }
+
     const sourceAudit = {
       sheet: record?.sheetName || 'Daily Production Log',
       unitWeightSource: unitWeightSource || 'Default',
@@ -745,8 +779,9 @@ export function buildMatrixRowsForDate({
       stdWeight,
       actualPcs,
       actualKg,
+      scrapKg,
       nominalCapacity,
-      summary: `Logged: ${actualPcs} pcs @ ${stdWeight} kg/pc (${actualKg} kg) | Unit Wt: ${unitWeightSource || 'N/A'}`
+      summary: `Logged: ${actualPcs} pcs @ ${stdWeight} kg/pc (${actualKg} kg, ${scrapKg} kg scrap) | Unit Wt: ${unitWeightSource || 'N/A'}`
     };
 
     // Initial operating and downtime hours
@@ -867,6 +902,7 @@ export function buildMatrixRowsForDate({
       targetRate,
       actualPcs,
       actualKg,
+      scrapKg,
       operatingHours,
       moldChangeHours,
       purgeCleaningHours,
@@ -1023,6 +1059,9 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
       ...rep.engineering,
       operatingHours: opHours,
       totalWeightKg,
+      scrapKg: metrics.scrapKg || 0,
+      totalMeltProcessedKg: metrics.totalMeltProcessedKg || totalWeightKg,
+      qualityPct: metrics.qualityPct != null ? metrics.qualityPct : 100.0,
       actualRateKgH,
       capacityUtilizationPct,
       actualRatePcsH,

@@ -467,10 +467,11 @@ const mockMultiSheetWb = {
         'Production Qty (FG)',
         'Unit Weight (kg)',
         'Total Weight (kg)',
+        'Scrap (kg)',
         'Operating Hours',
         'Reason of Stop'
       ],
-      // Row 119 scenario: KTS-700 running Item 259 (PVC PIPE 160X11.8MM PN20)
+      // Row 119 scenario: KTS-700 running Item 259 (PVC PIPE 160X11.8MM PN20) with Scrap (kg)
       [
         '2026-10-06',
         '259',
@@ -480,6 +481,7 @@ const mockMultiSheetWb = {
         53, // Production Qty (FG) = 53 pcs
         50.00, // FG Unit Weight = 50.00 kg
         2650.00, // Total Weight = 2650 kg
+        120.5, // Scrap (kg) = 120.5 kg
         24,
         ''
       ]
@@ -497,7 +499,8 @@ assert.equal(r119.description, 'PVC PIPE 160X11.8MM PN20');
 assert.equal(r119.productionQty, 53, 'Must extract 53 pcs from Production Qty (FG)');
 assert.equal(r119.unitWeight, 50.0, 'Must disambiguate and extract 50.0 kg from Unit Weight (kg)');
 assert.equal(r119.totalWeight, 2650, 'Must extract 2650 kg Total Weight');
+assert.equal(r119.scrapKg, 120.5, 'Must extract 120.5 kg from Scrap (kg) column');
 assert.equal(r119.operatingHours, 24);
 
-console.log('Strict sheet targeting & header disambiguation (Row 119): OK');
+console.log('Strict sheet targeting, header disambiguation, and scrap ingestion: OK');
 console.log('All Excel parser, machine master, and OEE formula tests passed successfully!');

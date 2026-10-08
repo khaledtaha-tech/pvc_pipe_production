@@ -873,4 +873,92 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 18 Passed: Line L-06 (KTS-700) Item 259 weight, piece ingestion, and source audit verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (18/18) ---');
+// Test 19: Scrap (kg) Ingestion, Quality Rate (Q), and 3-Factor Industrial Plastics OEE
+{
+  // 1. Row Metrics calculation with scrap
+  const rowWithScrap = calculateMatrixRowMetrics({
+    lineId: 'L-01',
+    lineName: 'Battenfeld-01',
+    nominalCapacity: 200,
+    targetRate: 50,
+    stdWeight: 3.6,
+    actualPcs: 1000,
+    actualKg: 3600.0,
+    scrapKg: 400.0,
+    operatingHours: 20.0
+  });
+
+  assert.strictEqual(rowWithScrap.actualKg, 3600.0, 'Good output must be 3600.0 kg');
+  assert.strictEqual(rowWithScrap.scrapKg, 400.0, 'Scrap output must be 400.0 kg');
+  assert.strictEqual(rowWithScrap.totalMeltProcessedKg, 4000.0, 'Total melt processed: 3600 + 400 = 4000.0 kg');
+  assert.strictEqual(rowWithScrap.totalProcessedKg, 4000.0, 'totalProcessedKg alias must match total melt');
+  assert.strictEqual(rowWithScrap.qualityPct, 90.0, 'Quality %: (3600 / 4000) * 100 = 90.0%');
+  assert.strictEqual(rowWithScrap.availabilityPct, 83.3, 'Availability %: (20 / 24) * 100 = 83.3%');
+  assert.strictEqual(rowWithScrap.performancePct, 100.0, 'Performance %: (1000 / 1000) * 100 = 100.0%');
+  // OEE = 0.833 * 1.00 * 0.90 * 100 = 74.97 -> 75.0%
+  assert.strictEqual(rowWithScrap.oeePct, 75.0, '3-factor OEE must be 75.0% (A * P * Q)');
+
+  // 2. Reactive scrap input update via applyMatrixRowInput
+  const updatedScrap = applyMatrixRowInput(rowWithScrap, 'scrapKg', 900.0);
+  assert.strictEqual(updatedScrap.scrapKg, 900.0);
+  assert.strictEqual(updatedScrap.totalMeltProcessedKg, 4500.0, 'Total melt: 3600 + 900 = 4500.0 kg');
+  assert.strictEqual(updatedScrap.qualityPct, 80.0, 'Quality %: (3600 / 4500) * 100 = 80.0%');
+  // OEE = 0.833 * 1.00 * 0.80 * 100 = 66.64 -> 66.6%
+  assert.strictEqual(updatedScrap.oeePct, 66.6, 'OEE must reactively drop to 66.6%');
+
+  // Clear scrap back to 0
+  const zeroScrap = applyMatrixRowInput(updatedScrap, 'scrapKg', 0);
+  assert.strictEqual(zeroScrap.scrapKg, 0);
+  assert.strictEqual(zeroScrap.totalMeltProcessedKg, 3600.0);
+  assert.strictEqual(zeroScrap.qualityPct, 100.0, 'Quality must return to 100.0% when scrap is 0');
+  assert.strictEqual(zeroScrap.oeePct, 83.3, 'OEE must return to 83.3%');
+
+  // 3. Fallback when total melt is 0 (idle machine)
+  const idleRow = calculateMatrixRowMetrics({
+    lineId: 'L-02',
+    lineName: 'Battenfeld-02',
+    nominalCapacity: 200,
+    targetRate: 50,
+    actualPcs: 0,
+    actualKg: 0,
+    scrapKg: 0,
+    operatingHours: 0
+  });
+  assert.strictEqual(idleRow.qualityPct, 100.0, 'Idle line with 0 melt must default to 100.0% quality');
+  assert.strictEqual(idleRow.oeePct, 0.0);
+
+  // 4. Ingestion via buildMatrixRowsForDate with scrap
+  const testMaster = [
+    { id: 'L-01', name: 'Battenfeld-01', capacityKgH: 200, nominalCapacity: 200 }
+  ];
+
+  const recordWithScrap = {
+    date: '2026-10-06',
+    machineId: 'L-01',
+    itemCode: '250',
+    description: 'PVC Pipe 32x2.0',
+    productionQty: 500,
+    unitWeight: 2.0,
+    totalWeight: 1000.0,
+    scrapKg: 100.0
+  };
+
+  const matrixRows = buildMatrixRowsForDate({
+    date: '2026-10-06',
+    machineMaster: testMaster,
+    combinedDatasets: [recordWithScrap],
+    loadReportByDateAndMachineFn: () => null
+  });
+
+  const parsedRow = matrixRows.find((r) => r.lineId === 'L-01');
+  assert.ok(parsedRow, 'L-01 must be constructed');
+  assert.strictEqual(parsedRow.scrapKg, 100.0, 'Scrap must be ingested as 100.0 kg');
+  assert.strictEqual(parsedRow.actualKg, 1000.0);
+  assert.strictEqual(parsedRow.totalMeltProcessedKg, 1100.0, 'Total melt: 1000 + 100 = 1100.0 kg');
+  // Quality %: (1000 / 1100) * 100 = 90.9%
+  assert.strictEqual(parsedRow.qualityPct, 90.9);
+
+  console.log('Test 19 Passed: Scrap (kg) ingestion, Quality (Q), and 3-Factor OEE verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (19/19) ---');

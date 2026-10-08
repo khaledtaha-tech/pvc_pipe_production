@@ -436,6 +436,11 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     );
   }
 
+  let scrapIdx = headers.findIndex((h) => /^scrap(?:\s*(?:wt|weight)?)?\s*(?:\(kg\))?$/i.test(h));
+  if (scrapIdx === -1) {
+    scrapIdx = headers.findIndex((h) => /scrap|reject/i.test(h));
+  }
+
   const colIdx = {
     date: headers.findIndex((h) => /^date/i.test(h)),
     itemCode: itemCodeCol,
@@ -447,7 +452,7 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     shiftB: shiftBIdx,
     unitWeight: unitWeightIdx,
     totalWeight: totalWeightIdx,
-    scrapKg: headers.findIndex((h) => /scrap|reject/i.test(h)),
+    scrapKg: scrapIdx,
     opHours: headers.findIndex((h) => /operat.*hour|run.*hour|^hours/i.test(h)),
     reasonOfStop: headers.findIndex((h) => /reason.*stop|stop.*reason|downtime.*reason|^reason/i.test(h))
   };

@@ -274,6 +274,7 @@ export default function DailyReconciliationMatrixView({
     const totalExpectedPcs = rows.reduce((s, r) => s + (Number(r.expectedPcs) || 0), 0);
     const totalActualKg = rows.reduce((s, r) => s + (Number(r.actualKg) || 0), 0);
     const totalActualPcs = rows.reduce((s, r) => s + (Number(r.actualPcs) || 0), 0);
+    const totalScrapKg = rows.reduce((s, r) => s + (Number(r.scrapKg) || 0), 0);
     const totalLostHours = rows.reduce((s, r) => s + (Number(r.lostHours) || 0), 0);
     const balancedCount = rows.filter((r) => r.balanceStatus === 'balanced').length;
     const operatingCount = rows.filter((r) => Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0).length;
@@ -290,17 +291,22 @@ export default function DailyReconciliationMatrixView({
     const avgPerformance = operatingRows.length > 0
       ? operatingRows.reduce((s, r) => s + (Number(r.performancePct) || 0), 0) / operatingRows.length
       : 0;
+    const avgQuality = operatingRows.length > 0
+      ? operatingRows.reduce((s, r) => s + (Number(r.qualityPct) || 100), 0) / operatingRows.length
+      : 100;
 
     return {
       totalExpectedKg,
       totalExpectedPcs,
       totalActualKg,
       totalActualPcs,
+      totalScrapKg,
       totalLostHours,
       balancedCount,
       operatingCount,
       avgAvailability,
       avgPerformance,
+      avgQuality,
       avgOee
     };
   }, [rows]);
@@ -420,8 +426,11 @@ export default function DailyReconciliationMatrixView({
           <div className="text-sm font-bold text-emerald-400 mt-1">
             {plantSummary.totalActualKg.toLocaleString()} <span className="text-xs font-normal text-slate-400">kg</span>
           </div>
-          <div className="text-[11px] text-slate-400">
-            {plantSummary.totalActualPcs.toLocaleString()} pcs produced
+          <div className="text-[11px] text-slate-400 flex items-center justify-between">
+            <span>{plantSummary.totalActualPcs.toLocaleString()} pcs</span>
+            {plantSummary.totalScrapKg > 0 && (
+              <span className="text-amber-400 font-semibold">{plantSummary.totalScrapKg.toLocaleString()} kg scrap</span>
+            )}
           </div>
         </div>
 
@@ -466,7 +475,7 @@ export default function DailyReconciliationMatrixView({
             {plantSummary.avgOee.toFixed(1)}%
           </div>
           <div className="text-[11px] text-slate-400">
-            Perf: {plantSummary.avgPerformance.toFixed(1)}%
+            Perf: {plantSummary.avgPerformance.toFixed(1)}% | Qual: {plantSummary.avgQuality.toFixed(1)}%
           </div>
         </div>
       </div>
@@ -515,13 +524,13 @@ export default function DailyReconciliationMatrixView({
                 <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-blue-300 bg-blue-950/30">
                   Job Engineering Specs
                 </th>
-                <th colSpan={4} className="px-3 py-2 border-r border-slate-800 text-emerald-300 bg-emerald-950/20">
+                <th colSpan={5} className="px-3 py-2 border-r border-slate-800 text-emerald-300 bg-emerald-950/20">
                   Production Balance (Theoretical vs Actual)
                 </th>
                 <th colSpan={8} className="px-3 py-2 border-r border-slate-800 text-amber-300 bg-amber-950/20">
                   24-Hour Time Allocation &amp; Realized Pace
                 </th>
-                <th colSpan={4} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
+                <th colSpan={5} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
                   Audit &amp; Telemetry
                 </th>
                 <th className="px-3 py-2 text-center text-slate-300 bg-slate-950">
@@ -556,6 +565,9 @@ export default function DailyReconciliationMatrixView({
                 <th className="px-3 py-2.5" title="Reported Finished Goods Output">
                   Actual Output
                 </th>
+                <th className="px-2.5 py-2.5 text-amber-400 font-bold" title="Reported Scrap Output in kg">
+                  Scrap (kg)
+                </th>
                 <th className="px-3 py-2.5 text-rose-300" title="Expected Output - Actual Output">
                   Deficit (Loss)
                 </th>
@@ -579,6 +591,7 @@ export default function DailyReconciliationMatrixView({
                 <th className="px-3 py-2.5 text-center font-bold">Total (h)</th>
                 <th className="px-3 py-2.5 text-center">24h Status</th>
                 <th className="px-2.5 py-2.5 text-center">Avail (%)</th>
+                <th className="px-2.5 py-2.5 text-center text-amber-300" title="Quality Rate: Good Output (kg) / Total Melt (kg)">Qual (%)</th>
                 <th className="px-2.5 py-2.5 text-center border-r border-slate-800">OEE (%)</th>
 
                 {/* Actions */}
@@ -590,7 +603,7 @@ export default function DailyReconciliationMatrixView({
             <tbody className="divide-y divide-slate-800/60">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={23} className="text-center py-8 text-slate-400">
+                  <td colSpan={25} className="text-center py-8 text-slate-400">
                     No machine lines match the active filter for {selectedDate}.
                   </td>
                 </tr>
@@ -688,6 +701,20 @@ export default function DailyReconciliationMatrixView({
                         {row.actualPcs.toLocaleString()} <span className="text-[10px] text-emerald-600">pcs</span>
                       </div>
                       <div className="text-[10px] text-slate-400">{row.actualKg.toLocaleString()} kg</div>
+                    </td>
+
+                    {/* 8.5 Scrap (kg) - Editable input */}
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={row.scrapKg ?? ''}
+                        title={`Scrap Output: ${row.scrapKg || 0} kg | Total Melt: ${(row.totalMeltProcessedKg || (row.actualKg + (Number(row.scrapKg) || 0))).toLocaleString()} kg`}
+                        onChange={(e) => handleCellChange(row.lineId, 'scrapKg', e.target.value)}
+                        onBlur={() => handleCellBlur(row.lineId, 'scrapKg')}
+                        className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-amber-900/60 focus:border-amber-500 rounded text-amber-300 font-mono font-bold text-right"
+                      />
                     </td>
 
                     {/* 9. Deficit Loss Output */}
@@ -887,8 +914,19 @@ export default function DailyReconciliationMatrixView({
                       {row.availabilityPct.toFixed(1)}%
                     </td>
 
+                    {/* 20.5 Quality (%) */}
+                    <td
+                      className="px-2.5 py-2 text-center font-mono text-amber-300"
+                      title={`Quality: ${row.qualityPct != null ? row.qualityPct.toFixed(1) : '100.0'}% (${row.actualKg} kg good / ${row.totalMeltProcessedKg || row.actualKg} kg total melt)`}
+                    >
+                      {row.qualityPct != null ? row.qualityPct.toFixed(1) : '100.0'}%
+                    </td>
+
                     {/* 21. OEE (%) */}
-                    <td className="px-2.5 py-2 text-center font-mono font-bold border-r border-slate-800 text-indigo-300">
+                    <td
+                      className="px-2.5 py-2 text-center font-mono font-bold border-r border-slate-800 text-indigo-300"
+                      title={`OEE = Availability (${row.availabilityPct.toFixed(1)}%) × Performance (${row.performancePct.toFixed(1)}%) × Quality (${row.qualityPct != null ? row.qualityPct.toFixed(1) : '100.0'}%) = ${row.oeePct.toFixed(1)}%`}
+                    >
                       {row.oeePct.toFixed(1)}%
                     </td>
 

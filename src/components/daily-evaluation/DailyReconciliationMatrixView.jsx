@@ -347,7 +347,7 @@ export default function DailyReconciliationMatrixView({
           </button>
 
           <div className="flex items-center gap-1.5 px-2">
-            <Calendar className="w-4 h-4 text-cyan-400" />
+            <Calendar className="w-4 h-4 text-slate-400" />
             <input
               type="date"
               value={selectedDate}
@@ -368,7 +368,7 @@ export default function DailyReconciliationMatrixView({
           <button
             type="button"
             onClick={handleToday}
-            className="px-2 py-1 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition cursor-pointer ml-1"
+            className="px-2.5 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer shadow-sm ml-1"
           >
             Today
           </button>
@@ -379,10 +379,10 @@ export default function DailyReconciliationMatrixView({
           <button
             type="button"
             onClick={handleAutoBalanceAll}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-amber-950/60 hover:bg-amber-900/60 text-amber-300 border border-amber-800/80 rounded-lg transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer shadow-sm"
             title="Automatically balance all lines with remaining unaccounted hours to 24.0h"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <Sparkles className="w-3.5 h-3.5 text-slate-400" />
             <span>Auto-Balance All to 24h</span>
           </button>
 
@@ -390,20 +390,20 @@ export default function DailyReconciliationMatrixView({
             type="button"
             onClick={handleReconcileAndSaveAll}
             disabled={isSavingAll}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-md cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm border border-transparent cursor-pointer disabled:opacity-50"
             title="Calculate distribution, apply 24h slots, and save reports for all lines"
           >
-            <Save className="w-3.5 h-3.5" />
+            <Save className="w-3.5 h-3.5 text-white" />
             <span>{isSavingAll ? 'Saving All...' : 'Reconcile & Save All Lines'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer shadow-sm"
             title="Download Matrix as formatted Excel spreadsheet"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <Download className="w-3.5 h-3.5 text-slate-400" />
             <span>Export Matrix</span>
           </button>
         </div>
@@ -490,10 +490,10 @@ export default function DailyReconciliationMatrixView({
           <button
             type="button"
             onClick={() => setShowOperatingOnly((prev) => !prev)}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition cursor-pointer ${
+            className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer shadow-xs ${
               showOperatingOnly
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/50 font-medium'
+                : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60 font-medium'
             }`}
           >
             {showOperatingOnly ? 'Operating Only' : 'All Plant Machines (Including Idle)'}
@@ -936,10 +936,10 @@ export default function DailyReconciliationMatrixView({
                         <button
                           type="button"
                           onClick={() => handleReconcileAndSaveRow(row.lineId)}
-                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-emerald-600/90 hover:bg-emerald-500 text-white rounded transition cursor-pointer"
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-xs border border-transparent transition cursor-pointer"
                           title="Reconcile 24h slots and save report for this machine"
                         >
-                          <Save className="w-3 h-3" />
+                          <Save className="w-3 h-3 text-white" />
                           <span>Save</span>
                         </button>
 
@@ -947,7 +947,7 @@ export default function DailyReconciliationMatrixView({
                           <button
                             type="button"
                             onClick={() => onSelectMachineAndOpenSheet(row.baseLineId || row.lineId, selectedDate)}
-                            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition cursor-pointer"
                             title="Open 24-hour production follow sheet for this machine"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />

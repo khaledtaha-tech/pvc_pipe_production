@@ -69,8 +69,8 @@ export default function Navbar({
           <div className="flex items-center space-x-3 rtl:space-x-reverse">
             <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
               theme === 'light' 
-                ? 'bg-[#0f766e] text-white shadow-sm ring-1 ring-teal-500/30' 
-                : 'bg-gradient-to-tr from-cyan-600 to-blue-600 shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-400/30'
+                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-500/30' 
+                : 'bg-blue-600 text-white shadow-md ring-1 ring-blue-400/30'
             }`}>
               <Factory className="h-6 w-6 text-white" />
             </div>
@@ -79,14 +79,14 @@ export default function Navbar({
                 <h1 className={`text-base sm:text-lg font-bold tracking-tight ${
                   theme === 'light' 
                     ? 'text-stone-900' 
-                    : 'bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent'
+                    : 'bg-gradient-to-r from-white via-slate-200 to-slate-100 bg-clip-text text-transparent'
                 }`}>
                   {isAr ? 'منظومة إنتاج وتحليل مواسير البلاستيك' : 'PVC Pipe Production Suite'}
                 </h1>
                 <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
                   theme === 'light' 
-                    ? 'bg-teal-50 text-teal-800 border border-teal-300' 
-                    : 'bg-cyan-950 text-cyan-400 border border-cyan-800/60'
+                    ? 'bg-slate-100 text-slate-700 border border-slate-300' 
+                    : 'bg-slate-800 text-slate-300 border border-slate-700'
                 }`}>
                   PROD v2.0
                 </span>
@@ -103,9 +103,9 @@ export default function Navbar({
           <div className="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
             <button
               onClick={() => setCurrentModule('data-analysis')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 currentModule === 'data-analysis'
-                  ? 'bg-cyan-600 text-white shadow-sm'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
@@ -114,7 +114,7 @@ export default function Navbar({
             </button>
             <button
               onClick={() => setCurrentModule('daily-evaluation')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 currentModule === 'daily-evaluation'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
@@ -125,9 +125,9 @@ export default function Navbar({
             </button>
             <button
               onClick={() => setCurrentModule('data-hub')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 currentModule === 'data-hub'
-                  ? 'bg-emerald-600 text-white shadow-sm'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
@@ -144,11 +144,7 @@ export default function Navbar({
                 type="button"
                 onClick={onGlobalSave}
                 disabled={isSaving}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
-                  theme === 'light'
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-800/20 ring-1 ring-emerald-500/50'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/40'
-                }`}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white shadow-sm border border-transparent transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 title="Save All Changes (Local & Remote)"
               >
                 {isSaving ? (
@@ -158,7 +154,7 @@ export default function Navbar({
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-3.5 h-3.5 text-white" />
                     <span>Save</span>
                   </>
                 )}
@@ -168,14 +164,14 @@ export default function Navbar({
             {/* Download Templates Menu */}
             <div className="relative group">
               <button
-                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer shadow-sm ${
                   theme === 'light' 
-                    ? 'bg-white text-stone-700 border border-stone-300 shadow-xs hover:bg-stone-50' 
+                    ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50' 
                     : 'bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700'
                 }`}
                 title="Download Factory Excel Templates"
               >
-                <Download className="w-3.5 h-3.5 text-cyan-400" />
+                <Download className="w-3.5 h-3.5 text-slate-400" />
                 <span>{isAr ? 'القوالب' : 'Templates'}</span>
                 <ChevronDown className="w-3 h-3 opacity-60" />
               </button>
@@ -210,14 +206,14 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={onOpenMachineSettings}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer shadow-sm ${
                   theme === 'light'
-                    ? 'bg-white text-stone-700 border border-stone-300 shadow-xs hover:bg-stone-50'
+                    ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
                     : 'bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700'
                 }`}
                 title="Configure Machine Capacities (kg/h)"
               >
-                <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                <Sliders className="w-3.5 h-3.5 text-slate-400" />
                 <span className="hidden md:inline">Machine Settings</span>
               </button>
             )}
@@ -225,14 +221,14 @@ export default function Navbar({
             {/* Language Toggle */}
             <button
               onClick={() => setLang(isAr ? 'en' : 'ar')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+              className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition cursor-pointer ${
                 theme === 'light' 
-                  ? 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-50' 
+                  ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50' 
                   : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
               }`}
               title={isAr ? 'Switch to English' : 'التحويل للعربية'}
             >
-              <Languages className="w-4 h-4 text-cyan-400" />
+              <Languages className="w-4 h-4 text-slate-400" />
               <span className="hidden sm:inline">{isAr ? 'English' : 'عربي'}</span>
             </button>
 
@@ -241,13 +237,13 @@ export default function Navbar({
               onClick={toggleTheme}
               className={`p-1.5 rounded-lg transition cursor-pointer ${
                 theme === 'light' 
-                  ? 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-50' 
+                  ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50' 
                   : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
               }`}
               title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
             >
               {theme === 'light' ? (
-                <Moon className="w-4 h-4 text-indigo-500" />
+                <Moon className="w-4 h-4 text-slate-600" />
               ) : (
                 <Sun className="w-4 h-4 text-amber-400" />
               )}
@@ -258,10 +254,10 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={onOpenAdminModal}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                   theme === 'light'
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 shadow-xs'
-                    : 'bg-amber-950/70 text-amber-300 border border-amber-800/80 hover:bg-amber-900/60 shadow-md'
+                    ? 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 shadow-xs'
+                    : 'bg-slate-800 text-amber-300 border border-slate-700 hover:bg-slate-700 shadow-sm'
                 }`}
                 title="User Management (Admin)"
               >
@@ -276,12 +272,12 @@ export default function Navbar({
                 <div
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${
                     theme === 'light'
-                      ? 'bg-white text-stone-800 border-stone-300 shadow-xs'
+                      ? 'bg-white text-slate-800 border-slate-300 shadow-xs'
                       : 'bg-slate-800/90 text-slate-200 border-slate-700'
                   }`}
                   title={`Logged in as ${user.username} (${user.role || 'operator'})`}
                 >
-                  <User className="w-3.5 h-3.5 text-cyan-400" />
+                  <User className="w-3.5 h-3.5 text-slate-400" />
                   <span className="font-semibold max-w-[100px] truncate">{user.username}</span>
                   <span
                     className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
@@ -321,7 +317,7 @@ export default function Navbar({
                 onClick={() => setActiveTab('master')}
                 className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
                   activeTab === 'master'
-                    ? 'bg-cyan-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
@@ -331,7 +327,7 @@ export default function Navbar({
                 onClick={() => setActiveTab('dashboard')}
                 className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
                   activeTab === 'dashboard'
-                    ? 'bg-cyan-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
@@ -341,7 +337,7 @@ export default function Navbar({
                 onClick={() => setActiveTab('audit')}
                 className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
                   activeTab === 'audit'
-                    ? 'bg-cyan-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
@@ -351,7 +347,7 @@ export default function Navbar({
                 onClick={() => setActiveTab('planning')}
                 className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
                   activeTab === 'planning'
-                    ? 'bg-cyan-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
@@ -361,7 +357,7 @@ export default function Navbar({
                 onClick={() => setActiveTab('verification')}
                 className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer flex items-center gap-1 ${
                   activeTab === 'verification'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
@@ -374,9 +370,9 @@ export default function Navbar({
             <div className="flex items-center gap-2">
               <button
                 onClick={onOpenManualEntry}
-                className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md font-semibold cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium cursor-pointer shadow-sm transition"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <PlusCircle className="w-3.5 h-3.5 text-slate-400" />
                 <span>{isAr ? 'إضافة سطر' : 'Add Row'}</span>
               </button>
             </div>
@@ -401,7 +397,7 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={onOpenReconciliationMatrix}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold cursor-pointer text-xs transition shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer text-xs transition shadow-sm border border-transparent"
                   title="Open Master Daily Production &amp; Lost Hours Reconciliation Matrix (All Lines Overview)"
                 >
                   <Table className="w-3.5 h-3.5" />
@@ -413,9 +409,9 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={onOpenBlankSopPrint}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md font-semibold cursor-pointer text-xs transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-medium cursor-pointer text-xs transition shadow-sm"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-blue-400" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
                   <span>Morning SOP (DOC-Ext.-03)</span>
                 </button>
               )}
@@ -427,8 +423,8 @@ export default function Navbar({
         {currentModule === 'data-hub' && (
           <div className="flex items-center justify-between py-2 text-xs overflow-x-auto">
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5" />
+              <span className="text-slate-200 font-bold flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-slate-400" />
                 <span>Data Hub &amp; File Operations</span>
               </span>
               <span className="text-slate-400 text-[11px] hidden sm:inline">
@@ -441,9 +437,9 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={onOpenBlankSopPrint}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold cursor-pointer text-xs transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-medium cursor-pointer text-xs transition shadow-sm"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
                   <span>Morning SOP (DOC-Ext.-03)</span>
                 </button>
               </div>

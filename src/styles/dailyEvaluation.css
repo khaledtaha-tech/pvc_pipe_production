@@ -100,13 +100,14 @@
 /* ============ BUTTONS ============ */
 .btn {
   border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 8px 14px;
+  border-radius: 8px;
+  padding: 7px 14px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .btn:active {
@@ -114,25 +115,66 @@
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
+  background: #2563eb;
+  color: #ffffff !important;
+  border-color: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
 }
 
-.btn-primary:hover {
-  background: #173b5c;
-  border-color: #173b5c;
+.btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-ghost {
-  background: #fff;
-  border-color: var(--border);
-  color: var(--primary);
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.btn-ghost:hover {
-  background: var(--soft);
-  border-color: var(--secondary);
+.btn-ghost:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-ghost svg {
+  color: #64748b;
+}
+
+.btn-ghost:hover:not(:disabled) svg {
+  color: #0f172a;
+}
+
+.btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app-header .btn-ghost {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #f8fafc;
+  box-shadow: none;
+}
+
+.app-header .btn-ghost svg {
+  color: #f8fafc;
+}
+
+.app-header .btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #ffffff;
 }
 
 .btn-excel {
@@ -289,36 +331,37 @@
 /* ============ TABS ============ */
 .app-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   padding: 12px 24px 0;
-  background: #eef2f7;
-  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .tab {
-  border: 1px solid var(--border);
-  background: #e2e8f0;
-  color: var(--muted);
-  padding: 9px 20px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 8px 18px;
   border-radius: 8px 8px 0 0;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   border-bottom: none;
   position: relative;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .tab:hover:not(:disabled) {
-  background: #edf2f7;
-  color: var(--primary);
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .tab.active {
-  color: var(--primary);
-  background: #fff;
-  border-color: var(--border);
-  border-bottom: 1px solid #fff;
+  color: #ffffff;
+  background: #2563eb;
+  border-color: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
   margin-bottom: -1px;
 }
 
@@ -332,9 +375,13 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #2e9e44;
+  background: #22c55e;
   margin-left: 6px;
   vertical-align: middle;
+}
+
+.tab.active .tab-badge {
+  background: #93c5fd;
 }
 
 /* ============ FORM VIEW ============ */
@@ -680,11 +727,11 @@
   justify-content: center;
   padding: 5px 10px;
   font-size: 11.5px;
-  font-weight: 700;
-  color: #1e40af;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
+  font-weight: 500;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -693,16 +740,17 @@
 }
 
 .btn-line-toggle:hover {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-color: #93c5fd;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .btn-line-toggle.active {
-  background: #1e40af;
-  color: #ffffff;
-  border-color: #1e3a8a;
-  box-shadow: 0 1px 2px rgba(30, 64, 175, 0.25);
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(29, 78, 216, 0.15);
 }
 
 .theme-laser-monochrome .btn-line-toggle {
@@ -1970,8 +2018,9 @@
 
 .view-mode-toggle-group {
   display: inline-flex;
-  background: var(--bg-muted, #e2e8f0);
-  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   padding: 2px;
   gap: 2px;
 }
@@ -1980,10 +2029,10 @@
   background: transparent;
   border: none;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text, #334155);
+  font-weight: 500;
+  color: #475569;
   padding: 5px 11px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease-in-out;
   white-space: nowrap;
@@ -1994,10 +2043,10 @@
 }
 
 .view-mode-btn.active {
-  background: #ffffff;
-  color: #0f172a;
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
 }
 
 /* Laser Theme Toggle in sheet toolbar */
@@ -5146,56 +5195,49 @@
 
 /* ============ UNIFIED EXPORT MODAL & TOOLBAR BUTTONS ============ */
 
-.btn-export-current {
+.btn-export-current,
+.btn-export-all,
+.btn-export-range {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--primary);
-  color: #fff;
-  border: 1px solid var(--primary);
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
   padding: 6px 12px;
   font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
+  font-weight: 500;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(31, 78, 121, 0.2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.btn-export-current:hover:not(:disabled) {
-  background: #173b5c;
-  border-color: #173b5c;
-  box-shadow: 0 2px 4px rgba(31, 78, 121, 0.3);
+.btn-export-current svg,
+.btn-export-all svg,
+.btn-export-range svg,
+.btn-print svg {
+  color: #64748b;
 }
 
-.btn-export-current:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.btn-export-current:hover:not(:disabled),
+.btn-export-all:hover:not(:disabled),
+.btn-export-range:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
 }
 
-.btn-export-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #0f766e;
-  color: #fff;
-  border: 1px solid #0f766e;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.2);
+.btn-export-current:hover:not(:disabled) svg,
+.btn-export-all:hover:not(:disabled) svg,
+.btn-export-range:hover:not(:disabled) svg,
+.btn-print:hover:not(:disabled) svg {
+  color: #334155;
 }
 
-.btn-export-all:hover:not(:disabled) {
-  background: #115e59;
-  border-color: #115e59;
-  box-shadow: 0 2px 4px rgba(15, 118, 110, 0.3);
-}
-
-.btn-export-all:disabled {
+.btn-export-current:disabled,
+.btn-export-all:disabled,
+.btn-export-range:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -5204,17 +5246,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.28);
-  color: #fff;
+  background: #e2e8f0;
+  color: #1e293b;
   font-size: 11px;
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 10px;
+  border-radius: 6px;
   margin-left: 2px;
 }
 
 .btn-print {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Modal Dialog & Overlay */
@@ -6190,24 +6232,29 @@
    REVERSE OEE AUTO-RECONCILER & DISTRIBUTION MODAL STYLES
    ======================================================== */
 .btn-reconcile {
-  background: #4f46e5;
+  background: #2563eb;
   color: #ffffff !important;
-  border: 1px solid #4338ca;
+  border: 1px solid #2563eb;
   font-weight: 600;
   font-size: 12.5px;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
   white-space: nowrap;
 }
 
+.btn-reconcile svg {
+  color: #ffffff;
+}
+
 .btn-reconcile:hover:not(:disabled) {
-  background: #4338ca;
-  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.35);
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35);
 }
 
 .btn-reconcile:disabled {
@@ -7481,17 +7528,18 @@ html.light .daily-eval-root .kpi-val {
   gap: 6px;
   padding: 6px 14px;
   font-size: 13px;
-  font-weight: 700;
-  border-radius: 6px;
-  background: rgba(37, 99, 235, 0.18);
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  color: #93c5fd;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #2563eb;
+  border: 1px solid #3b82f6;
+  color: #ffffff;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
   transition: all 0.15s ease-in-out;
 }
 
 .btn-supervisor-header-quick:hover {
-  background: rgba(37, 99, 235, 0.35);
+  background: #1d4ed8;
   border-color: #60a5fa;
   color: #ffffff;
 }

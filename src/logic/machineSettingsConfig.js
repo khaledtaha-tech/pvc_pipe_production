@@ -7,6 +7,7 @@
 import { MACHINES, matchMachine, normalizeLineId, sanitizeMachineMaster } from '../config/machines.js';
 
 export const MACHINE_CAPACITIES_OVERRIDE_KEY = 'machine_nominal_capacities_override';
+export const MACHINE_SPECS_OVERRIDE_KEY = 'machine_physical_specs_override';
 export const MACHINE_SETTINGS_CHANGED_EVENT = 'machine-nominal-capacities-changed';
 
 /**
@@ -186,16 +187,178 @@ export function resetMachineNominalCapacities(machineId = null) {
       const overrides = getMachineCapacitiesOverrides();
       delete overrides[lineId];
       saveMachineCapacitiesOverrides(overrides);
+      resetMachinePhysicalSpecs(lineId);
     }
   } else {
     const storage = getStorage();
     if (storage) {
       storage.removeItem(MACHINE_CAPACITIES_OVERRIDE_KEY);
+      storage.removeItem(MACHINE_SPECS_OVERRIDE_KEY);
     }
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       window.dispatchEvent(
         new CustomEvent(MACHINE_SETTINGS_CHANGED_EVENT, {
-          detail: { overrides: {} }
+          detail: { overrides: {}, specsOverrides: {} }
+        })
+      );
+    }
+  }
+}
+
+/**
+ * Retrieve all custom machine physical specs overrides (speed, length) stored in localStorage.
+ * @returns {Record<string, object>}
+ */
+export function getMachinePhysicalSpecsOverrides() {
+  const storage = getStorage();
+  if (!storage) return {};
+  try {
+    const raw = storage.getItem(MACHINE_SPECS_OVERRIDE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (err) {
+    console.error('Failed to parse machine physical specs overrides:', err);
+  }
+  return {};
+}
+
+/**
+ * Persist machine physical specs overrides to localStorage and dispatch event.
+ * @param {Record<string, object>} overrides
+ */
+export function saveMachinePhysicalSpecsOverrides(overrides) {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    if (!overrides || Object.keys(overrides).length === 0) {
+      storage.removeItem(MACHINE_SPECS_OVERRIDE_KEY);
+    } else {
+      storage.setItem(MACHINE_SPECS_OVERRIDE_KEY, JSON.stringify(overrides));
+    }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(
+        new CustomEvent(MACHINE_SETTINGS_CHANGED_EVENT, {
+          detail: { specsOverrides: { ...overrides } }
+        })
+      );
+    }
+  } catch (err) {
+    console.error('Failed to save machine physical specs overrides:', err);
+  }
+}
+
+/**
+ * Retrieve current effective physical specifications and limits for a machine.
+ * Hierarchy: User Override > Dynamic Master > Default Catalog Preset (4.0 m/min, 6.0 m)
+ *
+ * @param {string|object} machineId
+ * @param {Array} [dynamicMaster]
+ * @returns {object} { lineId, nominalCap, maxLinearSpeed, pipeLength, defaultMaxLinearSpeed, defaultPipeLength, isSpeedOverridden, isLengthOverridden }
+ */
+export function getMachinePhysicalSpecs(machineId, dynamicMaster = null) {
+  const lineId = resolveCanonicalLineId(machineId);
+  const nominalCap = getMachineNominalCapacity(machineId, dynamicMaster);
+  const canonMatch = MACHINES.find((m) => m.id === lineId);
+
+  let defaultSpeed = canonMatch?.maxLinearSpeed ?? 4.0;
+  let defaultLength = canonMatch?.pipeLength ?? 6.0;
+
+  if (Array.isArray(dynamicMaster) && dynamicMaster.length > 0) {
+    const dynMatch = dynamicMaster.find((m) => m && m.id === lineId);
+    if (dynMatch) {
+      if (Number(dynMatch.maxLinearSpeed) > 0) defaultSpeed = Number(dynMatch.maxLinearSpeed);
+      if (Number(dynMatch.pipeLength) > 0) defaultLength = Number(dynMatch.pipeLength);
+    }
+  }
+
+  const specsOverrides = getMachinePhysicalSpecsOverrides();
+  const lineOverride = specsOverrides[lineId];
+
+  const maxLinearSpeed = (lineOverride && Number(lineOverride.maxLinearSpeed) > 0)
+    ? Number(lineOverride.maxLinearSpeed)
+    : defaultSpeed;
+
+  const pipeLength = (lineOverride && Number(lineOverride.pipeLength) > 0)
+    ? Number(lineOverride.pipeLength)
+    : defaultLength;
+
+  return {
+    lineId,
+    nominalCap,
+    maxLinearSpeed: maxLinearSpeed > 0 ? maxLinearSpeed : 4.0,
+    pipeLength: pipeLength > 0 ? pipeLength : 6.0,
+    defaultMaxLinearSpeed: defaultSpeed > 0 ? defaultSpeed : 4.0,
+    defaultPipeLength: defaultLength > 0 ? defaultLength : 6.0,
+    isSpeedOverridden: Boolean(lineOverride && Number(lineOverride.maxLinearSpeed) > 0 && Number(lineOverride.maxLinearSpeed) !== defaultSpeed),
+    isLengthOverridden: Boolean(lineOverride && Number(lineOverride.pipeLength) > 0 && Number(lineOverride.pipeLength) !== defaultLength)
+  };
+}
+
+/**
+ * Set physical limits for a machine (max linear speed and pipe length).
+ * @param {string|object} machineId
+ * @param {object} specs - { maxLinearSpeed, pipeLength, nominalCap }
+ * @returns {boolean}
+ */
+export function setMachinePhysicalSpecs(machineId, specs = {}) {
+  const lineId = resolveCanonicalLineId(machineId);
+  if (!lineId) return false;
+
+  const overrides = getMachinePhysicalSpecsOverrides();
+  const current = overrides[lineId] || {};
+  const updated = { ...current };
+
+  if (specs.maxLinearSpeed !== undefined && specs.maxLinearSpeed !== '') {
+    const s = Number(specs.maxLinearSpeed);
+    if (!isNaN(s) && s > 0) updated.maxLinearSpeed = s;
+    else delete updated.maxLinearSpeed;
+  }
+  if (specs.pipeLength !== undefined && specs.pipeLength !== '') {
+    const l = Number(specs.pipeLength);
+    if (!isNaN(l) && l > 0) updated.pipeLength = l;
+    else delete updated.pipeLength;
+  }
+  if (specs.nominalCap !== undefined || specs.nominalCapacity !== undefined) {
+    const c = Number(specs.nominalCap ?? specs.nominalCapacity);
+    if (!isNaN(c) && c > 0) {
+      setMachineNominalCapacity(lineId, c);
+    }
+  }
+
+  if (Object.keys(updated).length === 0) {
+    delete overrides[lineId];
+  } else {
+    overrides[lineId] = updated;
+  }
+
+  saveMachinePhysicalSpecsOverrides(overrides);
+  return true;
+}
+
+/**
+ * Reset machine physical limits overrides.
+ * @param {string|null} [machineId]
+ */
+export function resetMachinePhysicalSpecs(machineId = null) {
+  if (machineId) {
+    const lineId = resolveCanonicalLineId(machineId);
+    if (lineId) {
+      const overrides = getMachinePhysicalSpecsOverrides();
+      delete overrides[lineId];
+      saveMachinePhysicalSpecsOverrides(overrides);
+    }
+  } else {
+    const storage = getStorage();
+    if (storage) {
+      storage.removeItem(MACHINE_SPECS_OVERRIDE_KEY);
+    }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(
+        new CustomEvent(MACHINE_SETTINGS_CHANGED_EVENT, {
+          detail: { specsOverrides: {} }
         })
       );
     }
@@ -232,6 +395,8 @@ export function getAllMachineCapacities(dynamicMaster = null) {
     const hasOverride = typeof overrides[lineId] === 'number' && overrides[lineId] > 0;
     const nominalCapacity = hasOverride ? overrides[lineId] : defaultCapacity;
 
+    const specs = getMachinePhysicalSpecs(lineId, dynamicMaster);
+
     return {
       id: lineId,
       name: m.name || '',
@@ -243,7 +408,14 @@ export function getAllMachineCapacities(dynamicMaster = null) {
       defaultCapacity,
       nominalCapacity,
       overrideCapacity: hasOverride ? overrides[lineId] : null,
-      isOverridden: hasOverride
+      isOverridden: hasOverride,
+      maxLinearSpeed: specs.maxLinearSpeed,
+      defaultMaxLinearSpeed: specs.defaultMaxLinearSpeed,
+      pipeLength: specs.pipeLength,
+      defaultPipeLength: specs.defaultPipeLength,
+      isSpeedOverridden: specs.isSpeedOverridden,
+      isLengthOverridden: specs.isLengthOverridden,
+      isSpecsOverridden: specs.isSpeedOverridden || specs.isLengthOverridden
     };
   });
 }

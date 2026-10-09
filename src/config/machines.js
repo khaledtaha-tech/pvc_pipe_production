@@ -25,6 +25,8 @@ export const MACHINES = [
     maxDiameter: 75,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KTS 350 TDH', 'KTS-350 TDH', 'KTS-350TDH', 'KTS 350TDH', 'L-01', 'L01', 'LINE 1', 'LINE-1']
   },
   {
@@ -38,6 +40,8 @@ export const MACHINES = [
     maxDiameter: 75,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KTS 170', 'KTS-170', 'KTS170', 'L-02', 'L02', 'LINE 2', 'LINE-2']
   },
   {
@@ -51,6 +55,8 @@ export const MACHINES = [
     maxDiameter: 200,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KABRA-90', 'KABRA 90', 'KABRA90', 'K-90', 'K90', 'Kabra 90 (K-90)', 'KABRA 90 (K-90)', 'L-03', 'L03', 'LINE 3', 'LINE-3']
   },
   {
@@ -64,6 +70,8 @@ export const MACHINES = [
     maxDiameter: 160,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KTS 350', 'KTS-350', 'KTS350', 'L-04', 'L04', 'LINE 4', 'LINE-4']
   },
   {
@@ -77,6 +85,8 @@ export const MACHINES = [
     maxDiameter: 63,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KTS 200', 'KTS-200', 'KTS200', 'L-05', 'L05', 'LINE 5', 'LINE-5']
   },
   {
@@ -90,6 +100,8 @@ export const MACHINES = [
     maxDiameter: 400,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KTS 700', 'KTS-700', 'KTS700', 'L-06', 'L06', 'LINE 6', 'LINE-6']
   },
   {
@@ -103,6 +115,8 @@ export const MACHINES = [
     maxDiameter: 50,
     isPelletizingLine: false,
     lineType: 'Pipe Extrusion Line',
+    maxLinearSpeed: 4.0,
+    pipeLength: 6.0,
     matchKeys: ['KTS 250 TDH', 'KTS-250 TDH', 'KTS-250TDH', 'KTS 250TDH', 'KTS-250', 'KTS 250', 'L-07', 'L07', 'LINE 7', 'LINE-7']
   },
   {
@@ -116,6 +130,8 @@ export const MACHINES = [
     maxDiameter: null,
     isPelletizingLine: true,
     lineType: 'Pelletizing Line',
+    maxLinearSpeed: null,
+    pipeLength: null,
     matchKeys: ['KTS 550', 'KTS-550', 'KTS550', 'L-08', 'L08', 'LINE 8', 'LINE-8']
   }
 ];
@@ -130,6 +146,8 @@ export const MASTER_MACHINE_PROFILES = MACHINES.map(m => ({
   maxDiameter: m.maxDiameter,
   nominalCapacity: m.nominalCapacity,
   capacityKgH: m.capacityKgH,
+  maxLinearSpeed: m.maxLinearSpeed ?? 4.0,
+  pipeLength: m.pipeLength ?? 6.0,
   isPelletizingLine: m.isPelletizingLine || false,
   lineType: m.lineType
 }));

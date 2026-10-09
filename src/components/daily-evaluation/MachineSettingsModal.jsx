@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   getAllMachineCapacities,
   setMachineNominalCapacity,
-  resetMachineNominalCapacities
+  resetMachineNominalCapacities,
+  setMachinePhysicalSpecs,
+  resetMachinePhysicalSpecs
 } from '../../logic/machineSettingsConfig.js';
 
 export default function MachineSettingsModal({
@@ -13,21 +15,28 @@ export default function MachineSettingsModal({
   onNotify = null
 }) {
   const [capacitiesState, setCapacitiesState] = useState({});
+  const [speedLimitsState, setSpeedLimitsState] = useState({});
   const [feedbackToast, setFeedbackToast] = useState('');
   const [isSavedFeedback, setIsSavedFeedback] = useState(false);
 
-  // Load latest capacities upon modal opening
+  // Load latest capacities and physical specs upon modal opening
   const machineList = useMemo(() => {
     return getAllMachineCapacities(machineMaster);
   }, [isOpen, machineMaster]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const initialMap = {};
+    const initialCapMap = {};
+    const initialSpeedMap = {};
     machineList.forEach((m) => {
-      initialMap[m.id] = m.nominalCapacity;
+      initialCapMap[m.id] = m.nominalCapacity;
+      initialSpeedMap[m.id] = {
+        maxLinearSpeed: m.maxLinearSpeed ?? 4.0,
+        pipeLength: m.pipeLength ?? 6.0
+      };
     });
-    setCapacitiesState(initialMap);
+    setCapacitiesState(initialCapMap);
+    setSpeedLimitsState(initialSpeedMap);
     setFeedbackToast('');
     setIsSavedFeedback(false);
   }, [isOpen, machineList]);
@@ -53,13 +62,31 @@ export default function MachineSettingsModal({
     }));
   };
 
+  const handleSpeedLimitChange = (lineId, field, value) => {
+    setSpeedLimitsState((prev) => ({
+      ...prev,
+      [lineId]: {
+        ...(prev[lineId] || {}),
+        [field]: value === '' ? '' : Number(value)
+      }
+    }));
+  };
+
   const handleResetLine = (lineId, defaultVal) => {
     setCapacitiesState((prev) => ({
       ...prev,
       [lineId]: defaultVal
     }));
+    const canonMatch = machineList.find((m) => m.id === lineId);
+    const defSpeed = canonMatch?.defaultMaxLinearSpeed ?? 4.0;
+    const defLength = canonMatch?.defaultPipeLength ?? 6.0;
+    setSpeedLimitsState((prev) => ({
+      ...prev,
+      [lineId]: { maxLinearSpeed: defSpeed, pipeLength: defLength }
+    }));
     resetMachineNominalCapacities(lineId);
-    showNotice(`Reset ${lineId} to default: ${defaultVal} kg/h`);
+    resetMachinePhysicalSpecs(lineId);
+    showNotice(`Reset ${lineId} to defaults: ${defaultVal} kg/h, ${defSpeed} m/min, ${defLength}m`);
   };
 
   const showNotice = (msg) => {
@@ -82,16 +109,31 @@ export default function MachineSettingsModal({
           setMachineNominalCapacity(m.id, numVal);
           updatedCount += 1;
         } else {
-          // If value equals default, remove any redundant override
           resetMachineNominalCapacities(m.id);
+        }
+      }
+
+      if (!m.isPelletizingLine) {
+        const speedObj = speedLimitsState[m.id];
+        if (speedObj) {
+          const speedVal = Number(speedObj.maxLinearSpeed) > 0 ? Number(speedObj.maxLinearSpeed) : (m.defaultMaxLinearSpeed ?? 4.0);
+          const lengthVal = Number(speedObj.pipeLength) > 0 ? Number(speedObj.pipeLength) : (m.defaultPipeLength ?? 6.0);
+          const isSpeedDiff = Math.abs(speedVal - (m.defaultMaxLinearSpeed ?? 4.0)) > 0.01;
+          const isLengthDiff = Math.abs(lengthVal - (m.defaultPipeLength ?? 6.0)) > 0.01;
+          if (isSpeedDiff || isLengthDiff) {
+            setMachinePhysicalSpecs(m.id, { maxLinearSpeed: speedVal, pipeLength: lengthVal });
+            updatedCount += 1;
+          } else {
+            resetMachinePhysicalSpecs(m.id);
+          }
         }
       }
     });
 
     setIsSavedFeedback(true);
     const msg = updatedCount > 0
-      ? `Successfully saved nominal capacity rates (${updatedCount} line${updatedCount > 1 ? 's' : ''} customized).`
-      : 'Nominal capacities saved. All lines aligned with factory defaults.';
+      ? `Successfully saved machine settings (${updatedCount} parameter${updatedCount > 1 ? 's' : ''} customized).`
+      : 'Machine settings saved. All lines aligned with factory defaults.';
     showNotice(msg);
     if (typeof onNotify === 'function') {
       onNotify(msg);
@@ -105,20 +147,27 @@ export default function MachineSettingsModal({
   };
 
   const handleResetAll = () => {
-    if (window.confirm('Restore nominal capacities for all machine lines to factory defaults?')) {
+    if (window.confirm('Restore nominal capacities and physical limits for all lines to factory defaults?')) {
       resetMachineNominalCapacities(null);
-      const resetMap = {};
+      resetMachinePhysicalSpecs(null);
+      const resetCapMap = {};
+      const resetSpeedMap = {};
       machineList.forEach((m) => {
-        resetMap[m.id] = m.defaultCapacity;
+        resetCapMap[m.id] = m.defaultCapacity;
+        resetSpeedMap[m.id] = {
+          maxLinearSpeed: m.defaultMaxLinearSpeed ?? 4.0,
+          pipeLength: m.defaultPipeLength ?? 6.0
+        };
       });
-      setCapacitiesState(resetMap);
-      const msg = 'All machine nominal rates restored to factory defaults.';
+      setCapacitiesState(resetCapMap);
+      setSpeedLimitsState(resetSpeedMap);
+      const msg = 'All machine parameters restored to factory defaults.';
       showNotice(msg);
       if (typeof onNotify === 'function') {
         onNotify(msg);
       }
       if (typeof onSaved === 'function') {
-        onSaved(resetMap);
+        onSaved(resetCapMap);
       }
     }
   };
@@ -131,7 +180,7 @@ export default function MachineSettingsModal({
         aria-modal="true"
         aria-labelledby="machine-settings-modal-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 860 }}
+        style={{ maxWidth: 980 }}
       >
         <div className="export-modal-header">
           <div className="export-modal-header-left">
@@ -143,10 +192,10 @@ export default function MachineSettingsModal({
             </div>
             <div>
               <h3 id="machine-settings-modal-title" className="export-modal-title">
-                Machine Master Settings &middot; Nominal Capacities (kg/h)
+                Machine Master Settings &middot; Nominal Capacities &amp; Physical Limits
               </h3>
               <p className="export-modal-subtitle">
-                Configure and persist nominal output rates per production line. Changes automatically propagate to Batch SOP blanks, utilization %, OEE calculations, and Excel exports.
+                Configure nominal output rates (kg/h) and physical limits (max haul-off speed &amp; pipe length). These parameters power the dynamic bottleneck estimator, Batch SOP blanks, utilization %, and OEE evaluation.
               </p>
             </div>
           </div>
@@ -185,9 +234,10 @@ export default function MachineSettingsModal({
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left', color: '#94a3b8' }}>
                 <th style={{ padding: '8px 10px' }}>Line ID</th>
-                <th style={{ padding: '8px 10px' }}>Machine Name & Type</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center' }}>Default Rate</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center' }}>Configured Rate (kg/h)</th>
+                <th style={{ padding: '8px 10px' }}>Machine Name &amp; Type</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center' }}>Melt Capacity (kg/h)</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center' }}>Max Speed (m/min)</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center' }}>Pipe Cut (m)</th>
                 <th style={{ padding: '8px 10px', textAlign: 'center' }}>Status</th>
                 <th style={{ padding: '8px 10px', textAlign: 'center' }}>Action</th>
               </tr>
@@ -196,7 +246,13 @@ export default function MachineSettingsModal({
               {machineList.map((m) => {
                 const currentVal = capacitiesState[m.id];
                 const numVal = currentVal !== undefined && currentVal !== '' ? Number(currentVal) : m.nominalCapacity;
-                const isModified = numVal !== m.defaultCapacity;
+                const speedVal = speedLimitsState[m.id]?.maxLinearSpeed ?? m.maxLinearSpeed ?? 4.0;
+                const lengthVal = speedLimitsState[m.id]?.pipeLength ?? m.pipeLength ?? 6.0;
+
+                const isCapModified = numVal !== m.defaultCapacity;
+                const isSpeedModified = !m.isPelletizingLine && Math.abs((Number(speedVal) || 4.0) - (m.defaultMaxLinearSpeed ?? 4.0)) > 0.01;
+                const isLengthModified = !m.isPelletizingLine && Math.abs((Number(lengthVal) || 6.0) - (m.defaultPipeLength ?? 6.0)) > 0.01;
+                const isModified = isCapModified || isSpeedModified || isLengthModified;
 
                 return (
                   <tr
@@ -225,12 +281,8 @@ export default function MachineSettingsModal({
                       <div style={{ fontWeight: 600, color: '#f1f5f9' }}>{m.name}</div>
                       <div style={{ fontSize: '11px', color: '#64748b' }}>{m.lineType}</div>
                     </td>
-                    <td style={{ padding: '10px', textAlign: 'center', color: '#94a3b8' }}>
-                      <span>{m.defaultCapacity} kg/h</span>
-                      {m.uploadedCapacity != null && (
-                        <div style={{ fontSize: '10px', color: '#0ea5e9' }}>(Excel Upload)</div>
-                      )}
-                    </td>
+
+                    {/* Melt Capacity (kg/h) */}
                     <td style={{ padding: '10px', textAlign: 'center' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <input
@@ -241,11 +293,11 @@ export default function MachineSettingsModal({
                           value={currentVal !== undefined ? currentVal : m.nominalCapacity}
                           onChange={(e) => handleCapacityChange(m.id, e.target.value)}
                           style={{
-                            width: '100px',
-                            padding: '6px 10px',
+                            width: '84px',
+                            padding: '6px 8px',
                             borderRadius: '6px',
                             backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                            border: `1px solid ${isModified ? '#38bdf8' : 'rgba(255, 255, 255, 0.15)'}`,
+                            border: `1px solid ${isCapModified ? '#38bdf8' : 'rgba(255, 255, 255, 0.15)'}`,
                             color: '#f8fafc',
                             fontWeight: 600,
                             textAlign: 'right',
@@ -255,7 +307,74 @@ export default function MachineSettingsModal({
                         />
                         <span style={{ fontSize: '11px', color: '#64748b' }}>kg/h</span>
                       </div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: 2 }}>
+                        Default: {m.defaultCapacity} kg/h
+                      </div>
                     </td>
+
+                    {/* Max Speed (m/min) */}
+                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                      {m.isPelletizingLine ? (
+                        <span style={{ color: '#64748b', fontSize: '11px' }}>N/A</span>
+                      ) : (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.5"
+                            max="30"
+                            value={speedVal !== undefined ? speedVal : 4.0}
+                            onChange={(e) => handleSpeedLimitChange(m.id, 'maxLinearSpeed', e.target.value)}
+                            style={{
+                              width: '70px',
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                              border: `1px solid ${isSpeedModified ? '#38bdf8' : 'rgba(255, 255, 255, 0.15)'}`,
+                              color: '#f8fafc',
+                              fontWeight: 600,
+                              textAlign: 'right',
+                              outline: 'none'
+                            }}
+                            placeholder="4.0"
+                          />
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>m/min</span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Pipe Cut Length (m) */}
+                    <td style={{ padding: '10px', textAlign: 'center' }}>
+                      {m.isPelletizingLine ? (
+                        <span style={{ color: '#64748b', fontSize: '11px' }}>N/A</span>
+                      ) : (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="1.0"
+                            max="15"
+                            value={lengthVal !== undefined ? lengthVal : 6.0}
+                            onChange={(e) => handleSpeedLimitChange(m.id, 'pipeLength', e.target.value)}
+                            style={{
+                              width: '64px',
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                              border: `1px solid ${isLengthModified ? '#38bdf8' : 'rgba(255, 255, 255, 0.15)'}`,
+                              color: '#f8fafc',
+                              fontWeight: 600,
+                              textAlign: 'right',
+                              outline: 'none'
+                            }}
+                            placeholder="6.0"
+                          />
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>m</span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Status */}
                     <td style={{ padding: '10px', textAlign: 'center' }}>
                       {isModified ? (
                         <span
@@ -269,7 +388,7 @@ export default function MachineSettingsModal({
                             border: '1px solid rgba(16, 185, 129, 0.3)'
                           }}
                         >
-                          Custom Override
+                          Custom
                         </span>
                       ) : (
                         <span
@@ -282,10 +401,12 @@ export default function MachineSettingsModal({
                             border: '1px solid rgba(100, 116, 139, 0.25)'
                           }}
                         >
-                          Factory Default
+                          Default
                         </span>
                       )}
                     </td>
+
+                    {/* Action */}
                     <td style={{ padding: '10px', textAlign: 'center' }}>
                       {isModified && (
                         <button
@@ -300,7 +421,7 @@ export default function MachineSettingsModal({
                             color: '#f87171',
                             border: '1px solid rgba(248, 113, 113, 0.3)'
                           }}
-                          title={`Reset ${m.id} to ${m.defaultCapacity} kg/h`}
+                          title={`Reset ${m.id} to defaults`}
                         >
                           Reset
                         </button>

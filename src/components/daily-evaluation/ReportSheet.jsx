@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { SHIFT1_SPAN, SHIFT2_SPAN, DOC_STATUS } from '../../config/machines.js';
 import { buildRefDerived } from '../../logic/engine.js';
+import RateEstimatorPopover from './RateEstimatorPopover.jsx';
 
 export const SHEET_WIDTH = 1100;
 
@@ -183,18 +184,31 @@ const ReportSheet = forwardRef(function ReportSheet(
             <div className="tcell refval">{spec?.cls || ''}</div>
             <div className="tcell refnum">{num(spec?.speed)}</div>
             <div className="tcell refnum">{num(spec?.cutTime, 1)}</div>
-            <div className="tcell refnum refnum-hl">
+            <div className="tcell refnum refnum-hl relative">
               {!isExporting && onPatchRef ? (
-                <input
-                  type="number"
-                  className="cellinput ref-cell-input"
-                  value={spec?.targetRate != null && spec.targetRate !== '' ? spec.targetRate : ''}
-                  placeholder="Pcs/h"
-                  title="Edit Standard Target Rate (Pcs/h)"
-                  step="1"
-                  min="0"
-                  onChange={(e) => onPatchRef(String(key), 'targetRate', e.target.value)}
-                />
+                <div className="flex items-center justify-center gap-1 w-full">
+                  <input
+                    type="number"
+                    className="cellinput ref-cell-input"
+                    value={spec?.targetRate != null && spec.targetRate !== '' ? spec.targetRate : ''}
+                    placeholder="Pcs/h"
+                    title="Edit Standard Target Rate (Pcs/h)"
+                    step="1"
+                    min="0"
+                    onChange={(e) => onPatchRef(String(key), 'targetRate', e.target.value)}
+                  />
+                  <RateEstimatorPopover
+                    lineId={header?.lineId}
+                    nominalCap={nominalCapacityKgH}
+                    stdWeight={spec?.stdWeight}
+                    maxLinearSpeed={spec?.speed}
+                    pipeLength={spec?.pipeLength}
+                    currentRate={spec?.targetRate}
+                    onApplyRate={(newRate) => onPatchRef(String(key), 'targetRate', newRate)}
+                    buttonClassName="text-slate-600 hover:text-slate-900"
+                    align="right"
+                  />
+                </div>
               ) : (
                 num(spec?.targetRate)
               )}

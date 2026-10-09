@@ -32,6 +32,7 @@ import {
   MATRIX_DOWNTIME_CATEGORIES
 } from '../../logic/reconciliationMatrixHelper.js';
 import { getMachineNominalCapacity } from '../../logic/machineSettingsConfig.js';
+import RateEstimatorPopover from './RateEstimatorPopover.jsx';
 import * as XLSX from 'xlsx';
 
 export default function DailyReconciliationMatrixView({
@@ -677,17 +678,31 @@ export default function DailyReconciliationMatrixView({
                       />
                     </td>
 
-                    {/* 6. Std Rate (Pcs/h) - Editable input */}
+                    {/* 6. Std Rate (Pcs/h) - Editable input & Dynamic Estimator */}
                     <td className="px-2.5 py-2 border-r border-slate-800">
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        value={row.targetRate ?? ''}
-                        onChange={(e) => handleCellChange(row.lineId, 'targetRate', e.target.value)}
-                        onBlur={() => handleCellBlur(row.lineId, 'targetRate')}
-                        className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-cyan-300 font-mono font-bold text-right"
-                      />
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={row.targetRate ?? ''}
+                          onChange={(e) => handleCellChange(row.lineId, 'targetRate', e.target.value)}
+                          onBlur={() => handleCellBlur(row.lineId, 'targetRate')}
+                          className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-cyan-300 font-mono font-bold text-right"
+                        />
+                        <RateEstimatorPopover
+                          lineId={row.baseLineId || row.lineId}
+                          lineName={row.lineName}
+                          nominalCap={row.nominalCapacity}
+                          stdWeight={row.stdWeight}
+                          pipeLength={row.pipeLength}
+                          currentRate={row.targetRate}
+                          onApplyRate={(newRate) => {
+                            handleCellChange(row.lineId, 'targetRate', newRate);
+                            handleCellBlur(row.lineId, 'targetRate');
+                          }}
+                        />
+                      </div>
                     </td>
 
                     {/* 7. Expected 24h Output */}

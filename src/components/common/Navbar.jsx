@@ -100,39 +100,42 @@ export default function Navbar({
           </div>
 
           {/* Module Switcher Tabs */}
-          <div className="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+          <div className={`flex items-center gap-1 p-1 rounded-xl border ${theme === 'light' ? 'bg-slate-100/90 border-slate-300' : 'bg-slate-800/80 border-slate-700/60'}`}>
             <button
               onClick={() => setCurrentModule('data-analysis')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`top-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 currentModule === 'data-analysis'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                  ? 'top-nav-tab-active bg-blue-600 text-white shadow-sm'
+                  : `top-nav-tab-inactive ${theme === 'light' ? 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'}`
               }`}
+              style={currentModule === 'data-analysis' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
             >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>{isAr ? 'تحليل البيانات والتخطيط' : 'Data Intelligence'}</span>
+              <BarChart3 className={`w-3.5 h-3.5 ${currentModule === 'data-analysis' ? 'text-white' : theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`} style={currentModule === 'data-analysis' ? { stroke: '#ffffff', color: '#ffffff' } : {}} />
+              <span style={currentModule === 'data-analysis' ? { color: '#ffffff' } : {}}>{isAr ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0648\u0627\u0644\u062a\u062e\u0637\u064a\u0637' : 'Data Intelligence'}</span>
             </button>
             <button
               onClick={() => setCurrentModule('daily-evaluation')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`top-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 currentModule === 'daily-evaluation'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                  ? 'top-nav-tab-active bg-blue-600 text-white shadow-sm'
+                  : `top-nav-tab-inactive ${theme === 'light' ? 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'}`
               }`}
+              style={currentModule === 'daily-evaluation' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
             >
-              <ClipboardList className="w-3.5 h-3.5" />
-              <span>{isAr ? 'سجل الوردية والتقييم اليومي' : 'Daily OEE Evaluation'}</span>
+              <ClipboardList className={`w-3.5 h-3.5 ${currentModule === 'daily-evaluation' ? 'text-white' : theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`} style={currentModule === 'daily-evaluation' ? { stroke: '#ffffff', color: '#ffffff' } : {}} />
+              <span style={currentModule === 'daily-evaluation' ? { color: '#ffffff' } : {}}>{isAr ? '\u0633\u062c\u0644 \u0627\u0644\u0648\u0631\u062f\u064a\u0629 \u0648\u0627\u0644\u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u064a\u0648\u0645\u064a' : 'Daily OEE Evaluation'}</span>
             </button>
             <button
               onClick={() => setCurrentModule('data-hub')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`top-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 currentModule === 'data-hub'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                  ? 'top-nav-tab-active bg-blue-600 text-white shadow-sm'
+                  : `top-nav-tab-inactive ${theme === 'light' ? 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'}`
               }`}
+              style={currentModule === 'data-hub' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
             >
-              <Database className="w-3.5 h-3.5" />
-              <span>Import / Export Hub</span>
+              <Database className={`w-3.5 h-3.5 ${currentModule === 'data-hub' ? 'text-white' : theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`} style={currentModule === 'data-hub' ? { stroke: '#ffffff', color: '#ffffff' } : {}} />
+              <span style={currentModule === 'data-hub' ? { color: '#ffffff' } : {}}>Import / Export Hub</span>
             </button>
           </div>
 
@@ -144,18 +147,19 @@ export default function Navbar({
                 type="button"
                 onClick={onGlobalSave}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white shadow-sm border border-transparent transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="btn-primary flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white shadow-sm border border-transparent transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
                 title="Save All Changes (Local & Remote)"
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving...</span>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
+                    <span style={{ color: '#ffffff' }}>Saving...</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5 text-white" />
-                    <span>Save</span>
+                    <Save className="w-3.5 h-3.5 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
+                    <span style={{ color: '#ffffff', fontWeight: 600 }}>Save</span>
                   </>
                 )}
               </button>
@@ -315,54 +319,77 @@ export default function Navbar({
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setActiveTab('master')}
-                className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
+                className={`sub-tab px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
                   activeTab === 'master'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'sub-tab-active bg-blue-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'sub-tab-inactive bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'sub-tab-inactive text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
+                style={activeTab === 'master' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
               >
-                {isAr ? 'جدول التشغيل الموحد' : 'Master Extrusion Runs'}
+                <span style={activeTab === 'master' ? { color: '#ffffff' } : {}}>
+                  {isAr ? '\u062c\u062f\u0648\u0644 \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0645\u0648\u062d\u062f' : 'Master Extrusion Runs'}
+                </span>
               </button>
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
+                className={`sub-tab px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
                   activeTab === 'dashboard'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'sub-tab-active bg-blue-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'sub-tab-inactive bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'sub-tab-inactive text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
+                style={activeTab === 'dashboard' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
               >
-                {isAr ? 'لوحة المؤشرات والرسوم' : 'Analytics & Charts'}
+                <span style={activeTab === 'dashboard' ? { color: '#ffffff' } : {}}>
+                  {isAr ? '\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062a \u0648\u0627\u0644\u0631\u0633\u0648\u0645' : 'Analytics & Charts'}
+                </span>
               </button>
               <button
                 onClick={() => setActiveTab('audit')}
-                className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
+                className={`sub-tab px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
                   activeTab === 'audit'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'sub-tab-active bg-blue-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'sub-tab-inactive bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'sub-tab-inactive text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
+                style={activeTab === 'audit' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
               >
-                {isAr ? 'جدول تدقيق وتنظيف البيانات' : 'Cleaning & Audit Table'}
+                <span style={activeTab === 'audit' ? { color: '#ffffff' } : {}}>
+                  {isAr ? '\u062c\u062f\u0648\u0644 \u062a\u062f\u0642\u064a\u0642 \u0648\u062a\u0646\u0638\u064a\u0641 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a' : 'Cleaning & Audit Table'}
+                </span>
               </button>
               <button
                 onClick={() => setActiveTab('planning')}
-                className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
+                className={`sub-tab px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
                   activeTab === 'planning'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'sub-tab-active bg-blue-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'sub-tab-inactive bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'sub-tab-inactive text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
+                style={activeTab === 'planning' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
               >
-                {isAr ? 'تخطيط الخطوط وكتالوج المقاسات' : 'Production Planning'}
+                <span style={activeTab === 'planning' ? { color: '#ffffff' } : {}}>
+                  {isAr ? '\u062a\u062e\u0637\u064a\u0637 \u0627\u0644\u062e\u0637\u0648\u0637 \u0648\u0643\u062a\u0627\u0644\u0648\u062c \u0627\u0644\u0645\u0642\u0627\u0633\u0627\u062a' : 'Production Planning'}
+                </span>
               </button>
               <button
                 onClick={() => setActiveTab('verification')}
-                className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer flex items-center gap-1 ${
+                className={`sub-tab px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
                   activeTab === 'verification'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'sub-tab-active bg-blue-600 text-white shadow-sm'
+                    : theme === 'light'
+                      ? 'sub-tab-inactive bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      : 'sub-tab-inactive text-slate-300 hover:text-white hover:bg-slate-800'
                 }`}
+                style={activeTab === 'verification' ? { backgroundColor: '#2563eb', color: '#ffffff' } : {}}
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>{isAr ? 'مركز الفحص والمطابقة' : 'Verification Center'}</span>
+                <ShieldCheck className={`w-3.5 h-3.5 ${activeTab === 'verification' ? 'text-white' : ''}`} style={activeTab === 'verification' ? { stroke: '#ffffff', color: '#ffffff' } : {}} />
+                <span style={activeTab === 'verification' ? { color: '#ffffff' } : {}}>{isAr ? '\u0645\u0631\u0643\u0632 \u0627\u0644\u0641\u062d\u0635 \u0648\u0627\u0644\u0645\u0637\u0627\u0628\u0642\u0629' : 'Verification Center'}</span>
               </button>
             </div>
 
@@ -397,11 +424,12 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={onOpenReconciliationMatrix}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer text-xs transition shadow-sm border border-transparent"
+                  className="btn-primary flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer text-xs transition shadow-sm border border-transparent"
+                  style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
                   title="Open Master Daily Production &amp; Lost Hours Reconciliation Matrix (All Lines Overview)"
                 >
-                  <Table className="w-3.5 h-3.5" />
-                  <span>Reconciliation Matrix (All Lines)</span>
+                  <Table className="w-3.5 h-3.5 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
+                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Reconciliation Matrix (All Lines)</span>
                 </button>
               )}
 

@@ -357,12 +357,16 @@
 }
 
 .tab.active {
-  color: #ffffff;
-  background: #2563eb;
-  border-color: #2563eb;
+  color: #ffffff !important;
+  background: #2563eb !important;
+  border-color: #2563eb !important;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
   margin-bottom: -1px;
+}
+
+.tab.active * {
+  color: #ffffff !important;
 }
 
 .tab:disabled {
@@ -6232,9 +6236,9 @@
    REVERSE OEE AUTO-RECONCILER & DISTRIBUTION MODAL STYLES
    ======================================================== */
 .btn-reconcile {
-  background: #2563eb;
+  background: #2563eb !important;
   color: #ffffff !important;
-  border: 1px solid #2563eb;
+  border: 1px solid #2563eb !important;
   font-weight: 600;
   font-size: 12.5px;
   padding: 6px 12px;
@@ -6247,13 +6251,24 @@
   white-space: nowrap;
 }
 
+.btn-reconcile * {
+  color: #ffffff !important;
+}
+
 .btn-reconcile svg {
-  color: #ffffff;
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none;
+}
+
+.btn-reconcile svg path {
+  stroke: #ffffff !important;
 }
 
 .btn-reconcile:hover:not(:disabled) {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.35);
 }
 
@@ -7147,8 +7162,12 @@ html:not(.light) .daily-eval-root .app-tabs .tab:hover {
 }
 
 html:not(.light) .daily-eval-root .app-tabs .tab.active {
-  background: #2563eb;
-  color: #ffffff;
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+html:not(.light) .daily-eval-root .app-tabs .tab.active * {
+  color: #ffffff !important;
 }
 
 html:not(.light) .daily-eval-root .sheet-toolbar {
@@ -7352,8 +7371,12 @@ html.light .daily-eval-root .app-tabs .tab:hover {
 }
 
 html.light .daily-eval-root .app-tabs .tab.active {
-  background: #2563eb;
-  color: #ffffff;
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+html.light .daily-eval-root .app-tabs .tab.active * {
+  color: #ffffff !important;
 }
 
 html.light .daily-eval-root .sheet-toolbar {
@@ -7500,9 +7523,9 @@ html.light .daily-eval-root .kpi-val {
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.3px;
-  color: #ffffff;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  border: 1.5px solid #60a5fa;
+  color: #ffffff !important;
+  background: #2563eb !important;
+  border: 1.5px solid #1e40af !important;
   border-radius: 10px;
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   cursor: pointer;
@@ -7510,11 +7533,28 @@ html.light .daily-eval-root .kpi-val {
   white-space: nowrap;
 }
 
+.btn-supervisor-hero * {
+  color: #ffffff !important;
+}
+
+.btn-supervisor-hero svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none;
+}
+
+.btn-supervisor-hero svg path,
+.btn-supervisor-hero svg line,
+.btn-supervisor-hero svg polyline {
+  stroke: #ffffff !important;
+}
+
 .btn-supervisor-hero:hover {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  border-color: #93c5fd;
+  border-color: #93c5fd !important;
 }
 
 .btn-supervisor-hero:active {
@@ -7530,18 +7570,34 @@ html.light .daily-eval-root .kpi-val {
   font-size: 13px;
   font-weight: 600;
   border-radius: 8px;
-  background: #2563eb;
-  border: 1px solid #3b82f6;
-  color: #ffffff;
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
   transition: all 0.15s ease-in-out;
 }
 
+.btn-supervisor-header-quick * {
+  color: #ffffff !important;
+}
+
+.btn-supervisor-header-quick svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none;
+}
+
+.btn-supervisor-header-quick svg path,
+.btn-supervisor-header-quick svg line,
+.btn-supervisor-header-quick svg polyline {
+  stroke: #ffffff !important;
+}
+
 .btn-supervisor-header-quick:hover {
-  background: #1d4ed8;
-  border-color: #60a5fa;
-  color: #ffffff;
+  background: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
 }
 
 /* Responsive adjustments for supervisor card */
@@ -7586,27 +7642,60 @@ html.light .daily-eval-root .supervisor-hero-desc {
 }
 
 html.light .daily-eval-root .btn-supervisor-hero {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  border: 1.5px solid #1e3a8a;
+  background: #2563eb !important;
+  border: 1.5px solid #1e40af !important;
   box-shadow: 0 6px 18px rgba(29, 78, 216, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  color: #ffffff !important;
+}
+
+html.light .daily-eval-root .btn-supervisor-hero * {
+  color: #ffffff !important;
+}
+
+html.light .daily-eval-root .btn-supervisor-hero svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none;
+}
+
+html.light .daily-eval-root .btn-supervisor-hero svg path,
+html.light .daily-eval-root .btn-supervisor-hero svg line,
+html.light .daily-eval-root .btn-supervisor-hero svg polyline {
+  stroke: #ffffff !important;
 }
 
 html.light .daily-eval-root .btn-supervisor-hero:hover {
-  background: linear-gradient(135deg, #1e40af 0%, #172554 100%);
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
   box-shadow: 0 8px 24px rgba(29, 78, 216, 0.4);
 }
 
 html.light .daily-eval-root .btn-supervisor-header-quick {
-  background: #eff6ff;
-  border: 1px solid #93c5fd;
-  color: #1e40af;
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+html.light .daily-eval-root .btn-supervisor-header-quick * {
+  color: #ffffff !important;
+}
+
+html.light .daily-eval-root .btn-supervisor-header-quick svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none;
+}
+
+html.light .daily-eval-root .btn-supervisor-header-quick svg path,
+html.light .daily-eval-root .btn-supervisor-header-quick svg line,
+html.light .daily-eval-root .btn-supervisor-header-quick svg polyline {
+  stroke: #ffffff !important;
 }
 
 html.light .daily-eval-root .btn-supervisor-header-quick:hover {
-  background: #dbeafe;
-  border-color: #60a5fa;
-  color: #1d4ed8;
+  background: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
 }
 
 /* ========================================================

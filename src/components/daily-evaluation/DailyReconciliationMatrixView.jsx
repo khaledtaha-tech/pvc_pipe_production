@@ -390,11 +390,12 @@ export default function DailyReconciliationMatrixView({
             type="button"
             onClick={handleReconcileAndSaveAll}
             disabled={isSavingAll}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm border border-transparent cursor-pointer disabled:opacity-50"
+            className="btn-primary flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm border border-transparent cursor-pointer disabled:opacity-50"
+            style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
             title="Calculate distribution, apply 24h slots, and save reports for all lines"
           >
-            <Save className="w-3.5 h-3.5 text-white" />
-            <span>{isSavingAll ? 'Saving All...' : 'Reconcile & Save All Lines'}</span>
+            <Save className="w-3.5 h-3.5 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
+            <span style={{ color: '#ffffff', fontWeight: 600 }}>{isSavingAll ? 'Saving All...' : 'Reconcile & Save All Lines'}</span>
           </button>
 
           <button
@@ -936,11 +937,12 @@ export default function DailyReconciliationMatrixView({
                         <button
                           type="button"
                           onClick={() => handleReconcileAndSaveRow(row.lineId)}
-                          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-xs border border-transparent transition cursor-pointer"
+                          className="btn-primary flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-xs border border-transparent transition cursor-pointer"
+                          style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
                           title="Reconcile 24h slots and save report for this machine"
                         >
-                          <Save className="w-3 h-3 text-white" />
-                          <span>Save</span>
+                          <Save className="w-3 h-3 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
+                          <span style={{ color: '#ffffff', fontWeight: 600 }}>Save</span>
                         </button>
 
                         {onSelectMachineAndOpenSheet && (

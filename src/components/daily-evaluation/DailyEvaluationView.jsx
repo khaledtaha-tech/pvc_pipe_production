@@ -1659,15 +1659,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="btn btn-supervisor-header-quick"
             onClick={() => setIsPrintChoiceModalOpen(true)}
+            style={{ backgroundColor: '#2563eb', color: '#ffffff', border: '1px solid #3b82f6' }}
             title="Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ marginInlineEnd: 4 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.4" style={{ marginInlineEnd: 4, stroke: '#ffffff', color: '#ffffff' }}>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
               <line x1="16" y1="13" x2="8" y2="13" />
               <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
-            Morning Blank SOP (Supervisor)
+            <span style={{ color: '#ffffff', fontWeight: 600 }}>Morning Blank SOP (Supervisor)</span>
           </button>
           <button
             type="button"
@@ -1703,30 +1704,34 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           type="button"
           className={'tab' + (tab === 'uploader' ? ' active' : '')}
           onClick={() => setTab('uploader')}
+          style={tab === 'uploader' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
         >
-          Excel Production Log Uploader
+          <span style={tab === 'uploader' ? { color: '#ffffff' } : {}}>Excel Production Log Uploader</span>
         </button>
         <button
           type="button"
           className={'tab' + (tab === 'analytics' ? ' active' : '')}
           onClick={() => setTab('analytics')}
+          style={tab === 'analytics' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
         >
-          Plant Analytics
+          <span style={tab === 'analytics' ? { color: '#ffffff' } : {}}>Plant Analytics</span>
         </button>
         <button
           type="button"
           className={'tab' + (tab === 'matrix' ? ' active' : '')}
           onClick={() => setTab('matrix')}
+          style={tab === 'matrix' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
         >
-          Daily Reconciliation Matrix
+          <span style={tab === 'matrix' ? { color: '#ffffff' } : {}}>Daily Reconciliation Matrix</span>
         </button>
         <button
           type="button"
           className={'tab' + (tab === 'sheet' ? ' active' : '')}
           onClick={() => setTab('sheet')}
           disabled={!derived}
+          style={tab === 'sheet' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
         >
-          24-Hour Production Sheet {derived ? <span className="tab-badge" /> : null}
+          <span style={tab === 'sheet' ? { color: '#ffffff' } : {}}>24-Hour Production Sheet</span> {derived ? <span className="tab-badge" /> : null}
         </button>
       </nav>
 
@@ -1813,16 +1818,17 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   type="button"
                   className="btn btn-supervisor-hero"
                   onClick={() => setIsPrintChoiceModalOpen(true)}
+                  style={{ backgroundColor: '#2563eb', color: '#ffffff', border: '1.5px solid #1e40af' }}
                   title="Open Morning Blank SOP Generator & Batch Print Module"
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" style={{ marginInlineEnd: 8 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.3" style={{ marginInlineEnd: 8, stroke: '#ffffff', color: '#ffffff' }}>
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
                     <line x1="16" y1="17" x2="8" y2="17" />
                     <polyline points="10 9 9 9 8 9" />
                   </svg>
-                  <span>Print Blank Morning SOP (DOC-Ext.-03)</span>
+                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Print Blank Morning SOP (DOC-Ext.-03)</span>
                 </button>
               </div>
             </div>
@@ -1945,12 +1951,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   className="btn btn-reconcile"
                   onClick={() => setIsReconcileModalOpen(true)}
                   disabled={activeLinesForDate.length === 0 || !report?.slots || report.slots.length === 0}
+                  style={{ backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' }}
                   title="Auto-reconcile 24h run and reverse estimate slot production across operating hours"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" style={{ marginRight: 6, stroke: '#ffffff', color: '#ffffff' }}>
                     <path d="M12 20v-6M6 20V10M18 20V4" />
                   </svg>
-                  Auto-Reconcile Shift Run
+                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Auto-Reconcile Shift Run</span>
                 </button>
                 <button
                   type="button"

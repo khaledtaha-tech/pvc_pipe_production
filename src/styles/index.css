@@ -158,14 +158,14 @@ html.light .bg-clip-text {
   -webkit-text-fill-color: transparent !important;
 }
 
-/* High-Contrast Typography Overrides */
-html.light .text-white,
-html.light .text-slate-100 {
+/* High-Contrast Typography Overrides (excluding buttons, tabs, links, and colored surfaces) */
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="bg-emerald-6"]):not([class*="bg-emerald-6"] *):not([class*="tab"]).text-white,
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="tab"]).text-slate-100 {
   color: #0f172a !important;
 }
 
-html.light .text-slate-200,
-html.light .text-slate-300 {
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="tab"]).text-slate-200,
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="tab"]).text-slate-300 {
   color: #1e293b !important;
 }
 
@@ -175,6 +175,138 @@ html.light .text-slate-400 {
 
 html.light .text-slate-500 {
   color: #64748b !important;
+}
+
+/* ========================================================
+   GLOBAL ENFORCED BUTTON TEXT & ICON CONTRAST (WCAG AAA)
+   Every button with a colored/dark background MUST enforce
+   pure white text and pure white icon stroke in ALL themes.
+   ======================================================== */
+.btn-primary,
+button[class*="bg-blue-"],
+a[class*="bg-blue-"],
+.active-tab-blue,
+.btn-reconcile,
+.btn-supervisor-hero,
+.btn-supervisor-header-quick,
+.tab.active,
+.sub-tab-active,
+.top-nav-tab-active,
+button.btn-primary,
+html.light .btn-primary,
+html.light button[class*="bg-blue-"],
+html.light a[class*="bg-blue-"],
+html.light .active-tab-blue,
+html.light .btn-reconcile,
+html.light .btn-supervisor-hero,
+html.light .btn-supervisor-header-quick,
+html.light .tab.active,
+html.light .sub-tab-active,
+html.light .top-nav-tab-active {
+  color: #ffffff !important;
+}
+
+.btn-primary *,
+button[class*="bg-blue-"] *,
+a[class*="bg-blue-"] *,
+.active-tab-blue *,
+.btn-reconcile *,
+.btn-supervisor-hero *,
+.btn-supervisor-header-quick *,
+.tab.active *,
+.sub-tab-active *,
+.top-nav-tab-active *,
+html.light .btn-primary *,
+html.light button[class*="bg-blue-"] *,
+html.light a[class*="bg-blue-"] *,
+html.light .active-tab-blue *,
+html.light .btn-reconcile *,
+html.light .btn-supervisor-hero *,
+html.light .btn-supervisor-header-quick *,
+html.light .tab.active *,
+html.light .sub-tab-active *,
+html.light .top-nav-tab-active * {
+  color: #ffffff !important;
+}
+
+.btn-primary svg,
+button[class*="bg-blue-"] svg,
+a[class*="bg-blue-"] svg,
+.active-tab-blue svg,
+.btn-reconcile svg,
+.btn-supervisor-hero svg,
+.btn-supervisor-header-quick svg,
+.tab.active svg,
+.sub-tab-active svg,
+.top-nav-tab-active svg,
+html.light .btn-primary svg,
+html.light button[class*="bg-blue-"] svg,
+html.light a[class*="bg-blue-"] svg,
+html.light .active-tab-blue svg,
+html.light .btn-reconcile svg,
+html.light .btn-supervisor-hero svg,
+html.light .btn-supervisor-header-quick svg,
+html.light .tab.active svg,
+html.light .sub-tab-active svg,
+html.light .top-nav-tab-active svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none;
+}
+
+.btn-primary svg path,
+button[class*="bg-blue-"] svg path,
+a[class*="bg-blue-"] svg path,
+.btn-reconcile svg path,
+.btn-supervisor-hero svg path,
+.btn-supervisor-header-quick svg path,
+.tab.active svg path,
+.sub-tab-active svg path,
+.top-nav-tab-active svg path,
+.btn-supervisor-hero svg line,
+.btn-supervisor-hero svg polyline,
+html.light .btn-primary svg path,
+html.light button[class*="bg-blue-"] svg path,
+html.light a[class*="bg-blue-"] svg path,
+html.light .btn-reconcile svg path,
+html.light .btn-supervisor-hero svg path,
+html.light .btn-supervisor-header-quick svg path,
+html.light .tab.active svg path,
+html.light .sub-tab-active svg path,
+html.light .top-nav-tab-active svg path,
+html.light .btn-supervisor-hero svg line,
+html.light .btn-supervisor-hero svg polyline {
+  stroke: #ffffff !important;
+}
+
+.top-nav-tab-inactive {
+  background-color: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.top-nav-tab-inactive * {
+  color: #475569 !important;
+}
+
+.top-nav-tab-inactive svg {
+  color: #64748b !important;
+  stroke: #64748b !important;
+}
+
+html:not(.light) .top-nav-tab-inactive {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+}
+
+html:not(.light) .top-nav-tab-inactive * {
+  color: #cbd5e1 !important;
+}
+
+html:not(.light) .top-nav-tab-inactive svg {
+  color: #94a3b8 !important;
+  stroke: #94a3b8 !important;
 }
 
 /* Table container, headers, and rows in 2026 Light Mode */

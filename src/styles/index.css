@@ -310,15 +310,34 @@ html:not(.light) .top-nav-tab-inactive svg {
 }
 
 /* Table container, headers, and rows in 2026 Light Mode */
-html.light thead {
+html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-blue-"]):not([class*="bg-navy"]) {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   border-bottom: 2px solid #e2e8f0 !important;
 }
 
-html.light thead th {
+html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-blue-"]):not([class*="bg-navy"]) th:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-blue-"]):not([class*="text-white"]) {
   color: #0f172a !important;
   font-weight: 700 !important;
+}
+
+/* Enforce crisp white text on all dark table headers in ALL themes */
+thead[class*="bg-slate-9"] th,
+thead[class*="bg-slate-8"] th,
+thead[class*="bg-blue-9"] th,
+thead[class*="bg-blue-8"] th,
+tr[class*="bg-slate-9"] th,
+tr[class*="bg-slate-8"] th,
+th[class*="bg-slate-9"],
+th[class*="bg-slate-8"],
+th[class*="bg-blue-9"],
+th[class*="bg-blue-8"],
+th[class*="text-white"] {
+  color: #ffffff !important;
+}
+
+html:not(.light) thead:not([class*="bg-slate-1"]):not([class*="bg-white"]) th:not([class*="bg-slate-1"]):not([class*="text-slate-8"]):not([class*="text-slate-9"]) {
+  color: #ffffff !important;
 }
 
 html.light thead th[class*="bg-teal-950"] {

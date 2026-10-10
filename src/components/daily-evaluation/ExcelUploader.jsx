@@ -542,20 +542,20 @@ export default function ExcelUploader({
 
             <div className="table-responsive">
               <table className="log-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Machine</th>
-                    <th>Item Code</th>
-                    <th>Product Description &amp; Specs</th>
-                    <th>Production Qty (FG)</th>
-                    <th>Unit Wt</th>
-                    <th>Total Wt</th>
-                    <th>Scrap (kg)</th>
-                    <th>Actual Rate vs Nominal</th>
-                    <th>Operating / Downtime</th>
-                    <th>Reason of Stop</th>
-                    <th>Action</th>
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-700">
+                  <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-700">
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Date</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Machine</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Item Code</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Product Description &amp; Specs</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Production Qty (FG)</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Unit Wt</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Total Wt</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Scrap (kg)</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Actual Rate vs Nominal</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Operating / Downtime</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider">Reason of Stop</th>
+                    <th className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white font-semibold border-b border-slate-300 dark:border-slate-700 tracking-wider text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>

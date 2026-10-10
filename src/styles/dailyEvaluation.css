@@ -1667,15 +1667,48 @@
   font-size: 12px;
 }
 
+.log-table thead {
+  background: #f1f5f9;
+  border-bottom: 2px solid #cbd5e1;
+}
+
 .log-table th {
-  background: var(--primary);
-  color: #fff;
-  padding: 8px 10px;
+  background: #f1f5f9 !important;
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  padding: 10px 12px;
   text-align: left;
   font-size: 11px;
-  font-weight: 700;
-  border-bottom: 2px solid #163857;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border-bottom: 2px solid #cbd5e1 !important;
   white-space: nowrap;
+}
+
+html.light .log-table thead {
+  background: #f1f5f9 !important;
+  background-color: #f1f5f9 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+html.light .log-table th {
+  background: #f1f5f9 !important;
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+html:not(.light) .log-table thead {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-bottom: 2px solid #334155 !important;
+}
+
+html:not(.light) .log-table th {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid #334155 !important;
 }
 
 .log-table td {

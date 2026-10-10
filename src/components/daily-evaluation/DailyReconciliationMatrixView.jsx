@@ -29,7 +29,10 @@ import {
   autoBalanceRowHours,
   reconcileMatrixRow,
   exportMatrixToWorkbook,
-  MATRIX_DOWNTIME_CATEGORIES
+  MATRIX_DOWNTIME_CATEGORIES,
+  calculateMultiRunMachineStatus,
+  applyCoupledMultiRunInput,
+  autoBalanceMultiRunMachine
 } from '../../logic/reconciliationMatrixHelper.js';
 import { getMachineNominalCapacity } from '../../logic/machineSettingsConfig.js';
 import RateEstimatorPopover from './RateEstimatorPopover.jsx';
@@ -116,52 +119,71 @@ export default function DailyReconciliationMatrixView({
 
   // Update a single field in a row and dynamically recompute all row metrics with reactive rebalancing
   const handleCellChange = (lineId, field, rawValue) => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.lineId !== lineId) return r;
-        return applyMatrixRowInput(r, field, rawValue);
-      })
-    );
+    setRows((prev) => applyCoupledMultiRunInput(prev, lineId, field, rawValue));
   };
 
   // On blur, normalize empty string to 0
   const handleCellBlur = (lineId, field) => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.lineId !== lineId) return r;
-        if (r[field] === '' || r[field] == null) {
-          return applyMatrixRowInput(r, field, 0);
-        }
-        return r;
-      })
-    );
+    setRows((prev) => {
+      const target = prev.find((r) => r.lineId === lineId);
+      if (!target) return prev;
+      if (target[field] === '' || target[field] == null) {
+        return applyCoupledMultiRunInput(prev, lineId, field, 0);
+      }
+      return prev;
+    });
   };
 
   // Auto-balance a single row to 24h
   const handleAutoBalanceRow = (lineId, mode = 'adjust_op') => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.lineId !== lineId) return r;
-        return autoBalanceRowHours(r, mode);
-      })
-    );
-    if (onNotify) {
-      onNotify(`Auto-balanced Line ${lineId} to 24.0 hours.`);
+    const row = rows.find((r) => r.lineId === lineId);
+    if (row && (row.isMultiRun || row.totalRuns > 1) && (row.parentLineId || row.baseLineId)) {
+      const pId = row.parentLineId || row.baseLineId;
+      setRows((prev) => autoBalanceMultiRunMachine(prev, pId));
+      if (onNotify) {
+        onNotify(`Auto-balanced Machine ${pId} across all runs to 24.0 hours.`);
+      }
+    } else {
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.lineId !== lineId) return r;
+          return autoBalanceRowHours(r, mode);
+        })
+      );
+      if (onNotify) {
+        onNotify(`Auto-balanced Line ${lineId} to 24.0 hours.`);
+      }
     }
   };
 
   // Auto-balance all rows that have remaining unaccounted hours
   const handleAutoBalanceAll = () => {
     let balancedCount = 0;
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.balanceStatus !== 'balanced') {
+    setRows((prev) => {
+      let current = [...prev];
+      const processedParents = new Set();
+      current.forEach((r) => {
+        if ((r.isMultiRun || r.totalRuns > 1) && (r.parentLineId || r.baseLineId)) {
+          const pId = r.parentLineId || r.baseLineId;
+          if (!processedParents.has(pId)) {
+            processedParents.add(pId);
+            const status = calculateMultiRunMachineStatus(current, pId);
+            if (status && status.machineBalanceStatus !== 'balanced') {
+              balancedCount += 1;
+              current = autoBalanceMultiRunMachine(current, pId);
+            }
+          }
+        }
+      });
+      current = current.map((r) => {
+        if (!r.isMultiRun && !(r.totalRuns > 1) && r.balanceStatus !== 'balanced') {
           balancedCount += 1;
           return autoBalanceRowHours(r, 'adjust_op');
         }
         return r;
-      })
-    );
+      });
+      return current;
+    });
     if (onNotify) {
       onNotify(`Auto-balanced ${balancedCount} line(s) to 24.0 hours.`);
     }
@@ -277,6 +299,7 @@ export default function DailyReconciliationMatrixView({
     const totalActualPcs = rows.reduce((s, r) => s + (Number(r.actualPcs) || 0), 0);
     const totalScrapKg = rows.reduce((s, r) => s + (Number(r.scrapKg) || 0), 0);
     const totalLostHours = rows.reduce((s, r) => s + (Number(r.lostHours) || 0), 0);
+    const totalUnjustifiedLostHours = rows.reduce((s, r) => s + (Number(r.unjustifiedLostHours) || 0), 0);
     const balancedCount = rows.filter((r) => r.balanceStatus === 'balanced').length;
     const operatingCount = rows.filter((r) => Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0).length;
 
@@ -303,6 +326,7 @@ export default function DailyReconciliationMatrixView({
       totalActualPcs,
       totalScrapKg,
       totalLostHours,
+      totalUnjustifiedLostHours,
       balancedCount,
       operatingCount,
       avgAvailability,
@@ -442,7 +466,9 @@ export default function DailyReconciliationMatrixView({
             {plantSummary.totalLostHours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
           </div>
           <div className="text-[11px] text-slate-400">
-            Across {rows.length} plant lines
+            {plantSummary.totalUnjustifiedLostHours > 0
+              ? `${plantSummary.totalUnjustifiedLostHours.toFixed(1)}h unjustified`
+              : 'All lost time justified'}
           </div>
         </div>
 
@@ -610,9 +636,82 @@ export default function DailyReconciliationMatrixView({
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((row) => {
+                filteredRows.flatMap((row, idx) => {
                   const isRowOperating = Number(row.actualPcs) > 0 || Number(row.operatingHours) > 0;
-                  return (
+                  const parentLineId = row.baseLineId || row.parentLineId;
+                  const isMultiRun = Boolean(row.isMultiRun || row.totalRuns > 1);
+                  const isFirstRun = isMultiRun && (
+                    idx === 0 ||
+                    (filteredRows[idx - 1].baseLineId || filteredRows[idx - 1].parentLineId) !== parentLineId
+                  );
+                  const machineStatus = isMultiRun && parentLineId
+                    ? calculateMultiRunMachineStatus(rows, parentLineId)
+                    : null;
+
+                  const elements = [];
+                  if (isFirstRun && machineStatus) {
+                    elements.push(
+                      <tr
+                        key={`header-${parentLineId}`}
+                        className="bg-slate-950 border-t-2 border-b border-blue-500/50"
+                      >
+                        <td colSpan={25} className="px-3 py-2 bg-gradient-to-r from-blue-950/80 via-slate-900 to-slate-950">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-blue-600 text-white shadow-xs">
+                                {parentLineId}
+                              </span>
+                              <span className="font-semibold text-slate-200 text-xs">
+                                {row.lineName.replace(/\s*\[Run\s*\d+.*\]/, '')}
+                              </span>
+                              <span className="text-blue-400 text-xs font-medium">
+                                &bull; Multi-Run Extrusion ({machineStatus.runCount} Runs Coupled)
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1.5 text-xs font-mono">
+                                <span className="text-slate-300 font-semibold">
+                                  {parentLineId} Total Machine Accounted:
+                                </span>
+                                <span className="font-bold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                                  {machineStatus.totalMachineAccountedHours.toFixed(1)}h / 24.0h
+                                </span>
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  machineStatus.machineBalanceStatus === 'balanced'
+                                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                                    : machineStatus.machineBalanceStatus === 'under'
+                                    ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                                    : 'bg-rose-950/80 text-rose-300 border-rose-800'
+                                }`}
+                              >
+                                {machineStatus.machineBalanceStatus === 'balanced' ? (
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                                )}
+                                <span>[{machineStatus.machineBalanceStatus === 'balanced' ? 'Balanced' : machineStatus.machineBalanceLabel}]</span>
+                              </span>
+                              {machineStatus.machineBalanceStatus !== 'balanced' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAutoBalanceRow(row.lineId, 'adjust_op')}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition cursor-pointer"
+                                  title="Auto-balance multi-run machine across runs to exactly 24.0h"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>Balance Machine to 24h</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  elements.push(
                     <tr
                       key={row.lineId}
                       className={`transition hover:bg-slate-800/40 ${
@@ -741,9 +840,22 @@ export default function DailyReconciliationMatrixView({
                       <div className="text-[10px] text-slate-400">-{row.deficitKg.toLocaleString()} kg</div>
                     </td>
 
-                    {/* 10. Lost Hours (hrs) */}
-                    <td className="px-3 py-2 font-mono font-bold text-rose-400 border-r border-slate-800">
-                      {row.lostHours > 0 ? `${row.lostHours.toFixed(1)}h` : '0.0h'}
+                    {/* 10. Lost Time (h) */}
+                    <td className="px-3 py-2 font-mono border-r border-slate-800">
+                      <div
+                        className="flex items-center"
+                        title={`Theoretical Deficit: ${(row.theoreticalLostHours ?? row.lostHours ?? 0).toFixed(1)}h | Justified Downtime: ${(row.justifiedDowntimeHours ?? row.totalDowntimeHours ?? 0).toFixed(1)}h | Unjustified Lost Time: ${(row.unjustifiedLostHours ?? 0).toFixed(1)}h`}
+                      >
+                        {(row.unjustifiedLostHours ?? 0) === 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+                            0.0h (Justified)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-300 border border-rose-800">
+                            +{(row.unjustifiedLostHours ?? 0).toFixed(1)}h to Justify
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* 11. Operating Hours Input */}
@@ -894,33 +1006,40 @@ export default function DailyReconciliationMatrixView({
 
                     {/* 19. 24h Balance Badge */}
                     <td className="px-3 py-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            row.balanceStatus === 'balanced'
-                              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                              : row.balanceStatus === 'under'
-                              ? 'bg-amber-950/80 text-amber-300 border-amber-800'
-                              : 'bg-rose-950/80 text-rose-300 border-rose-800'
-                          }`}
-                        >
-                          {row.balanceStatus === 'balanced' ? (
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                          ) : (
-                            <Clock className="w-3 h-3 text-amber-400 shrink-0" />
-                          )}
-                          <span>{row.balanceLabel}</span>
-                        </span>
-
-                        {row.balanceStatus !== 'balanced' && (
-                          <button
-                            type="button"
-                            onClick={() => handleAutoBalanceRow(row.lineId, 'adjust_op')}
-                            className="p-1 text-amber-400 hover:text-amber-200 hover:bg-slate-800 rounded transition cursor-pointer"
-                            title="Auto-balance operating hours to make total 24.0h"
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              row.balanceStatus === 'balanced'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                                : row.balanceStatus === 'under'
+                                ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                                : 'bg-rose-950/80 text-rose-300 border-rose-800'
+                            }`}
                           >
-                            <Sparkles className="w-3 h-3" />
-                          </button>
+                            {row.balanceStatus === 'balanced' ? (
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                            ) : (
+                              <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                            )}
+                            <span>{row.balanceLabel}</span>
+                          </span>
+
+                          {row.balanceStatus !== 'balanced' && (
+                            <button
+                              type="button"
+                              onClick={() => handleAutoBalanceRow(row.lineId, 'adjust_op')}
+                              className="p-1 text-amber-400 hover:text-amber-200 hover:bg-slate-800 rounded transition cursor-pointer"
+                              title="Auto-balance operating hours to make total 24.0h"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        {row.isMultiRun && machineStatus && (
+                          <div className="text-[9px] text-blue-400 font-mono">
+                            Machine: {machineStatus.totalMachineAccountedHours.toFixed(1)}h/24h [{machineStatus.machineBalanceStatus === 'balanced' ? 'Balanced' : machineStatus.machineBalanceStatus}]
+                          </div>
                         )}
                       </div>
                     </td>
@@ -973,8 +1092,10 @@ export default function DailyReconciliationMatrixView({
                       </div>
                     </td>
                   </tr>
-                );
-              })
+                  );
+
+                  return elements;
+                })
             )}
             </tbody>
           </table>

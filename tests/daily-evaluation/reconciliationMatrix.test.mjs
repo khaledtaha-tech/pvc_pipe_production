@@ -8,7 +8,10 @@ import {
   categorizeDowntimeReason,
   applyMatrixRowInput,
   cleanPositiveNumber,
-  isDowntimeField
+  isDowntimeField,
+  calculateMultiRunMachineStatus,
+  applyCoupledMultiRunInput,
+  autoBalanceMultiRunMachine
 } from '../../src/logic/reconciliationMatrixHelper.js';
 import { MACHINES } from '../../src/config/machines.js';
 import { normalizeProductionRow } from '../../src/logic/oeeReconciler.js';
@@ -961,4 +964,181 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 19 Passed: Scrap (kg) ingestion, Quality (Q), and 3-Factor OEE verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (19/19) ---');
+// Test 20: Reactive Unjustified Lost Time Calculation & Downtime Offsetting
+{
+  // Machine with theoretical deficit of 14.1 hours:
+  // nominalCapacity 200, stdWeight 4.0 -> targetRate = 50.0 pcs/h
+  // expectedPcs = 24 * 50 = 1200 pcs
+  // actualPcs = 495 pcs -> deficit = 705 pcs -> theoreticalLostHours = round1(705 / 50) = 14.1h
+  const initialRow = {
+    lineId: 'L-01',
+    lineName: 'Battenfeld-01',
+    nominalCapacity: 200,
+    targetRate: 50.0,
+    stdWeight: 4.0,
+    actualPcs: 495,
+    actualKg: 1980,
+    operatingHours: 24.0,
+    moldChangeHours: 0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 0
+  };
+
+  const m1 = calculateMatrixRowMetrics(initialRow);
+  assert.strictEqual(m1.theoreticalLostHours, 14.1);
+  assert.strictEqual(m1.lostHours, 14.1);
+  assert.strictEqual(m1.justifiedDowntimeHours, 0.0);
+  assert.strictEqual(m1.unjustifiedLostHours, 14.1, 'Initial state: all 14.1h deficit is unjustified');
+
+  // Operator enters 12.0h in Material / No Order
+  const r2 = applyMatrixRowInput(initialRow, 'materialNoOrderHours', 12.0);
+  assert.strictEqual(r2.materialNoOrderHours, 12.0);
+  assert.strictEqual(r2.totalDowntimeHours, 12.0);
+  assert.strictEqual(r2.justifiedDowntimeHours, 12.0);
+  assert.strictEqual(r2.theoreticalLostHours, 14.1);
+  // Unjustified lost hours dynamically deducted: 14.1 - 12.0 = 2.1h
+  assert.strictEqual(r2.unjustifiedLostHours, 2.1, '14.1h theoretical deficit - 12.0h justified downtime = 2.1h unjustified');
+  assert.strictEqual(r2.operatingHours, 12.0, 'Operating hours auto-rebalanced to 12.0h');
+  assert.strictEqual(r2.totalAccountedHours, 24.0);
+
+  // Operator enters additional 2.1h in Mechanical Jam
+  const r3 = applyMatrixRowInput(r2, 'mechanicalHours', 2.1);
+  assert.strictEqual(r3.mechanicalHours, 2.1);
+  assert.strictEqual(r3.totalDowntimeHours, 14.1);
+  assert.strictEqual(r3.justifiedDowntimeHours, 14.1);
+  // Unjustified lost hours reaches exactly 0.0h (Fully Justified)
+  assert.strictEqual(r3.unjustifiedLostHours, 0.0, '14.1h deficit - 14.1h downtime = 0.0h (Fully Justified)');
+  assert.strictEqual(r3.operatingHours, 9.9, 'Operating hours auto-rebalanced to 24 - 14.1 = 9.9h');
+  assert.strictEqual(r3.totalAccountedHours, 24.0);
+
+  // Operator enters downtime exceeding theoretical deficit (e.g. 18.0h total)
+  const r4 = applyMatrixRowInput(r3, 'materialNoOrderHours', 15.9);
+  assert.strictEqual(r4.totalDowntimeHours, 18.0);
+  assert.strictEqual(r4.unjustifiedLostHours, 0.0, 'Unjustified lost hours must never be negative');
+
+  console.log('Test 20 Passed: Reactive unjustified lost hours calculation and downtime offsetting verified');
+}
+
+// Test 21: Multi-Run Coupled 24h Machine Balancing Across Sibling Runs
+{
+  const testMachines = [
+    { id: 'L-02', name: 'KTS 170', capacityKgH: 150, nominalCapacity: 150 }
+  ];
+
+  const testDatasets = [
+    {
+      date: '2026-10-06',
+      machineId: 'L-02',
+      itemCode: '255',
+      description: 'PVC PIPE 50X2.4MM',
+      productionQty: 609,
+      unitWeight: 3.8,
+      totalWeight: 2314.2
+    },
+    {
+      date: '2026-10-06',
+      machineId: 'L-02',
+      itemCode: '239',
+      description: 'PVC PIPE 75X3.6MM',
+      productionQty: 35,
+      unitWeight: 7.0,
+      totalWeight: 245.0
+    }
+  ];
+
+  let rows = buildMatrixRowsForDate({
+    date: '2026-10-06',
+    machineMaster: testMachines,
+    combinedDatasets: testDatasets,
+    loadReportByDateAndMachineFn: () => null
+  });
+
+  assert.strictEqual(rows.length, 2, 'L-02 must be split into Run 1 and Run 2');
+  const run1 = rows.find((r) => r.runIndex === 1);
+  const run2 = rows.find((r) => r.runIndex === 2);
+  assert.ok(run1 && run2, 'Both runs must exist');
+
+  // Verify initial coupled machine status
+  const initialStatus = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(initialStatus.parentLineId, 'L-02');
+  assert.strictEqual(initialStatus.runCount, 2);
+  assert.strictEqual(initialStatus.totalMachineAccountedHours, 24.0, 'Total machine accounted hours must equal 24.0h');
+  assert.strictEqual(initialStatus.machineBalanceStatus, 'balanced');
+  assert.strictEqual(initialStatus.machineBalanceLabel, '24.0h Balanced');
+  assert.strictEqual(initialStatus.isCoupledBalanced, true);
+
+  // 1. Operator modifies Run 1 operatingHours to 16.0h
+  rows = applyCoupledMultiRunInput(rows, run1.lineId, 'operatingHours', 16.0);
+  const updatedRun1 = rows.find((r) => r.runIndex === 1);
+  const updatedRun2 = rows.find((r) => r.runIndex === 2);
+  assert.strictEqual(updatedRun1.operatingHours, 16.0);
+  assert.strictEqual(updatedRun1.totalAccountedHours, 16.0);
+  // Run 2 has 2.0h moldChange, remaining budget = 24.0 - 16.0 = 8.0h -> Run 2 op = 8.0 - 2.0 = 6.0h
+  assert.strictEqual(updatedRun2.operatingHours, 6.0, 'Run 2 operating hours must adapt to 6.0h');
+  assert.strictEqual(updatedRun2.totalAccountedHours, 8.0, 'Run 2 total accounted: 6.0 op + 2.0 moldChange = 8.0h');
+
+  const status1 = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(status1.totalMachineAccountedHours, 24.0, 'Total machine accounted: 16.0 + 8.0 = 24.0h');
+  assert.strictEqual(status1.machineBalanceStatus, 'balanced');
+
+  // 2. Operator enters 3.0h downtime on Run 1 (materialNoOrderHours = 3.0h)
+  rows = applyCoupledMultiRunInput(rows, run1.lineId, 'materialNoOrderHours', 3.0);
+  const updatedRun1b = rows.find((r) => r.runIndex === 1);
+  const updatedRun2b = rows.find((r) => r.runIndex === 2);
+  // Run 1 budget was 16.0h, so operatingHours becomes 16.0 - 3.0 = 13.0h
+  assert.strictEqual(updatedRun1b.materialNoOrderHours, 3.0);
+  assert.strictEqual(updatedRun1b.operatingHours, 13.0);
+  assert.strictEqual(updatedRun1b.totalAccountedHours, 16.0);
+  assert.strictEqual(updatedRun2b.totalAccountedHours, 8.0);
+
+  const status2 = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(status2.totalMachineAccountedHours, 24.0);
+  assert.strictEqual(status2.machineBalanceStatus, 'balanced');
+
+  // 3. Operator enters 2.0h mechanical downtime on Run 2
+  rows = applyCoupledMultiRunInput(rows, run2.lineId, 'mechanicalHours', 2.0);
+  const updatedRun2c = rows.find((r) => r.runIndex === 2);
+  // Run 2 total downtime is now 2.0 mold + 2.0 mech = 4.0h
+  // Available budget for Run 2 is 24.0 - 16.0 (Run 1) = 8.0h
+  // Run 2 operatingHours adapts to 8.0 - 4.0 = 4.0h
+  assert.strictEqual(updatedRun2c.mechanicalHours, 2.0);
+  assert.strictEqual(updatedRun2c.totalDowntimeHours, 4.0);
+  assert.strictEqual(updatedRun2c.operatingHours, 4.0);
+  assert.strictEqual(updatedRun2c.totalAccountedHours, 8.0);
+
+  const status3 = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(status3.totalMachineAccountedHours, 24.0);
+  assert.strictEqual(status3.machineBalanceStatus, 'balanced');
+
+  // 4. Test under-allocated machine status detection
+  const targetRun2Idx = rows.findIndex((r) => r.runIndex === 2);
+  rows[targetRun2Idx] = calculateMatrixRowMetrics({ ...rows[targetRun2Idx], operatingHours: 1.0 });
+  const statusUnder = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(statusUnder.totalMachineAccountedHours, 21.0, '16.0 + (1.0 + 4.0) = 21.0h accounted');
+  assert.strictEqual(statusUnder.machineBalanceStatus, 'under');
+  assert.strictEqual(statusUnder.machineVarianceHours, 3.0);
+  assert.strictEqual(statusUnder.machineBalanceLabel, '3h Remaining');
+
+  // 5. Restore machine balance using autoBalanceMultiRunMachine
+  rows = autoBalanceMultiRunMachine(rows, 'L-02');
+  const restoredStatus = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(restoredStatus.totalMachineAccountedHours, 24.0);
+  assert.strictEqual(restoredStatus.machineBalanceStatus, 'balanced');
+  assert.strictEqual(restoredStatus.machineBalanceLabel, '24.0h Balanced');
+
+  // 6. Test over-allocated machine status detection
+  rows[0] = calculateMatrixRowMetrics({ ...rows[0], operatingHours: 20.0, materialNoOrderHours: 3.0 });
+  rows[1] = calculateMatrixRowMetrics({ ...rows[1], operatingHours: 5.0, mechanicalHours: 2.0, moldChangeHours: 2.0 });
+  const statusOver = calculateMultiRunMachineStatus(rows, 'L-02');
+  assert.strictEqual(statusOver.totalMachineAccountedHours, 32.0, '23.0 + 9.0 = 32.0h');
+  assert.strictEqual(statusOver.machineBalanceStatus, 'over');
+  assert.strictEqual(statusOver.machineVarianceHours, -8.0);
+  assert.strictEqual(statusOver.machineBalanceLabel, '+8h Exceeded');
+
+  console.log('Test 21 Passed: Multi-run coupled 24h machine balancing across sibling runs verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (21/21) ---');

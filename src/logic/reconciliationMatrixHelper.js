@@ -88,8 +88,16 @@ export function applyMatrixRowInput(row, field, rawValue) {
     const otherStop = field === 'otherHours' ? cleanVal : cleanPositiveNumber(row.otherHours);
 
     const totalDowntime = round1(moldChange + purgeClean + heaterFail + mechJam + matShort + otherStop);
-    // Automatically adjust Operating Hours = Math.max(0, 24 - totalDowntime)
-    updated.operatingHours = Math.max(0, round1(24.0 - totalDowntime));
+    if (row.isMultiRun) {
+      const prevAccounted = (Number(row.totalAccountedHours) > 0 && Number(row.totalAccountedHours) <= 24)
+        ? Number(row.totalAccountedHours)
+        : round1((Number(row.operatingHours) || 0) + (Number(row.totalDowntimeHours) || 0));
+      const targetBudget = prevAccounted > 0 ? prevAccounted : 24.0;
+      updated.operatingHours = Math.max(0, round1(targetBudget - totalDowntime));
+    } else {
+      // Automatically adjust Operating Hours = Math.max(0, 24 - totalDowntime)
+      updated.operatingHours = Math.max(0, round1(24.0 - totalDowntime));
+    }
   } else if (field === 'operatingHours') {
     // If the user explicitly edits Operating Hours directly:
     updated.operatingHours = isCleared ? '' : cleanVal;
@@ -137,7 +145,8 @@ export function calculateMatrixRowMetrics(row) {
   // Deficit and lost output
   const deficitPcs = Math.max(0, round1(expectedPcs - actualPcs));
   const deficitKg = Math.max(0, round1(expectedKg - actualKg));
-  const lostHours = targetRate > 0 ? round1(deficitPcs / targetRate) : 0;
+  const theoreticalLostHours = targetRate > 0 ? round1(deficitPcs / targetRate) : 0;
+  const lostHours = theoreticalLostHours;
 
   // 24-hour time allocation hours
   let operatingHours = Math.max(0, round1(Number(row.operatingHours) || 0));
@@ -157,7 +166,11 @@ export function calculateMatrixRowMetrics(row) {
     otherHours
   );
 
-  if ((actualPcs > 0 || actualKg > 0) && (row.operatingHours == null || row.operatingHours === '' || (operatingHours === 0 && row.isOperating !== false && totalDowntimeHours < 24))) {
+  const justifiedDowntimeHours = totalDowntimeHours;
+  const unjustifiedLostHours = round1(Math.max(0, theoreticalLostHours - totalDowntimeHours));
+
+  const isMulti = Boolean(row.isMultiRun || row.totalRuns > 1);
+  if (!isMulti && (actualPcs > 0 || actualKg > 0) && (row.operatingHours == null || row.operatingHours === '' || (operatingHours === 0 && row.isOperating !== false && totalDowntimeHours < 24 && row.isExplicitlyZero !== true))) {
     operatingHours = Math.max(0, round1(24.0 - totalDowntimeHours));
   }
 
@@ -229,7 +242,10 @@ export function calculateMatrixRowMetrics(row) {
     expectedKg,
     deficitPcs,
     deficitKg,
+    theoreticalLostHours,
     lostHours,
+    justifiedDowntimeHours,
+    unjustifiedLostHours,
     actualRatePcsH,
     actualRateKgH,
     speedEfficiencyPct,
@@ -284,6 +300,213 @@ export function autoBalanceRowHours(row, mode = 'adjust_op') {
   }
 
   return current;
+}
+
+/**
+ * Calculate coupled 24-hour status for a machine that runs multiple items/runs
+ */
+export function calculateMultiRunMachineStatus(rows = [], parentLineId = '') {
+  if (!parentLineId) return null;
+
+  const siblingRuns = rows.filter(
+    (r) =>
+      (r.parentLineId === parentLineId || r.baseLineId === parentLineId || r.lineId === parentLineId) &&
+      (r.isMultiRun || r.totalRuns > 1)
+  );
+
+  if (siblingRuns.length === 0) {
+    const singleRow = rows.find((r) => r.lineId === parentLineId || r.baseLineId === parentLineId);
+    if (!singleRow) return null;
+    return {
+      parentLineId,
+      lineName: singleRow.lineName || parentLineId,
+      runCount: 1,
+      totalMachineAccountedHours: Number(singleRow.totalAccountedHours) || 0,
+      machineVarianceHours: Number(singleRow.varianceHours) || 0,
+      machineBalanceStatus: singleRow.balanceStatus || 'balanced',
+      machineBalanceLabel: singleRow.balanceLabel || '24.0h Balanced',
+      isCoupledBalanced: Math.abs(Number(singleRow.varianceHours) || 0) <= 0.05
+    };
+  }
+
+  const lineName = siblingRuns[0].lineName
+    ? siblingRuns[0].lineName.replace(/\s*\[Run\s*\d+.*\]/, '')
+    : parentLineId;
+  const totalMachineAccountedHours = round1(
+    siblingRuns.reduce((sum, r) => sum + (Number(r.totalAccountedHours) || 0), 0)
+  );
+  const machineVarianceHours = round1(24.0 - totalMachineAccountedHours);
+
+  let machineBalanceStatus = 'balanced';
+  let machineBalanceLabel = '24.0h Balanced';
+  if (Math.abs(machineVarianceHours) <= 0.05) {
+    machineBalanceStatus = 'balanced';
+    machineBalanceLabel = '24.0h Balanced';
+  } else if (machineVarianceHours > 0.05) {
+    machineBalanceStatus = 'under';
+    machineBalanceLabel = `${machineVarianceHours}h Remaining`;
+  } else {
+    machineBalanceStatus = 'over';
+    machineBalanceLabel = `+${round1(Math.abs(machineVarianceHours))}h Exceeded`;
+  }
+
+  return {
+    parentLineId,
+    lineName,
+    runCount: siblingRuns.length,
+    totalMachineAccountedHours,
+    machineVarianceHours,
+    machineBalanceStatus,
+    machineBalanceLabel,
+    isCoupledBalanced: machineBalanceStatus === 'balanced'
+  };
+}
+
+/**
+ * Apply input change to rows with dynamic multi-run coupled 24-hour machine balancing
+ */
+export function applyCoupledMultiRunInput(rows = [], lineId = '', field = '', rawValue = '') {
+  const targetIndex = rows.findIndex((r) => r.lineId === lineId);
+  if (targetIndex === -1) return rows;
+
+  const targetRow = rows[targetIndex];
+
+  // If this is NOT a multi-run row, standard single-row update applies
+  if (!targetRow.isMultiRun && !(targetRow.totalRuns > 1)) {
+    const updated = applyMatrixRowInput(targetRow, field, rawValue);
+    const newRows = [...rows];
+    newRows[targetIndex] = updated;
+    return newRows;
+  }
+
+  // It IS a multi-run row
+  const parentLineId = targetRow.parentLineId || targetRow.baseLineId;
+  const isTimeField = isDowntimeField(field) || field === 'operatingHours';
+
+  // If not modifying a time field (e.g. stdWeight, targetRate, actualPcs, scrapKg):
+  if (!isTimeField) {
+    const updated = applyMatrixRowInput(targetRow, field, rawValue);
+    const newRows = [...rows];
+    newRows[targetIndex] = updated;
+    return newRows;
+  }
+
+  // Modifying a time field on a multi-run row
+  const isCleared = rawValue === '' || rawValue == null;
+  const cleanVal = isCleared ? 0 : cleanPositiveNumber(rawValue, 1);
+
+  // Find all sibling runs for this parent line
+  const siblingIndices = [];
+  rows.forEach((r, idx) => {
+    if (
+      (r.parentLineId === parentLineId || r.baseLineId === parentLineId) &&
+      (r.isMultiRun || r.totalRuns > 1)
+    ) {
+      siblingIndices.push(idx);
+    }
+  });
+
+  const updatedTarget = {
+    ...targetRow,
+    [field]: isCleared ? '' : cleanVal
+  };
+
+  const otherIndices = siblingIndices.filter((idx) => idx !== targetIndex);
+
+  if (field === 'operatingHours') {
+    updatedTarget.operatingHours = isCleared ? '' : cleanVal;
+  } else if (isDowntimeField(field)) {
+    // When modifying downtime on target row:
+    const moldChange = field === 'moldChangeHours' ? cleanVal : cleanPositiveNumber(targetRow.moldChangeHours);
+    const purgeClean = field === 'purgeCleaningHours' ? cleanVal : cleanPositiveNumber(targetRow.purgeCleaningHours);
+    const heaterFail = field === 'heaterFailureHours' ? cleanVal : cleanPositiveNumber(targetRow.heaterFailureHours);
+    const mechJam = field === 'mechanicalHours' ? cleanVal : cleanPositiveNumber(targetRow.mechanicalHours);
+    const matShort = field === 'materialNoOrderHours' ? cleanVal : cleanPositiveNumber(targetRow.materialNoOrderHours);
+    const otherStop = field === 'otherHours' ? cleanVal : cleanPositiveNumber(targetRow.otherHours);
+    const targetDowntime = round1(moldChange + purgeClean + heaterFail + mechJam + matShort + otherStop);
+
+    // Sum accounted hours of OTHER sibling runs:
+    const otherAccountedSum = otherIndices.reduce(
+      (sum, idx) => sum + (Number(rows[idx].totalAccountedHours) || 0),
+      0
+    );
+
+    // Available operating hours budget for target row within 24h envelope:
+    const availableForTarget = Math.max(0, round1(24.0 - otherAccountedSum));
+    updatedTarget.operatingHours = Math.max(0, round1(availableForTarget - targetDowntime));
+  }
+
+  const calculatedTarget = calculateMatrixRowMetrics(updatedTarget);
+  const newRows = [...rows];
+  newRows[targetIndex] = calculatedTarget;
+
+  // Rebalance sibling run(s) within shared 24.0h envelope:
+  if (otherIndices.length === 1) {
+    const otherIndex = otherIndices[0];
+    const otherRow = rows[otherIndex];
+
+    const targetAccounted = Number(calculatedTarget.totalAccountedHours) || 0;
+    const remainingForOther = Math.max(0, round1(24.0 - targetAccounted));
+    const otherDowntime = Number(otherRow.totalDowntimeHours) || 0;
+    const newOtherOpHours = Math.max(0, round1(remainingForOther - otherDowntime));
+
+    newRows[otherIndex] = calculateMatrixRowMetrics({
+      ...otherRow,
+      operatingHours: newOtherOpHours
+    });
+  } else if (otherIndices.length > 1) {
+    // For machines with >2 runs: adjust the last run
+    const targetAccounted = Number(calculatedTarget.totalAccountedHours) || 0;
+    let intermediateAccounted = 0;
+    for (let i = 0; i < otherIndices.length - 1; i++) {
+      intermediateAccounted += Number(rows[otherIndices[i]].totalAccountedHours) || 0;
+    }
+    const lastOtherIndex = otherIndices[otherIndices.length - 1];
+    const lastOtherRow = rows[lastOtherIndex];
+    const remainingForLast = Math.max(0, round1(24.0 - (targetAccounted + intermediateAccounted)));
+    const lastDowntime = Number(lastOtherRow.totalDowntimeHours) || 0;
+    const newLastOpHours = Math.max(0, round1(remainingForLast - lastDowntime));
+
+    newRows[lastOtherIndex] = calculateMatrixRowMetrics({
+      ...lastOtherRow,
+      operatingHours: newLastOpHours
+    });
+  }
+
+  return newRows;
+}
+
+/**
+ * Auto-balance a multi-run machine across its runs to exactly 24.0 hours
+ */
+export function autoBalanceMultiRunMachine(rows = [], parentLineId = '') {
+  const siblingIndices = [];
+  rows.forEach((r, idx) => {
+    if (
+      (r.parentLineId === parentLineId || r.baseLineId === parentLineId) &&
+      (r.isMultiRun || r.totalRuns > 1)
+    ) {
+      siblingIndices.push(idx);
+    }
+  });
+  if (siblingIndices.length === 0) return rows;
+
+  const newRows = [...rows];
+  let accountedBeforeLast = 0;
+  for (let i = 0; i < siblingIndices.length - 1; i++) {
+    accountedBeforeLast += Number(newRows[siblingIndices[i]].totalAccountedHours) || 0;
+  }
+  const lastIndex = siblingIndices[siblingIndices.length - 1];
+  const lastRow = newRows[lastIndex];
+  const remainingForLast = Math.max(0, round1(24.0 - accountedBeforeLast));
+  const lastDowntime = Number(lastRow.totalDowntimeHours) || 0;
+  const newLastOp = Math.max(0, round1(remainingForLast - lastDowntime));
+
+  newRows[lastIndex] = calculateMatrixRowMetrics({
+    ...lastRow,
+    operatingHours: newLastOp
+  });
+  return newRows;
 }
 
 /**

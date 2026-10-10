@@ -24,6 +24,9 @@ export const MATRIX_DOWNTIME_CATEGORIES = [
  */
 export function categorizeDowntimeReason(reasonText = '') {
   const text = String(reasonText || '').toLowerCase();
+  if (text.includes('weekend') || text.includes('no overtime') || text.includes('planned shutdown') || text.includes('scheduled shutdown')) {
+    return 'otherHours';
+  }
   if (text.includes('mold') || text.includes('die change') || text.includes('tooling')) {
     return 'moldChangeHours';
   }
@@ -71,12 +74,27 @@ export function cleanPositiveNumber(val, decimals = 1) {
  */
 export function applyMatrixRowInput(row, field, rawValue) {
   const isCleared = rawValue === '' || rawValue == null;
-  const cleanVal = isCleared ? 0 : cleanPositiveNumber(rawValue, field === 'stdWeight' ? 2 : 1);
+  let cleanVal;
+  if (field === 'otherStopReason' || field === 'plannedShutdownReason') {
+    cleanVal = isCleared ? 'other_operational' : String(rawValue);
+  } else if (typeof rawValue === 'boolean' || field === 'isPlannedWeekendShutdown') {
+    cleanVal = Boolean(rawValue);
+  } else {
+    cleanVal = isCleared ? 0 : cleanPositiveNumber(rawValue, field === 'stdWeight' ? 2 : 1);
+  }
 
   const updated = {
     ...row,
     [field]: isCleared ? '' : cleanVal
   };
+
+  if (field === 'otherStopReason') {
+    updated.otherStopReason = cleanVal;
+    updated.isPlannedWeekendShutdown = cleanVal === 'planned_weekend';
+  } else if (field === 'isPlannedWeekendShutdown') {
+    updated.isPlannedWeekendShutdown = cleanVal;
+    updated.otherStopReason = cleanVal ? 'planned_weekend' : (row.otherStopReason || 'other_operational');
+  }
 
   // 1. Dynamic 24-Hour Auto-Rebalance Logic on Downtime Input:
   // When user modifies any of the 6 downtime categories:
@@ -158,6 +176,14 @@ export function calculateMatrixRowMetrics(row) {
   const materialNoOrderHours = Math.max(0, round1(Number(row.materialNoOrderHours) || 0));
   const otherHours = Math.max(0, round1(Number(row.otherHours) || 0));
 
+  const otherStopReason = row.otherStopReason || (row.isPlannedWeekendShutdown ? 'planned_weekend' : 'other_operational');
+  const isPlannedWeekendShutdown = Boolean(
+    row.isPlannedWeekendShutdown ||
+    otherStopReason === 'planned_weekend' ||
+    (typeof row.otherStopReason === 'string' && row.otherStopReason.toLowerCase().includes('weekend'))
+  );
+  const plannedShutdownHours = isPlannedWeekendShutdown ? otherHours : 0;
+
   const totalDowntimeHours = round1(
     moldChangeHours +
     purgeCleaningHours +
@@ -228,6 +254,16 @@ export function calculateMatrixRowMetrics(row) {
     ? round1((actualRateKgH / nominalCap) * 100)
     : (targetRate > 0 ? round1((actualRatePcsH / targetRate) * 100) : 0);
 
+  const sourceAudit = {
+    ...(row.sourceAudit || {})
+  };
+  if (isPlannedWeekendShutdown && otherHours > 0) {
+    const plannedText = `Planned Shutdown: Weekend / No Overtime (${otherHours}h)`;
+    sourceAudit.plannedShutdown = plannedText;
+    sourceAudit.plannedShutdownNote = plannedText;
+    sourceAudit.plannedShutdownHours = otherHours;
+  }
+
   return {
     ...row,
     targetRate,
@@ -261,6 +297,10 @@ export function calculateMatrixRowMetrics(row) {
     mechanicalHours: row.mechanicalHours === '' ? '' : mechanicalHours,
     materialNoOrderHours: row.materialNoOrderHours === '' ? '' : materialNoOrderHours,
     otherHours: row.otherHours === '' ? '' : otherHours,
+    otherStopReason: isPlannedWeekendShutdown ? 'planned_weekend' : otherStopReason,
+    isPlannedWeekendShutdown,
+    plannedShutdownHours,
+    plannedShutdownNote: isPlannedWeekendShutdown && otherHours > 0 ? `Planned Shutdown: Weekend / No Overtime (${otherHours}h)` : '',
     totalDowntimeHours,
     totalAccountedHours,
     varianceHours,
@@ -269,7 +309,8 @@ export function calculateMatrixRowMetrics(row) {
     availabilityPct,
     availPct: availabilityPct,
     performancePct,
-    oeePct
+    oeePct,
+    sourceAudit
   };
 }
 
@@ -1085,6 +1126,8 @@ export function buildMatrixRowsForDate({
     let mechanicalHours = 0;
     let materialNoOrderHours = 0;
     let otherHours = 0;
+    let otherStopReason = 'other_operational';
+    let isPlannedWeekendShutdown = false;
 
     const hasSavedReport = Boolean(savedRep && Array.isArray(savedRep.slots) && savedRep.slots.length === 24);
     const hasExplicitSavedBreakdown = Boolean(
@@ -1092,12 +1135,21 @@ export function buildMatrixRowsForDate({
       (savedRep.isReconciled || (Array.isArray(savedRep.downtimeEvents) && savedRep.downtimeEvents.length > 0))
     );
 
+    if (savedRep?.engineering?.isPlannedWeekendShutdown || savedRep?.header?.isPlannedWeekendShutdown) {
+      isPlannedWeekendShutdown = true;
+      otherStopReason = 'planned_weekend';
+    }
+
     if (hasExplicitSavedBreakdown) {
       // Restore from saved report
       const events = Array.isArray(savedRep.downtimeEvents) ? savedRep.downtimeEvents : [];
       events.forEach((ev) => {
         const cat = categorizeDowntimeReason(ev.reason);
         const hrs = round1((Number(ev.durationMin) || 0) / 60);
+        if (ev.id === 'planned_weekend' || ev.isPlanned || (ev.reason && (ev.reason.toLowerCase().includes('weekend') || ev.reason.toLowerCase().includes('no overtime')))) {
+          isPlannedWeekendShutdown = true;
+          otherStopReason = 'planned_weekend';
+        }
         if (cat === 'moldChangeHours') moldChangeHours = round1(moldChangeHours + hrs);
         else if (cat === 'purgeCleaningHours') purgeCleaningHours = round1(purgeCleaningHours + hrs);
         else if (cat === 'heaterFailureHours') heaterFailureHours = round1(heaterFailureHours + hrs);
@@ -1112,6 +1164,10 @@ export function buildMatrixRowsForDate({
           if (dt > 0) {
             const cat = categorizeDowntimeReason(s.reason);
             const hrs = round1(dt / 60);
+            if (s.reason && (s.reason.toLowerCase().includes('weekend') || s.reason.toLowerCase().includes('no overtime'))) {
+              isPlannedWeekendShutdown = true;
+              otherStopReason = 'planned_weekend';
+            }
             if (cat === 'moldChangeHours') moldChangeHours = round1(moldChangeHours + hrs);
             else if (cat === 'purgeCleaningHours') purgeCleaningHours = round1(purgeCleaningHours + hrs);
             else if (cat === 'heaterFailureHours') heaterFailureHours = round1(heaterFailureHours + hrs);
@@ -1203,6 +1259,8 @@ export function buildMatrixRowsForDate({
       mechanicalHours,
       materialNoOrderHours,
       otherHours,
+      otherStopReason,
+      isPlannedWeekendShutdown,
       isOperating,
       isSaved: Boolean(savedRep?.isReconciled),
       isReconciled: Boolean(savedRep?.isReconciled),
@@ -1288,15 +1346,30 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
     });
   }
 
+  const isWeekendStop = Boolean(metrics.isPlannedWeekendShutdown || metrics.otherStopReason === 'planned_weekend');
+
   if (metrics.otherHours > 0) {
-    presets.push({
-      id: 'custom_breakdown',
-      name: 'Other Operational Stoppages',
-      durationMin: Math.round(metrics.otherHours * 60),
-      startSlot: 14,
-      reason: 'Other Operational Stoppages',
-      enabled: true
-    });
+    if (isWeekendStop) {
+      presets.push({
+        id: 'planned_weekend',
+        name: 'Planned Weekend / No Overtime',
+        durationMin: Math.round(metrics.otherHours * 60),
+        startSlot: 14,
+        reason: 'Planned Weekend / No Overtime',
+        isPlanned: true,
+        category: 'planned_shutdown',
+        enabled: true
+      });
+    } else {
+      presets.push({
+        id: 'custom_breakdown',
+        name: 'Other Operational Stoppages',
+        durationMin: Math.round(metrics.otherHours * 60),
+        startSlot: 14,
+        reason: 'Other Operational Stoppages',
+        enabled: true
+      });
+    }
   }
 
   // Prepare ref specs in report
@@ -1323,6 +1396,13 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
   if (row.runIndex) rep.header.runIndex = row.runIndex;
   if (row.isMultiRun) rep.header.isMultiRun = true;
 
+  if (isWeekendStop) {
+    const plannedText = `Planned Shutdown: Weekend / No Overtime (${metrics.otherHours}h)`;
+    rep.header.plannedShutdown = plannedText;
+    rep.header.isPlannedWeekendShutdown = true;
+    rep.header.plannedShutdownHours = metrics.otherHours;
+  }
+
   const totalDowntimeMin = presets.reduce((sum, p) => sum + p.durationMin, 0);
 
   // Execute reverse OEE reconciliation
@@ -1345,7 +1425,16 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
     isReconciled: true,
     updatedAt: Date.now(),
     slots: reconciled.updatedSlots,
-    downtimeEvents: reconciled.downtimeEvents,
+    downtimeEvents: (reconciled.downtimeEvents || []).map((ev) => {
+      if (isWeekendStop && (ev.reason === 'Planned Weekend / No Overtime' || ev.reason.includes('Weekend') || ev.reason.includes('Overtime'))) {
+        return {
+          ...ev,
+          isPlanned: true,
+          category: 'planned_shutdown'
+        };
+      }
+      return ev;
+    }),
     summary: {
       ...rep.summary,
       totalOutput: String(metrics.actualPcs)
@@ -1360,7 +1449,11 @@ export function reconcileMatrixRow(row, baseReport = null, machineMaster = MACHI
       actualRateKgH,
       capacityUtilizationPct,
       actualRatePcsH,
-      nominalCapacityKgH: nominalCap
+      nominalCapacityKgH: nominalCap,
+      isPlannedWeekendShutdown: isWeekendStop,
+      plannedShutdownHours: isWeekendStop ? metrics.otherHours : 0,
+      plannedShutdownReason: isWeekendStop ? 'Planned Weekend / No Overtime' : null,
+      plannedShutdownNote: isWeekendStop ? `Planned Shutdown: Weekend / No Overtime (${metrics.otherHours}h)` : null
     }
   };
 }
@@ -1400,7 +1493,8 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
     'Balance Status',
     'Availability (%)',
     'Performance (%)',
-    'OEE (%)'
+    'OEE (%)',
+    'Audit Notes'
   ];
 
   const dataRows = rows.map((r) => [
@@ -1432,7 +1526,10 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
     r.balanceLabel,
     r.availabilityPct,
     r.performancePct,
-    r.oeePct
+    r.oeePct,
+    r.isPlannedWeekendShutdown && r.otherHours > 0
+      ? `Planned Shutdown: Weekend / No Overtime (${r.otherHours}h)`
+      : (r.sourceAudit?.plannedShutdown || r.sourceAudit?.plannedShutdownNote || '-')
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
@@ -1467,7 +1564,8 @@ export function exportMatrixToWorkbook(rows = [], date = '') {
     { wch: 16 }, // Balance Status
     { wch: 14 }, // Availability
     { wch: 14 }, // Performance
-    { wch: 12 }  // OEE
+    { wch: 12 }, // OEE
+    { wch: 38 }  // Audit Notes
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, `Reconciliation_${date || 'Daily'}`);

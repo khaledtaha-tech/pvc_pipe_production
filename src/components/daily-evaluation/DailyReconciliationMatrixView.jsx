@@ -875,7 +875,7 @@ export default function DailyReconciliationMatrixView({
                     <td className="px-3 py-2 font-mono border-r border-slate-800">
                       <div
                         className="flex items-center"
-                        title={`Theoretical Deficit: ${(row.theoreticalLostHours ?? row.lostHours ?? 0).toFixed(1)}h | Justified Downtime: ${(row.justifiedDowntimeHours ?? row.totalDowntimeHours ?? 0).toFixed(1)}h | Unjustified Lost Time: ${(row.unjustifiedLostHours ?? 0).toFixed(1)}h`}
+                        title={`Theoretical Deficit: ${(row.theoreticalLostHours ?? row.lostHours ?? 0).toFixed(1)}h | Justified Downtime: ${(row.justifiedDowntimeHours ?? row.totalDowntimeHours ?? 0).toFixed(1)}h | Unjustified Lost Time: ${(row.unjustifiedLostHours ?? 0).toFixed(1)}h${row.isPlannedWeekendShutdown && row.otherHours > 0 ? ` | Planned Shutdown: Weekend / No Overtime (${row.otherHours}h)` : ''}`}
                       >
                         {(row.unjustifiedLostHours ?? 0) === 0 ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800">
@@ -1007,7 +1007,10 @@ export default function DailyReconciliationMatrixView({
                     </td>
 
                     {/* 17. Other Stoppages Input */}
-                    <td className="px-2 py-1.5 border-r border-slate-800">
+                    <td
+                      className="px-2 py-1.5 border-r border-slate-800"
+                      title={row.isPlannedWeekendShutdown && row.otherHours > 0 ? `Planned Shutdown: Weekend / No Overtime (${row.otherHours}h)` : 'Other Operational Stoppages'}
+                    >
                       <input
                         type="number"
                         step="0.1"
@@ -1018,11 +1021,32 @@ export default function DailyReconciliationMatrixView({
                         onBlur={() => handleCellBlur(row.lineId, 'otherHours')}
                         className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
                       />
+                      <select
+                        value={row.otherStopReason || (row.isPlannedWeekendShutdown ? 'planned_weekend' : 'other_operational')}
+                        onChange={(e) => handleCellChange(row.lineId, 'otherStopReason', e.target.value)}
+                        className="mt-1 w-full text-[9px] bg-slate-900 border border-slate-800 text-slate-300 rounded px-1 py-0.5 focus:border-blue-500 cursor-pointer block"
+                        title="Downtime justification reason for Other Stop"
+                      >
+                        <option value="other_operational">Other Operational</option>
+                        <option value="planned_weekend">Planned Weekend / No Overtime</option>
+                        <option value="planned_maintenance">Planned Maintenance</option>
+                      </select>
+                      {row.isPlannedWeekendShutdown && row.otherHours > 0 && (
+                        <div className="mt-0.5">
+                          <span
+                            className="inline-block px-1 py-0.5 rounded text-[8px] font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-800 whitespace-nowrap"
+                            title={`Planned Shutdown: Weekend / No Overtime (${row.otherHours}h)`}
+                          >
+                            Weekend Shutdown
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* 18. Total Accounted Hours */}
                     <td className="px-3 py-2 text-center font-mono font-bold">
                       <span
+                        title={`Downtime breakdown: Die/Mold ${(row.moldChangeHours || 0)}h, Purge ${(row.purgeCleaningHours || 0)}h, Heater ${(row.heaterFailureHours || 0)}h, Mech ${(row.mechanicalHours || 0)}h, Material/No Order ${(row.materialNoOrderHours || 0)}h, Other ${(row.otherHours || 0)}h${row.isPlannedWeekendShutdown && row.otherHours > 0 ? ` [Planned Shutdown: Weekend / No Overtime (${row.otherHours}h)]` : ''}`}
                         className={
                           (isActualMultiRun && machineStatus && (machineStatus.machineBalanceStatus === 'balanced' || machineStatus.isCoupledBalanced)) || row.balanceStatus === 'balanced'
                             ? 'text-emerald-400'

@@ -1297,4 +1297,102 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 23 Passed: Multi-run sibling rows 24h balance status reflects joint machine balance verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (23/23) ---');
+// Test 24: Planned Weekend Shutdown / No-Overtime Downtime Classification and Row Audit Annotation
+{
+  // 1. Tagging downtime in otherHours with otherStopReason: 'planned_weekend'
+  const weekendRow = calculateMatrixRowMetrics({
+    lineId: 'L-01',
+    lineName: 'Line 01',
+    nominalCapacity: 200,
+    targetRate: 50.0,
+    stdWeight: 4.0,
+    actualPcs: 600, // Produced in 12h @ 50 pcs/h
+    actualKg: 2400,
+    operatingHours: 12.0,
+    moldChangeHours: 0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 12.0,
+    otherStopReason: 'planned_weekend'
+  });
+
+  // Verify properties and 100% justified downtime
+  assert.strictEqual(weekendRow.isPlannedWeekendShutdown, true);
+  assert.strictEqual(weekendRow.plannedShutdownHours, 12.0);
+  assert.strictEqual(weekendRow.otherStopReason, 'planned_weekend');
+  assert.strictEqual(weekendRow.justifiedDowntimeHours, 12.0);
+  assert.strictEqual(weekendRow.totalAccountedHours, 24.0);
+  assert.strictEqual(weekendRow.balanceStatus, 'balanced');
+
+  // Theoretical deficit is 24h expected (1200 pcs) - 600 pcs = 600 pcs deficit -> 12.0h theoretical lost hours
+  // 12.0h theoretical deficit - 12.0h justified downtime = 0.0h unjustified lost hours
+  assert.strictEqual(weekendRow.theoreticalLostHours, 12.0);
+  assert.strictEqual(weekendRow.unjustifiedLostHours, 0.0, 'Unjustified lost time must be cleanly reduced to 0.0h');
+
+  // Verify sourceAudit contains planned shutdown annotation
+  assert.strictEqual(weekendRow.sourceAudit.plannedShutdown, 'Planned Shutdown: Weekend / No Overtime (12h)');
+  assert.strictEqual(weekendRow.sourceAudit.plannedShutdownNote, 'Planned Shutdown: Weekend / No Overtime (12h)');
+  assert.strictEqual(weekendRow.sourceAudit.plannedShutdownHours, 12.0);
+
+  // 2. Interactive input updates via applyMatrixRowInput
+  const updatedReason = applyMatrixRowInput(
+    { ...weekendRow, otherStopReason: 'other_operational', isPlannedWeekendShutdown: false },
+    'otherStopReason',
+    'planned_weekend'
+  );
+  assert.strictEqual(updatedReason.isPlannedWeekendShutdown, true);
+  assert.strictEqual(updatedReason.otherStopReason, 'planned_weekend');
+  assert.strictEqual(updatedReason.plannedShutdownHours, 12.0);
+  assert.strictEqual(updatedReason.unjustifiedLostHours, 0.0);
+
+  // 3. Reconcile matrix row produces preset with id: 'planned_weekend', reason: 'Planned Weekend / No Overtime', isPlanned: true
+  const baseRep = {
+    header: { date: '2026-10-09', lineId: 'L-01' },
+    slots: Array.from({ length: 24 }, (_, i) => ({ slot: i, hour: (6 + i) % 24, downtime: 0, pieces: 0 }))
+  };
+  const reconciledRep = reconcileMatrixRow(weekendRow, baseRep, [{ id: 'L-01', name: 'Line 01', nominalCapacity: 200 }]);
+
+  assert.strictEqual(reconciledRep.isReconciled, true);
+  assert.strictEqual(reconciledRep.header.isPlannedWeekendShutdown, true);
+  assert.strictEqual(reconciledRep.header.plannedShutdown, 'Planned Shutdown: Weekend / No Overtime (12h)');
+  assert.strictEqual(reconciledRep.engineering.isPlannedWeekendShutdown, true);
+  assert.strictEqual(reconciledRep.engineering.plannedShutdownHours, 12.0);
+  assert.strictEqual(reconciledRep.engineering.plannedShutdownReason, 'Planned Weekend / No Overtime');
+
+  // Verify downtimeEvents has isPlanned: true
+  const weekendEvent = (reconciledRep.downtimeEvents || []).find((ev) => ev.reason === 'Planned Weekend / No Overtime');
+  assert.ok(weekendEvent, 'Must include Planned Weekend / No Overtime downtime event');
+  assert.strictEqual(weekendEvent.isPlanned, true);
+  assert.strictEqual(weekendEvent.durationMin, 720);
+
+  // 4. Restoration in buildMatrixRowsForDate
+  const restoredRows = buildMatrixRowsForDate({
+    date: '2026-10-09',
+    machineMaster: [{ id: 'L-01', name: 'Line 01', nominalCapacity: 200 }],
+    combinedDatasets: [],
+    loadReportByDateAndMachineFn: () => reconciledRep
+  });
+  const restoredRow = restoredRows.find((r) => r.lineId === 'L-01');
+  assert.ok(restoredRow);
+  assert.strictEqual(restoredRow.isPlannedWeekendShutdown, true);
+  assert.strictEqual(restoredRow.otherStopReason, 'planned_weekend');
+  assert.strictEqual(restoredRow.otherHours, 12.0);
+  assert.strictEqual(restoredRow.operatingHours, 12.0);
+
+  // 5. Categorize downtime reason recognizes weekend / overtime keywords
+  assert.strictEqual(categorizeDowntimeReason('Planned Weekend / No Overtime'), 'otherHours');
+  assert.strictEqual(categorizeDowntimeReason('Weekend Shutdown'), 'otherHours');
+  assert.strictEqual(categorizeDowntimeReason('No Overtime Shift'), 'otherHours');
+
+  // 6. Excel export includes Audit Notes column
+  const wb = exportMatrixToWorkbook([weekendRow], '2026-10-09');
+  const ws = wb.Sheets['Reconciliation_2026-10-09'];
+  assert.strictEqual(ws['AD1'].v, 'Audit Notes');
+  assert.strictEqual(ws['AD2'].v, 'Planned Shutdown: Weekend / No Overtime (12h)');
+
+  console.log('Test 24 Passed: Planned Weekend Shutdown classification and row audit annotation verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (24/24) ---');

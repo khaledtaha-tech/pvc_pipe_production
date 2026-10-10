@@ -32,7 +32,9 @@ import {
   MATRIX_DOWNTIME_CATEGORIES,
   calculateMultiRunMachineStatus,
   applyCoupledMultiRunInput,
-  autoBalanceMultiRunMachine
+  autoBalanceMultiRunMachine,
+  syncMultiRunRowStatuses,
+  round1
 } from '../../logic/reconciliationMatrixHelper.js';
 import { getMachineNominalCapacity } from '../../logic/machineSettingsConfig.js';
 import RateEstimatorPopover from './RateEstimatorPopover.jsx';
@@ -661,15 +663,16 @@ export default function DailyReconciliationMatrixView({
               ) : (
                 filteredRows.flatMap((row, idx) => {
                   const isRowOperating = Number(row.actualPcs) > 0 || Number(row.operatingHours) > 0;
-                  const parentLineId = row.baseLineId || row.parentLineId;
-                  const isMultiRun = Boolean(row.isMultiRun || row.totalRuns > 1);
-                  const isFirstRun = isMultiRun && (
-                    idx === 0 ||
-                    (filteredRows[idx - 1].baseLineId || filteredRows[idx - 1].parentLineId) !== parentLineId
-                  );
+                  const parentLineId = row.baseLineId || row.parentLineId || row.lineId;
+                  const isMultiRun = Boolean(row.isMultiRun || row.totalRuns > 1 || row.parentLineId);
                   const machineStatus = isMultiRun && parentLineId
                     ? calculateMultiRunMachineStatus(rows, parentLineId)
                     : null;
+                  const isActualMultiRun = machineStatus && (machineStatus.runCount > 1 || row.isMultiRun || row.totalRuns > 1);
+                  const isFirstRun = isActualMultiRun && (
+                    idx === 0 ||
+                    (filteredRows[idx - 1].baseLineId || filteredRows[idx - 1].parentLineId || filteredRows[idx - 1].lineId) !== parentLineId
+                  );
 
                   const elements = [];
                   if (isFirstRun && machineStatus) {
@@ -1021,11 +1024,9 @@ export default function DailyReconciliationMatrixView({
                     <td className="px-3 py-2 text-center font-mono font-bold">
                       <span
                         className={
-                          row.balanceStatus === 'balanced'
+                          (isActualMultiRun && machineStatus && (machineStatus.machineBalanceStatus === 'balanced' || machineStatus.isCoupledBalanced)) || row.balanceStatus === 'balanced'
                             ? 'text-emerald-400'
-                            : row.balanceStatus === 'under'
-                            ? 'text-amber-400'
-                            : 'text-rose-400'
+                            : (isActualMultiRun && machineStatus ? (machineStatus.totalMachineAccountedHours < 24.0 ? 'text-amber-400' : 'text-rose-400') : (row.balanceStatus === 'under' ? 'text-amber-400' : 'text-rose-400'))
                         }
                       >
                         {row.totalAccountedHours.toFixed(1)}h
@@ -1034,42 +1035,110 @@ export default function DailyReconciliationMatrixView({
 
                     {/* 19. 24h Balance Badge */}
                     <td className="px-3 py-2 text-center">
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        <div className="flex items-center gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              row.balanceStatus === 'balanced'
-                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                                : row.balanceStatus === 'under'
-                                ? 'bg-amber-950/80 text-amber-300 border-amber-800'
-                                : 'bg-rose-950/80 text-rose-300 border-rose-800'
-                            }`}
-                          >
-                            {row.balanceStatus === 'balanced' ? (
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                            ) : (
-                              <Clock className="w-3 h-3 text-amber-400 shrink-0" />
-                            )}
-                            <span>{row.balanceLabel}</span>
-                          </span>
+                      {isActualMultiRun && machineStatus ? (
+                        (() => {
+                          const totalMachineHours = Number(machineStatus.totalMachineHours ?? machineStatus.totalMachineAccountedHours) || 0;
+                          const isJointBalanced = machineStatus.isCoupledBalanced ||
+                            machineStatus.machineBalanceStatus === 'balanced' ||
+                            machineStatus.status === 'balanced' ||
+                            Math.abs(totalMachineHours - 24.0) <= 0.05;
+                          const rowHoursDisplay = (Number(row.totalAccountedHours ?? row.totalHours) || 0).toFixed(1);
+                          const machineIdDisplay = parentLineId || row.lineId;
 
-                          {row.balanceStatus !== 'balanced' && (
-                            <button
-                              type="button"
-                              onClick={() => handleAutoBalanceRow(row.lineId, 'adjust_op')}
-                              className="p-1 text-amber-400 hover:text-amber-200 hover:bg-slate-800 rounded transition cursor-pointer"
-                              title="Auto-balance operating hours to make total 24.0h"
+                          if (isJointBalanced) {
+                            return (
+                              <div className="flex flex-col items-center justify-center gap-0.5">
+                                <span
+                                  className="text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 px-2 py-0.5 rounded text-xs font-medium inline-flex items-center gap-1"
+                                  title={`Joint Line ${machineIdDisplay} Balanced (Run: ${rowHoursDisplay}h / Line: 24.0h)`}
+                                >
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                                  <span>24.0h Balanced</span>
+                                </span>
+                                <div
+                                  className="text-[9px] text-emerald-400/80 font-mono"
+                                  title={`Joint Line ${machineIdDisplay} Balanced (Run: ${rowHoursDisplay}h / Line: 24.0h)`}
+                                >
+                                  Joint Line {machineIdDisplay} Balanced (Run: {rowHoursDisplay}h / Line: 24.0h)
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Machine NOT balanced
+                          const isUnder = totalMachineHours < 24.0;
+                          const diffHours = round1(Math.abs(24.0 - totalMachineHours));
+                          const machineBadgeText = isUnder
+                            ? `${diffHours}h Machine Remaining`
+                            : `+${diffHours}h Machine Exceeded`;
+
+                          return (
+                            <div className="flex flex-col items-center justify-center gap-1">
+                              <div className="flex items-center gap-1">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${
+                                    isUnder
+                                      ? 'bg-amber-950/40 text-amber-300 border-amber-800/60'
+                                      : 'bg-rose-950/40 text-rose-300 border-rose-800/60'
+                                  }`}
+                                  title={`Joint Line ${machineIdDisplay} ${machineBadgeText} (Run: ${rowHoursDisplay}h / Machine Total: ${totalMachineHours.toFixed(1)}h)`}
+                                >
+                                  {isUnder ? (
+                                    <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                                  ) : (
+                                    <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                  )}
+                                  <span>{machineBadgeText}</span>
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAutoBalanceRow(row.lineId, 'adjust_op')}
+                                  className="p-1 text-amber-400 hover:text-amber-200 hover:bg-slate-800 rounded transition cursor-pointer"
+                                  title={`Auto-balance machine ${machineIdDisplay} across all runs to 24.0h`}
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <div className="text-[9px] text-blue-400 font-mono">
+                                Machine: {totalMachineHours.toFixed(1)}h/24h [{machineStatus.machineBalanceStatus}]
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                row.balanceStatus === 'balanced'
+                                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                                  : row.balanceStatus === 'under'
+                                  ? 'bg-amber-950/80 text-amber-300 border-amber-800'
+                                  : 'bg-rose-950/80 text-rose-300 border-rose-800'
+                              }`}
                             >
-                              <Sparkles className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                        {row.isMultiRun && machineStatus && (
-                          <div className="text-[9px] text-blue-400 font-mono">
-                            Machine: {machineStatus.totalMachineAccountedHours.toFixed(1)}h/24h [{machineStatus.machineBalanceStatus === 'balanced' ? 'Balanced' : machineStatus.machineBalanceStatus}]
+                              {row.balanceStatus === 'balanced' ? (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                              ) : (
+                                <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                              )}
+                              <span>{row.balanceLabel}</span>
+                            </span>
+
+                            {row.balanceStatus !== 'balanced' && (
+                              <button
+                                type="button"
+                                onClick={() => handleAutoBalanceRow(row.lineId, 'adjust_op')}
+                                className="p-1 text-amber-400 hover:text-amber-200 hover:bg-slate-800 rounded transition cursor-pointer"
+                                title="Auto-balance operating hours to make total 24.0h"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </td>
 
                     {/* 20. Availability (%) */}

@@ -11,7 +11,8 @@ import {
   isDowntimeField,
   calculateMultiRunMachineStatus,
   applyCoupledMultiRunInput,
-  autoBalanceMultiRunMachine
+  autoBalanceMultiRunMachine,
+  syncMultiRunRowStatuses
 } from '../../src/logic/reconciliationMatrixHelper.js';
 import { MACHINES } from '../../src/config/machines.js';
 import { normalizeProductionRow } from '../../src/logic/oeeReconciler.js';
@@ -1184,4 +1185,116 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 22 Passed: Dedicated Perf (%) column, 3-factor aliases, and explicit triad formula verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (22/22) ---');
+// Test 23: Multi-run sibling rows 24h balance status reflects joint machine balance
+{
+  const run1 = calculateMatrixRowMetrics({
+    lineId: 'L-02-run-1',
+    baseLineId: 'L-02',
+    parentLineId: 'L-02',
+    isMultiRun: true,
+    runIndex: 1,
+    totalRuns: 2,
+    actualPcs: 500,
+    actualKg: 1000,
+    operatingHours: 7.0,
+    moldChangeHours: 0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 0
+  });
+
+  const run2 = calculateMatrixRowMetrics({
+    lineId: 'L-02-run-2',
+    baseLineId: 'L-02',
+    parentLineId: 'L-02',
+    isMultiRun: true,
+    runIndex: 2,
+    totalRuns: 2,
+    actualPcs: 1200,
+    actualKg: 2400,
+    operatingHours: 15.0,
+    moldChangeHours: 2.0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 0
+  });
+
+  const standaloneRow = calculateMatrixRowMetrics({
+    lineId: 'L-01',
+    baseLineId: 'L-01',
+    isMultiRun: false,
+    actualPcs: 800,
+    actualKg: 1600,
+    operatingHours: 18.0,
+    moldChangeHours: 0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 0
+  });
+
+  let matrixRows = [run1, run2, standaloneRow];
+
+  // In isolation before sync, Run 1 has 7h (under) and Run 2 has 17h (under)
+  assert.strictEqual(run1.balanceStatus, 'under');
+  assert.strictEqual(run2.balanceStatus, 'under');
+
+  // Synchronize multi-run statuses based on joint line allocation (7.0h + 17.0h = 24.0h)
+  matrixRows = syncMultiRunRowStatuses(matrixRows);
+
+  const syncedRun1 = matrixRows.find((r) => r.lineId === 'L-02-run-1');
+  const syncedRun2 = matrixRows.find((r) => r.lineId === 'L-02-run-2');
+  const syncedStandalone = matrixRows.find((r) => r.lineId === 'L-01');
+
+  // Both multi-run sibling rows must reflect 'balanced' status
+  assert.strictEqual(syncedRun1.balanceStatus, 'balanced', 'Run 1 must be balanced as part of joint 24h machine');
+  assert.strictEqual(syncedRun1.balanceLabel, '24.0h Balanced');
+  assert.strictEqual(syncedRun1.isJointBalanced, true);
+  assert.strictEqual(syncedRun1.jointLineStatusText, 'Joint Line L-02 Balanced (Run: 7.0h / Line: 24.0h)');
+
+  assert.strictEqual(syncedRun2.balanceStatus, 'balanced', 'Run 2 must be balanced as part of joint 24h machine');
+  assert.strictEqual(syncedRun2.balanceLabel, '24.0h Balanced');
+  assert.strictEqual(syncedRun2.isJointBalanced, true);
+  assert.strictEqual(syncedRun2.jointLineStatusText, 'Joint Line L-02 Balanced (Run: 17.0h / Line: 24.0h)');
+
+  // Standalone single-run machine retains standard individual 24h evaluation (18h / 24h = 6h remaining)
+  assert.strictEqual(syncedStandalone.balanceStatus, 'under');
+  assert.strictEqual(syncedStandalone.balanceLabel, '6h Remaining');
+
+  // Test unbalanced shortage on joint machine (7.0h + 14.0h = 21.0h -> 3h Machine Remaining)
+  const unbalancedRun2 = calculateMatrixRowMetrics({ ...run2, operatingHours: 12.0 }); // 12 + 2 = 14h
+  let unbalancedRows = syncMultiRunRowStatuses([run1, unbalancedRun2]);
+  const uRun1 = unbalancedRows.find((r) => r.lineId === 'L-02-run-1');
+  const uRun2 = unbalancedRows.find((r) => r.lineId === 'L-02-run-2');
+
+  assert.strictEqual(uRun1.balanceStatus, 'under');
+  assert.strictEqual(uRun1.balanceLabel, '3h Machine Remaining');
+  assert.strictEqual(uRun1.isJointBalanced, false);
+
+  assert.strictEqual(uRun2.balanceStatus, 'under');
+  assert.strictEqual(uRun2.balanceLabel, '3h Machine Remaining');
+  assert.strictEqual(uRun2.isJointBalanced, false);
+
+  // Test unbalanced excess on joint machine (12.0h + 17.0h = 29.0h -> +5h Machine Exceeded)
+  const overRun1 = calculateMatrixRowMetrics({ ...run1, operatingHours: 12.0 });
+  let overRows = syncMultiRunRowStatuses([overRun1, run2]);
+  const oRun1 = overRows.find((r) => r.lineId === 'L-02-run-1');
+  const oRun2 = overRows.find((r) => r.lineId === 'L-02-run-2');
+
+  assert.strictEqual(oRun1.balanceStatus, 'over');
+  assert.strictEqual(oRun1.balanceLabel, '+5h Machine Exceeded');
+  assert.strictEqual(oRun1.isJointBalanced, false);
+
+  assert.strictEqual(oRun2.balanceStatus, 'over');
+  assert.strictEqual(oRun2.balanceLabel, '+5h Machine Exceeded');
+  assert.strictEqual(oRun2.isJointBalanced, false);
+
+  console.log('Test 23 Passed: Multi-run sibling rows 24h balance status reflects joint machine balance verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (23/23) ---');

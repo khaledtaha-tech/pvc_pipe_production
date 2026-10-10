@@ -1,5 +1,6 @@
 import { MACHINES, matchMachine } from '../config/machines.js';
 import { round1, makeRefSpec, HOUR_WINDOWS } from './engine.js';
+export { round1 };
 import { consolidateDailyMachineRecords, convertLogRowToReport } from './excelParser.js';
 import { queryProductionRecords, queryProductionRecordsForDate, reconcileShiftRun, blankReportForMachine } from './oeeReconciler.js';
 import { getMachineNominalCapacity } from './machineSettingsConfig.js';
@@ -327,8 +328,11 @@ export function calculateMultiRunMachineStatus(rows = [], parentLineId = '') {
       lineName: singleRow.lineName || parentLineId,
       runCount: 1,
       totalMachineAccountedHours: Number(singleRow.totalAccountedHours) || 0,
+      totalMachineHours: Number(singleRow.totalAccountedHours) || 0,
       machineVarianceHours: Number(singleRow.varianceHours) || 0,
+      varianceHours: Number(singleRow.varianceHours) || 0,
       machineBalanceStatus: singleRow.balanceStatus || 'balanced',
+      status: singleRow.balanceStatus || 'balanced',
       machineBalanceLabel: singleRow.balanceLabel || '24.0h Balanced',
       isCoupledBalanced: Math.abs(Number(singleRow.varianceHours) || 0) <= 0.05
     };
@@ -360,11 +364,72 @@ export function calculateMultiRunMachineStatus(rows = [], parentLineId = '') {
     lineName,
     runCount: siblingRuns.length,
     totalMachineAccountedHours,
+    totalMachineHours: totalMachineAccountedHours,
     machineVarianceHours,
+    varianceHours: machineVarianceHours,
     machineBalanceStatus,
+    status: machineBalanceStatus,
     machineBalanceLabel,
     isCoupledBalanced: machineBalanceStatus === 'balanced'
   };
+}
+
+/**
+ * Synchronize 24-hour balance status for multi-run sibling rows based on joint machine balance.
+ * Sibling rows belonging to a coupled multi-run machine reflect the joint machine status
+ * rather than evaluating their isolated single-run slice against 24.0h.
+ */
+export function syncMultiRunRowStatuses(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const parentIds = new Set();
+  rows.forEach((r) => {
+    if (r && (r.isMultiRun || r.totalRuns > 1 || r.parentLineId)) {
+      const pid = r.parentLineId || r.baseLineId || r.lineId;
+      if (pid) parentIds.add(pid);
+    }
+  });
+
+  if (parentIds.size === 0) return rows;
+
+  const parentStatusMap = new Map();
+  parentIds.forEach((pid) => {
+    const status = calculateMultiRunMachineStatus(rows, pid);
+    if (status) parentStatusMap.set(pid, status);
+  });
+
+  return rows.map((r) => {
+    const isMulti = Boolean(r && (r.isMultiRun || r.totalRuns > 1 || r.parentLineId));
+    if (!isMulti) return r;
+
+    const pid = r.parentLineId || r.baseLineId || r.lineId;
+    const mStatus = parentStatusMap.get(pid);
+    if (!mStatus || mStatus.runCount <= 1) return r;
+
+    const rowTotalHours = (Number(r.totalAccountedHours) || 0).toFixed(1);
+    const isBalanced = mStatus.machineBalanceStatus === 'balanced' || mStatus.isCoupledBalanced;
+
+    let jointBalanceLabel = '24.0h Balanced';
+    if (!isBalanced) {
+      if (mStatus.machineVarianceHours > 0) {
+        jointBalanceLabel = `${mStatus.machineVarianceHours}h Machine Remaining`;
+      } else {
+        jointBalanceLabel = `+${round1(Math.abs(mStatus.machineVarianceHours))}h Machine Exceeded`;
+      }
+    }
+
+    return {
+      ...r,
+      balanceStatus: mStatus.machineBalanceStatus,
+      balanceLabel: jointBalanceLabel,
+      isJointBalanced: isBalanced,
+      jointLineStatusText: isBalanced
+        ? `Joint Line ${pid} Balanced (Run: ${rowTotalHours}h / Line: 24.0h)`
+        : `Joint Line ${pid} ${mStatus.machineBalanceLabel} (Run: ${rowTotalHours}h / Line: ${mStatus.totalMachineAccountedHours.toFixed(1)}h)`,
+      totalMachineHours: mStatus.totalMachineAccountedHours,
+      machineVarianceHours: mStatus.machineVarianceHours
+    };
+  });
 }
 
 /**
@@ -393,7 +458,7 @@ export function applyCoupledMultiRunInput(rows = [], lineId = '', field = '', ra
     const updated = applyMatrixRowInput(targetRow, field, rawValue);
     const newRows = [...rows];
     newRows[targetIndex] = updated;
-    return newRows;
+    return syncMultiRunRowStatuses(newRows);
   }
 
   // Modifying a time field on a multi-run row
@@ -478,7 +543,7 @@ export function applyCoupledMultiRunInput(rows = [], lineId = '', field = '', ra
     });
   }
 
-  return newRows;
+  return syncMultiRunRowStatuses(newRows);
 }
 
 /**
@@ -511,7 +576,7 @@ export function autoBalanceMultiRunMachine(rows = [], parentLineId = '') {
     ...lastRow,
     operatingHours: newLastOp
   });
-  return newRows;
+  return syncMultiRunRowStatuses(newRows);
 }
 
 /**
@@ -532,7 +597,7 @@ export function buildMatrixRowsForDate({
     machineMaster
   });
 
-  return machineMaster.flatMap((machine) => {
+  const allRows = machineMaster.flatMap((machine) => {
     const lineId = machine.id;
     const lineName = machine.name || lineId;
     const nominalCapacity = getMachineNominalCapacity(lineId, machineMaster);
@@ -1146,6 +1211,8 @@ export function buildMatrixRowsForDate({
 
     return [calculateMatrixRowMetrics(rawRow)];
   });
+
+  return syncMultiRunRowStatuses(allRows);
 }
 
 /**

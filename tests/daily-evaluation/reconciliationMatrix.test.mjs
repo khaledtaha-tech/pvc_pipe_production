@@ -1141,4 +1141,47 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 21 Passed: Multi-run coupled 24h machine balancing across sibling runs verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (21/21) ---');
+// Test 22: Dedicated Perf (%) speed efficiency column, 3-factor aliases, and explicit triad formula
+{
+  const row = calculateMatrixRowMetrics({
+    lineId: 'L-01',
+    actualPcs: 960,
+    actualKg: 1920,
+    scrapKg: 480,
+    nominalCapKgH: 200,
+    stdRatePcsH: 100,
+    stdWeightKg: 2.0,
+    operatingHours: 12.0,
+    moldChangeHours: 0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 0
+  });
+
+  // Verify availability (12h / 24h = 50.0%) and aliases
+  assert.strictEqual(row.availabilityPct, 50.0);
+  assert.strictEqual(row.availPct, 50.0);
+  assert.strictEqual(row.availPct, row.availabilityPct);
+
+  // Verify performance (1920kg / 12h = 160.0 kg/h; 160 / 200 = 80.0%) and aliases
+  assert.strictEqual(row.speedEfficiencyPct, 80.0);
+  assert.strictEqual(row.speedEffPct, 80.0);
+  assert.strictEqual(row.performancePct, 80.0);
+  assert.strictEqual(row.speedEffPct, row.speedEfficiencyPct);
+
+  // Verify quality (1920kg / (1920 + 480)kg = 80.0%)
+  assert.strictEqual(row.qualityPct, 80.0);
+
+  // Verify 3-factor OEE: (0.50) * (0.80) * (0.80) * 100 = 32.0%
+  assert.strictEqual(row.oeePct, 32.0);
+
+  // Verify explicit triad formula tooltip format
+  const formulaTooltip = `${row.availPct.toFixed(1)}% (Avail) \u00d7 ${row.speedEffPct.toFixed(1)}% (Perf) \u00d7 ${row.qualityPct.toFixed(1)}% (Qual) = ${row.oeePct.toFixed(1)}% (OEE)`;
+  assert.strictEqual(formulaTooltip, '50.0% (Avail) \u00d7 80.0% (Perf) \u00d7 80.0% (Qual) = 32.0% (OEE)');
+
+  console.log('Test 22 Passed: Dedicated Perf (%) column, 3-factor aliases, and explicit triad formula verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (22/22) ---');

@@ -542,7 +542,7 @@ export default function DailyReconciliationMatrixView({
       {/* Wide Horizontal Scrollable Table with Sticky Headers & Viewport Scroll */}
       <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto overflow-y-auto max-h-[72vh] relative">
-          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[1950px]">
+          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[2000px]">
             {/* Top Multi-Header Row */}
             <thead className="sticky top-0 z-20 shadow-md bg-slate-900 border-b border-slate-800">
               <tr className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
@@ -558,8 +558,13 @@ export default function DailyReconciliationMatrixView({
                 <th colSpan={8} className="px-3 py-2 border-r border-slate-800 text-amber-300 bg-amber-950/20">
                   24-Hour Time Allocation &amp; Realized Pace
                 </th>
-                <th colSpan={5} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
-                  Audit &amp; Telemetry
+                <th colSpan={6} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
+                  <div className="flex items-center justify-between">
+                    <span>Audit &amp; Telemetry</span>
+                    <span className="text-[9px] font-mono text-indigo-300/80 lowercase tracking-normal bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/60">
+                      Avail &times; Perf &times; Qual = OEE
+                    </span>
+                  </div>
                 </th>
                 <th className="px-3 py-2 text-center text-slate-300 bg-slate-950">
                   Actions
@@ -615,12 +620,30 @@ export default function DailyReconciliationMatrixView({
                 <th className="px-2.5 py-2.5">Material/No Order (h)</th>
                 <th className="px-2.5 py-2.5 border-r border-slate-800">Other Stop (h)</th>
 
-                {/* Audit & OEE */}
+                {/* Audit & OEE (3-Factor Triad) */}
                 <th className="px-3 py-2.5 text-center font-bold">Total (h)</th>
                 <th className="px-3 py-2.5 text-center">24h Status</th>
-                <th className="px-2.5 py-2.5 text-center">Avail (%)</th>
-                <th className="px-2.5 py-2.5 text-center text-amber-300" title="Quality Rate: Good Output (kg) / Total Melt (kg)">Qual (%)</th>
-                <th className="px-2.5 py-2.5 text-center border-r border-slate-800">OEE (%)</th>
+                <th className="px-2 py-2.5 text-center text-slate-300" title="Availability Rate (A): Operating Hours / 24.0h">
+                  Avail (%)
+                </th>
+                <th className="px-2 py-2.5 text-center text-cyan-300" title="Performance / Speed Efficiency (P): Actual Pace / Nominal Capacity">
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-bold select-none">&times;</span>
+                    <span>Perf (%)</span>
+                  </div>
+                </th>
+                <th className="px-2 py-2.5 text-center text-amber-300" title="Quality Rate (Q): Good Output (kg) / Total Melt (kg)">
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-bold select-none">&times;</span>
+                    <span>Qual (%)</span>
+                  </div>
+                </th>
+                <th className="px-2.5 py-2.5 text-center border-r border-slate-800 text-indigo-300 font-bold" title="Overall OEE: Availability &times; Performance &times; Quality = OEE">
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-bold select-none">=</span>
+                    <span>OEE (%)</span>
+                  </div>
+                </th>
 
                 {/* Actions */}
                 <th className="px-3 py-2.5 text-center">Reconcile / Save</th>
@@ -631,7 +654,7 @@ export default function DailyReconciliationMatrixView({
             <tbody className="divide-y divide-slate-800/60">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={25} className="text-center py-8 text-slate-400">
+                  <td colSpan={26} className="text-center py-8 text-slate-400">
                     No machine lines match the active filter for {selectedDate}.
                   </td>
                 </tr>
@@ -655,7 +678,7 @@ export default function DailyReconciliationMatrixView({
                         key={`header-${parentLineId}`}
                         className="bg-slate-950 border-t-2 border-b border-blue-500/50"
                       >
-                        <td colSpan={25} className="px-3 py-2 bg-gradient-to-r from-blue-950/80 via-slate-900 to-slate-950">
+                        <td colSpan={26} className="px-3 py-2 bg-gradient-to-r from-blue-950/80 via-slate-900 to-slate-950">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-blue-600 text-white shadow-xs">
@@ -710,6 +733,11 @@ export default function DailyReconciliationMatrixView({
                       </tr>
                     );
                   }
+
+                  const availPct = Number(row.availPct ?? row.availabilityPct) || 0;
+                  const speedEffPct = Number(row.speedEffPct ?? row.speedEfficiencyPct ?? row.performancePct) || 0;
+                  const qualityPct = row.qualityPct != null ? Number(row.qualityPct) : 100.0;
+                  const oeePct = Number(row.oeePct) || 0;
 
                   elements.push(
                     <tr
@@ -1046,23 +1074,37 @@ export default function DailyReconciliationMatrixView({
 
                     {/* 20. Availability (%) */}
                     <td className="px-2.5 py-2 text-center font-mono text-slate-300">
-                      {row.availabilityPct.toFixed(1)}%
+                      {availPct.toFixed(1)}%
                     </td>
 
-                    {/* 20.5 Quality (%) */}
+                    {/* 20.3 Performance / Speed Efficiency (%) */}
+                    <td
+                      className={`px-2.5 py-2 text-center font-mono font-medium ${
+                        speedEffPct >= 85
+                          ? 'text-emerald-400'
+                          : speedEffPct >= 70
+                            ? 'text-amber-400'
+                            : 'text-rose-400'
+                      }`}
+                      title={`Performance: ${speedEffPct.toFixed(1)}% (Actual Pace: ${row.actualRateKgH || 0} kg/h / Nom: ${row.nominalCapKgH || 0} kg/h)`}
+                    >
+                      {speedEffPct.toFixed(1)}%
+                    </td>
+
+                    {/* 20.7 Quality (%) */}
                     <td
                       className="px-2.5 py-2 text-center font-mono text-amber-300"
-                      title={`Quality: ${row.qualityPct != null ? row.qualityPct.toFixed(1) : '100.0'}% (${row.actualKg} kg good / ${row.totalMeltProcessedKg || row.actualKg} kg total melt)`}
+                      title={`Quality: ${qualityPct.toFixed(1)}% (${row.actualKg} kg good / ${row.totalMeltProcessedKg || row.actualKg} kg total melt)`}
                     >
-                      {row.qualityPct != null ? row.qualityPct.toFixed(1) : '100.0'}%
+                      {qualityPct.toFixed(1)}%
                     </td>
 
                     {/* 21. OEE (%) */}
                     <td
                       className="px-2.5 py-2 text-center font-mono font-bold border-r border-slate-800 text-indigo-300"
-                      title={`OEE = Availability (${row.availabilityPct.toFixed(1)}%) × Performance (${row.performancePct.toFixed(1)}%) × Quality (${row.qualityPct != null ? row.qualityPct.toFixed(1) : '100.0'}%) = ${row.oeePct.toFixed(1)}%`}
+                      title={`${availPct.toFixed(1)}% (Avail) × ${speedEffPct.toFixed(1)}% (Perf) × ${qualityPct.toFixed(1)}% (Qual) = ${oeePct.toFixed(1)}% (OEE)`}
                     >
-                      {row.oeePct.toFixed(1)}%
+                      {oeePct.toFixed(1)}%
                     </td>
 
                     {/* 22. Row Actions */}

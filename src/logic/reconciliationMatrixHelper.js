@@ -123,9 +123,9 @@ export function applyMatrixRowInput(row, field, rawValue) {
  * Calculate mathematical metrics for a single matrix row
  */
 export function calculateMatrixRowMetrics(row) {
-  const stdWeight = Math.max(0, Number(row.stdWeight) || 0);
-  const nominalCap = Math.max(0, Number(row.nominalCapacity) || 0);
-  let targetRate = Math.max(0, Number(row.targetRate ?? row.stdRate) || 0);
+  const stdWeight = Math.max(0, Number(row.stdWeight ?? row.stdWeightKg) || 0);
+  const nominalCap = Math.max(0, Number(row.nominalCapacity ?? row.nominalCapKgH ?? row.nominalCap) || 0);
+  let targetRate = Math.max(0, Number(row.targetRate ?? row.stdRate ?? row.stdRatePcsH) || 0);
   if (targetRate <= 0 && nominalCap > 0 && stdWeight > 0) {
     targetRate = round1(nominalCap / stdWeight);
   }
@@ -230,8 +230,11 @@ export function calculateMatrixRowMetrics(row) {
   return {
     ...row,
     targetRate,
+    stdRatePcsH: targetRate,
     stdWeight,
+    stdWeightKg: stdWeight,
     nominalCapacity: nominalCap,
+    nominalCapKgH: nominalCap,
     actualPcs,
     actualKg,
     scrapKg: row.scrapKg === '' ? '' : scrapKg,
@@ -249,6 +252,7 @@ export function calculateMatrixRowMetrics(row) {
     actualRatePcsH,
     actualRateKgH,
     speedEfficiencyPct,
+    speedEffPct: speedEfficiencyPct,
     operatingHours: row.operatingHours === '' ? '' : operatingHours,
     moldChangeHours: row.moldChangeHours === '' ? '' : moldChangeHours,
     purgeCleaningHours: row.purgeCleaningHours === '' ? '' : purgeCleaningHours,
@@ -262,6 +266,7 @@ export function calculateMatrixRowMetrics(row) {
     balanceStatus,
     balanceLabel,
     availabilityPct,
+    availPct: availabilityPct,
     performancePct,
     oeePct
   };

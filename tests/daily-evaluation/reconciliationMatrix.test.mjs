@@ -82,8 +82,8 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   assert.strictEqual(metrics.actualRatePcsH, 50.0);
   // actualRateKgH = 3500 kg / 20h = 175.0 kg/h
   assert.strictEqual(metrics.actualRateKgH, 175.0);
-  // speedEfficiencyPct = (175 kg/h / 200 kg/h nominal) * 100 = 87.5%
-  assert.strictEqual(metrics.speedEfficiencyPct, 87.5);
+  // speedEfficiencyPct = (50 pcs/h / 50 pcs/h) * 100 = 100.0%
+  assert.strictEqual(metrics.speedEfficiencyPct, 100.0);
 
   console.log('Test 2 Passed: Row metrics and 24h balanced telemetry verified');
 }
@@ -843,7 +843,7 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   // Realized rate & Speed efficiency:
   assert.strictEqual(l06.actualRatePcsH, 2.2, '53 / 24.0 = 2.2 pcs/h');
   assert.strictEqual(l06.actualRateKgH, 110.4, '2650 / 24.0 = 110.4 kg/h');
-  assert.strictEqual(l06.speedEfficiencyPct, 22.1, '(110.4 / 500) * 100 = 22.1%');
+  assert.strictEqual(l06.speedEfficiencyPct, 22.0, '(2.2 / 10.0) * 100 = 22.0%');
 
   // Data audit metadata:
   assert.ok(l06.sourceAudit, 'Row must include sourceAudit metadata');
@@ -1395,4 +1395,55 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 24 Passed: Planned Weekend Shutdown classification and row audit annotation verified');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (24/24) ---');
+// Test 25: Speed Efficiency (Perf %) calculation reactively respects user-modified Std Rate (Pcs/h)
+{
+  const row = calculateMatrixRowMetrics({
+    lineId: 'L-06',
+    lineName: 'KTS-700',
+    actualPcs: 281,
+    actualKg: 10256.5,
+    operatingHours: 24.0,
+    stdWeight: 36.5,
+    nominalCapacity: 400,
+    targetRate: 11.0,
+    moldChangeHours: 0,
+    purgeCleaningHours: 0,
+    heaterFailureHours: 0,
+    mechanicalHours: 0,
+    materialNoOrderHours: 0,
+    otherHours: 0
+  });
+
+  // Initial state: 281 pcs in 24h = 11.7 pcs/h realized pace
+  assert.strictEqual(row.actualRatePcsH, 11.7);
+  assert.strictEqual(row.targetRate, 11.0);
+  assert.strictEqual(row.speedEffPct, 106.4, '11.7 / 11.0 = 106.4% Eff');
+  assert.strictEqual(row.expectedPcs, 264.0);
+  assert.strictEqual(row.expectedKg, 9636.0);
+
+  // 1. User updates stdRate to 15.0 pcs/h via applyMatrixRowInput
+  const updatedByStdRate = applyMatrixRowInput(row, 'stdRate', 15.0);
+  assert.strictEqual(updatedByStdRate.targetRate, 15.0);
+  assert.strictEqual(updatedByStdRate.stdRate, 15.0);
+  assert.strictEqual(updatedByStdRate.stdRatePcsH, 15.0);
+  assert.strictEqual(updatedByStdRate.actualRatePcsH, 11.7);
+  assert.strictEqual(updatedByStdRate.speedEffPct, 78.0, '11.7 / 15.0 = 78.0% Eff (reactively drops from ~106% to 78%)');
+  assert.strictEqual(updatedByStdRate.speedEfficiencyPct, 78.0);
+  assert.strictEqual(updatedByStdRate.expectedPcs, 360.0, '24h * 15 pcs/h = 360 pcs');
+  assert.strictEqual(updatedByStdRate.expectedKg, 13140.0, '360 pcs * 36.5 kg = 13,140 kg');
+  assert.strictEqual(updatedByStdRate.deficitPcs, 79.0, '360 - 281 = 79 pcs deficit');
+  assert.strictEqual(updatedByStdRate.deficitKg, 2883.5, '13140 - 10256.5 = 2883.5 kg deficit');
+  assert.strictEqual(updatedByStdRate.oeePct, 78.0);
+
+  // 2. Editing targetRate produces identical synchronized output
+  const updatedByTargetRate = applyMatrixRowInput(row, 'targetRate', 15.0);
+  assert.strictEqual(updatedByTargetRate.speedEffPct, 78.0);
+  assert.strictEqual(updatedByTargetRate.targetRate, 15.0);
+  assert.strictEqual(updatedByTargetRate.stdRate, 15.0);
+  assert.strictEqual(updatedByTargetRate.expectedPcs, 360.0);
+  assert.strictEqual(updatedByTargetRate.deficitPcs, 79.0);
+
+  console.log('Test 25 Passed: Speed Efficiency reactively updates when Std Rate is modified (drops from 106% to 78%)');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (25/25) ---');

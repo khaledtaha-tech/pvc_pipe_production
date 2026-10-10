@@ -132,7 +132,13 @@ export function applyMatrixRowInput(row, field, rawValue) {
     // If stdWeight is updated and nominalCapacity exists, dynamically derive stdRate:
     if (cleanVal > 0 && Number(row.nominalCapacity) > 0) {
       updated.targetRate = round1(Number(row.nominalCapacity) / cleanVal);
+      updated.stdRate = updated.targetRate;
+      updated.stdRatePcsH = updated.targetRate;
     }
+  } else if (field === 'targetRate' || field === 'stdRate' || field === 'stdRatePcsH') {
+    updated.targetRate = isCleared ? '' : cleanVal;
+    updated.stdRate = isCleared ? '' : cleanVal;
+    updated.stdRatePcsH = isCleared ? '' : cleanVal;
   }
 
   return calculateMatrixRowMetrics(updated);
@@ -226,13 +232,11 @@ export function calculateMatrixRowMetrics(row) {
     ? round1((actualKg / totalMeltProcessedKg) * 100)
     : 100.0;
 
-  // OEE Telemetry
-  const availabilityPct = round1((operatingHours / 24.0) * 100);
-  const targetOutputForOperating = round1(operatingHours * targetRate);
-  const performancePct = targetOutputForOperating > 0
-    ? round1(Math.min(100, (actualPcs / targetOutputForOperating) * 100))
-    : (operatingHours === 0 && actualPcs === 0 ? 0 : 0);
-  const oeePct = round1((availabilityPct / 100) * (performancePct / 100) * (qualityPct / 100) * 100);
+  // Synchronized effective nominal capacity
+  const effectiveNominalCap = Math.max(
+    nominalCap,
+    (targetRate > 0 && stdWeight > 0) ? round1(targetRate * stdWeight) : 0
+  );
 
   // Realized Pace / Actual Operating Rate
   let actualRatePcsH = (operatingHours > 0 && actualPcs > 0)
@@ -250,9 +254,21 @@ export function calculateMatrixRowMetrics(row) {
     actualRateKgH = round1(actualRatePcsH * stdWeight);
   }
 
-  const speedEfficiencyPct = nominalCap > 0
-    ? round1((actualRateKgH / nominalCap) * 100)
-    : (targetRate > 0 ? round1((actualRatePcsH / targetRate) * 100) : 0);
+  const speedEfficiencyPct = targetRate > 0
+    ? round1((actualRatePcsH / targetRate) * 100)
+    : (effectiveNominalCap > 0
+      ? round1((actualRateKgH / effectiveNominalCap) * 100)
+      : (nominalCap > 0 ? round1((actualRateKgH / nominalCap) * 100) : 0));
+
+  // OEE Telemetry
+  const availabilityPct = round1((operatingHours / 24.0) * 100);
+  const targetOutputForOperating = round1(operatingHours * targetRate);
+  const performancePct = targetRate > 0
+    ? round1(Math.min(100, speedEfficiencyPct))
+    : (targetOutputForOperating > 0
+      ? round1(Math.min(100, (actualPcs / targetOutputForOperating) * 100))
+      : (operatingHours === 0 && actualPcs === 0 ? 0 : 0));
+  const oeePct = round1((availabilityPct / 100) * (performancePct / 100) * (qualityPct / 100) * 100);
 
   const sourceAudit = {
     ...(row.sourceAudit || {})
@@ -267,11 +283,13 @@ export function calculateMatrixRowMetrics(row) {
   return {
     ...row,
     targetRate,
+    stdRate: targetRate,
     stdRatePcsH: targetRate,
     stdWeight,
     stdWeightKg: stdWeight,
     nominalCapacity: nominalCap,
-    nominalCapKgH: nominalCap,
+    nominalCapKgH: effectiveNominalCap > 0 ? effectiveNominalCap : nominalCap,
+    effectiveNominalCapacity: effectiveNominalCap,
     actualPcs,
     actualKg,
     scrapKg: row.scrapKg === '' ? '' : scrapKg,

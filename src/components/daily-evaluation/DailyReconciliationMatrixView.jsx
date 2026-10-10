@@ -815,7 +815,7 @@ export default function DailyReconciliationMatrixView({
                           type="number"
                           step="1"
                           min="0"
-                          value={row.targetRate ?? ''}
+                          value={row.targetRate ?? row.stdRate ?? ''}
                           onChange={(e) => handleCellChange(row.lineId, 'targetRate', e.target.value)}
                           onBlur={() => handleCellBlur(row.lineId, 'targetRate')}
                           className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-cyan-300 font-mono font-bold text-right"
@@ -916,15 +916,19 @@ export default function DailyReconciliationMatrixView({
                           <div className="mt-0.5">
                             <span
                               className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                                row.speedEfficiencyPct >= 90
+                                speedEffPct >= 90
                                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                                  : row.speedEfficiencyPct >= 75
+                                  : speedEffPct >= 75
                                   ? 'bg-amber-950/80 text-amber-300 border-amber-800'
                                   : 'bg-rose-950/80 text-rose-300 border-rose-800'
                               }`}
-                              title={`Speed Efficiency: ${row.speedEfficiencyPct}% against Nominal Capacity (${row.nominalCapacity} kg/h)`}
+                              title={
+                                row.targetRate > 0
+                                  ? `Speed Efficiency: ${speedEffPct.toFixed(1)}% against Std Rate (${row.targetRate} pcs/h)`
+                                  : `Speed Efficiency: ${speedEffPct.toFixed(1)}% against Nominal Capacity (${row.nominalCapKgH || row.nominalCapacity} kg/h)`
+                              }
                             >
-                              {row.speedEfficiencyPct.toFixed(1)}% Eff
+                              {speedEffPct.toFixed(1)}% Eff
                             </span>
                           </div>
                         </div>
@@ -1179,7 +1183,11 @@ export default function DailyReconciliationMatrixView({
                             ? 'text-amber-400'
                             : 'text-rose-400'
                       }`}
-                      title={`Performance: ${speedEffPct.toFixed(1)}% (Actual Pace: ${row.actualRateKgH || 0} kg/h / Nom: ${row.nominalCapKgH || 0} kg/h)`}
+                      title={
+                        row.targetRate > 0
+                          ? `Performance: ${speedEffPct.toFixed(1)}% (Actual Pace: ${row.actualRatePcsH || 0} pcs/h / Std Rate: ${row.targetRate} pcs/h)`
+                          : `Performance: ${speedEffPct.toFixed(1)}% (Actual Pace: ${row.actualRateKgH || 0} kg/h / Nom: ${row.nominalCapKgH || 0} kg/h)`
+                      }
                     >
                       {speedEffPct.toFixed(1)}%
                     </td>

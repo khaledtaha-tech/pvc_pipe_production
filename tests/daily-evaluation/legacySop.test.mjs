@@ -1025,6 +1025,80 @@ assert.equal(buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 25).leng
 
 console.log('Multi-Day Ahead Batch SOP Generation & Printing Engine: OK');
 
+// 29. Standard Production Cumulative Piece Targets on Morning Blank SOP (DOC-Ext.-03)
+// a. Configured line without explicit target rate falls back to nominal capacity / weight
+const l05ConfiguredModel = buildMorningSopModel({
+  lineId: 'L-05',
+  fullMachineName: 'L-05 - KTS 200',
+  nominalCapacity: 200,
+  unitWeight: 1.0,
+  pipeLength: 6.0,
+  date: '2026-10-12'
+});
+
+assert.equal(l05ConfiguredModel.docCode, 'DOC-Ext.-03');
+assert.equal(l05ConfiguredModel.isIdle, false, 'Configured line with nominal capacity must not be marked idle');
+assert.equal(l05ConfiguredModel.hourlyStdRate, 200);
+assert.equal(l05ConfiguredModel.stepTarget, 200);
+assert.equal(l05ConfiguredModel.shift1Rows.length, 12);
+assert.equal(l05ConfiguredModel.shift2Rows.length, 12);
+
+// Shift 1 slots 1..12: cumulative increments of 200
+for (let i = 1; i <= 12; i++) {
+  const row = l05ConfiguredModel.shift1Rows[i - 1];
+  assert.equal(row.stdPcs, 200 * i, `Shift 1 Hour ${i} must equal ${200 * i}`);
+  assert.equal(Number.isInteger(row.stdPcs), true);
+}
+
+// Shift 2 slots 13..24: cumulative increments of 200
+for (let i = 13; i <= 24; i++) {
+  const row = l05ConfiguredModel.shift2Rows[i - 13];
+  assert.equal(row.stdPcs, 200 * i, `Shift 2 Hour ${i} must equal ${200 * i}`);
+  assert.equal(Number.isInteger(row.stdPcs), true);
+}
+
+// b. Configured line with speed & pipeLength fallback generates cumulative integer slots
+const speedFallbackModel = buildMorningSopModel({
+  lineId: 'L-03',
+  speed: 1.5,
+  pipeLength: 6.0,
+  date: '2026-10-12'
+});
+// (1.5 * 60) / 6.0 = 15 pcs/h
+assert.equal(speedFallbackModel.hourlyStdRate, 15);
+assert.equal(speedFallbackModel.isIdle, false);
+assert.equal(speedFallbackModel.shift1Rows[0].stdPcs, 15);
+assert.equal(speedFallbackModel.shift1Rows[11].stdPcs, 180);
+assert.equal(speedFallbackModel.shift2Rows[0].stdPcs, 195);
+assert.equal(speedFallbackModel.shift2Rows[11].stdPcs, 360);
+
+// c. Configured line with targetRate alias (e.g. calculatedRate / rate)
+const aliasRateModel = buildMorningSopModel({
+  lineId: 'L-02',
+  calculatedRate: 11,
+  pipeLength: 6.0,
+  date: '2026-10-12'
+});
+// Math.round(11 / 0.85) = 13 pcs/h
+assert.equal(aliasRateModel.inputRealRate, 11);
+assert.equal(aliasRateModel.stepTarget, 13);
+assert.equal(aliasRateModel.shift1Rows[0].stdPcs, 13);
+assert.equal(aliasRateModel.shift1Rows[11].stdPcs, 13 * 12);
+
+// d. Explicit idle machine preserves empty string slots
+const explicitIdleModel = buildMorningSopModel({
+  lineId: 'L-04',
+  date: '2026-10-12',
+  isIdle: true
+});
+assert.equal(explicitIdleModel.isIdle, true);
+assert.equal(explicitIdleModel.stepTarget, '');
+explicitIdleModel.shift1Rows.forEach((r) => assert.equal(r.stdPcs, ''));
+explicitIdleModel.shift2Rows.forEach((r) => assert.equal(r.stdPcs, ''));
+
+console.log('Standard Production Cumulative Piece Targets on Morning SOP: OK');
+
 console.log('All Legacy SOP Helper unit tests passed successfully!');
+
 
 

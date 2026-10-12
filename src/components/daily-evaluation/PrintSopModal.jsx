@@ -274,7 +274,7 @@ export default function PrintSopModal({
       } else if (Number(specs?.stdWeight) > 0) {
         unitWeight = Number(specs.stdWeight);
       } else {
-        unitWeight = hadRun ? 1.0 : '';
+        unitWeight = (hadRun || nominalCapacity > 0) ? 1.0 : '';
       }
 
       // Calculated rate (Target pcs/h for extrusion, kg/h for compounding)
@@ -289,6 +289,10 @@ export default function PrintSopModal({
         calculatedRate = Math.round(Number(excelLine.targetPcsH));
       } else if (specs?.calculatedRate !== undefined && specs?.calculatedRate !== null && specs?.calculatedRate !== '') {
         calculatedRate = Math.round(Number(specs.calculatedRate));
+      } else if (Number(specs?.speed) > 0 && pipeLength > 0) {
+        calculatedRate = Math.round((Number(specs.speed) * 60) / pipeLength);
+      } else if (nominalCapacity > 0 && Number(unitWeight) > 0) {
+        calculatedRate = Math.round(nominalCapacity / Number(unitWeight));
       }
 
       // Linear Speed (m/min)
@@ -704,22 +708,41 @@ export default function PrintSopModal({
       const calcRateInt = item.calculatedRate !== '' && item.calculatedRate !== null && !isNaN(item.calculatedRate)
         ? Math.round(Number(item.calculatedRate))
         : '';
+      const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : (Number(item.cutLength) > 0 ? Number(item.cutLength) : 6.0);
+      const speedVal = Number(item.speed) > 0 ? Number(item.speed) : '';
+      const uWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : (Number(item.stdWeight) > 0 ? Number(item.stdWeight) : 1.0);
+      const nomCap = getMachineNominalCapacity(item.machineId, machineMaster) || Number(item.nominalCapacity) || 200;
+
+      let effectiveRate = calcRateInt;
+      if (!effectiveRate && !item.isCompounding) {
+        if (speedVal > 0 && pipeLen > 0) {
+          effectiveRate = Math.round((speedVal * 60) / pipeLen);
+        } else if (nomCap > 0 && uWeight > 0) {
+          effectiveRate = Math.round(nomCap / uWeight);
+        }
+      }
+
+      const hasContent = Boolean(item.productDescription || item.itemCode || effectiveRate || speedVal || item.isCompounding);
+
       return {
         lineId: item.machineId,
         fullMachineName: item.fullMachineName,
         itemCode: item.itemCode,
         productDescription: item.productDescription,
-        speed: item.speed,
-        pipeLength: item.pipeLength,
-        unitWeight: item.unitWeight,
-        stdWeight: item.unitWeight,
-        nominalCapacity: getMachineNominalCapacity(item.machineId, machineMaster) || item.nominalCapacity,
-        targetRate: calcRateInt,
-        targetPcsH: calcRateInt,
+        speed: speedVal || item.speed,
+        pipeLength: pipeLen,
+        cutLength: pipeLen,
+        unitWeight: uWeight,
+        stdWeight: uWeight,
+        nominalCapacity: nomCap,
+        targetRate: effectiveRate,
+        targetPcsH: effectiveRate,
+        calculatedRate: effectiveRate,
+        rate: effectiveRate,
         calculatedRateKgH: item.calculatedRateKgH,
-        targetCapacity: calcRateInt,
+        targetCapacity: effectiveRate,
         isCompounding: item.isCompounding,
-        isIdle: Boolean(item.isIdle || (!item.isCompounding && !item.speed && !item.productDescription && !item.itemCode)),
+        isIdle: !hasContent,
         machineMaster
       };
     });

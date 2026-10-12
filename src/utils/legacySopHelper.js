@@ -1084,40 +1084,49 @@ export function buildMorningSopModel(config = {}) {
     ? Number(config.speed)
     : NaN;
   const speed = !isNaN(rawSpeed) && rawSpeed > 0 ? rawSpeed : '';
-  const pipeLength = isCompounding ? 0 : (Number(config.pipeLength) > 0 ? Number(config.pipeLength) : 6.0);
+  const pipeLength = isCompounding ? 0 : (Number(config.pipeLength) > 0 ? Number(config.pipeLength) : (Number(config.cutLength) > 0 ? Number(config.cutLength) : 6.0));
   const rawUnitWeight = config.unitWeight !== undefined && config.unitWeight !== null && config.unitWeight !== ''
     ? Number(config.unitWeight)
     : (config.stdWeight !== undefined && config.stdWeight !== null && config.stdWeight !== '' ? Number(config.stdWeight) : NaN);
   const unitWeight = !isNaN(rawUnitWeight) && rawUnitWeight > 0
     ? rawUnitWeight
-    : (isCompounding ? 25.0 : (resolveStdWeightFromSpecs(config, pipeLength) || ''));
-
-  const isIdle = Boolean(
-    config.isIdle ||
-    (isCompounding
-      ? (!desc && !itemCode && !config.targetRate && !config.targetCapacity)
-      : (!speed && !desc && !itemCode))
-  );
+    : (isCompounding ? 25.0 : (resolveStdWeightFromSpecs(config, pipeLength) || (config.isIdle ? '' : 1.0)));
 
   const configuredNominal = getMachineNominalCapacity(lineId, machineMaster);
   const nominalCapacity = Number(config.nominalCapacity) || configuredNominal || Number(config.capacityKgH) || (isCompounding ? 400 : 200);
+
+  const precomputedStep = config.stepTarget !== undefined && config.stepTarget !== null && config.stepTarget !== ''
+    ? Number(config.stepTarget)
+    : (config.printedHourlyTarget !== undefined && config.printedHourlyTarget !== null && config.printedHourlyTarget !== ''
+        ? Number(config.printedHourlyTarget)
+        : null);
 
   const rawTargetPcsH = config.targetPcsH !== undefined && config.targetPcsH !== null && config.targetPcsH !== ''
     ? Number(config.targetPcsH)
     : (config.inputRealRate !== undefined && config.inputRealRate !== null && config.inputRealRate !== ''
         ? Number(config.inputRealRate)
-        : (config.applyEfficiencyInflation && config.targetRate ? Number(config.targetRate) : null));
+        : (config.calculatedRate !== undefined && config.calculatedRate !== null && config.calculatedRate !== ''
+            ? Number(config.calculatedRate)
+            : (config.rate !== undefined && config.rate !== null && config.rate !== ''
+                ? Number(config.rate)
+                : (config.applyEfficiencyInflation && config.targetRate ? Number(config.targetRate) : null))));
 
   let hourlyStdRate = '';
   let inputRealRate = null;
   let stepTarget = '';
   let finalSpeed = speed;
 
-  if (!isCompounding && rawTargetPcsH !== null && !isNaN(rawTargetPcsH) && rawTargetPcsH > 0) {
+  if (precomputedStep !== null && !isNaN(precomputedStep) && precomputedStep > 0) {
+    stepTarget = Math.round(precomputedStep);
+    hourlyStdRate = stepTarget;
+    if (pipeLength > 0 && (!finalSpeed || finalSpeed <= 0)) {
+      finalSpeed = Math.round(((stepTarget * pipeLength) / 60) * 10) / 10;
+    }
+  } else if (!isCompounding && rawTargetPcsH !== null && !isNaN(rawTargetPcsH) && rawTargetPcsH > 0) {
     inputRealRate = Math.round(Number(rawTargetPcsH));
     stepTarget = Math.round(Number(inputRealRate || 0) / 0.85);
     hourlyStdRate = stepTarget;
-    if (pipeLength > 0) {
+    if (pipeLength > 0 && (!finalSpeed || finalSpeed <= 0)) {
       finalSpeed = Math.round(((stepTarget * pipeLength) / 60) * 10) / 10;
     }
   } else if (config.targetRate !== undefined && config.targetRate !== null && config.targetRate !== '' && Number(config.targetRate) > 0) {
@@ -1129,13 +1138,22 @@ export function buildMorningSopModel(config = {}) {
   } else if (speed && pipeLength) {
     hourlyStdRate = Math.round((speed * 60) / pipeLength);
     stepTarget = hourlyStdRate;
-  } else if (nominalCapacity > 0 && Number(unitWeight) > 0) {
+  } else if (!config.isIdle && nominalCapacity > 0 && Number(unitWeight) > 0) {
     hourlyStdRate = Math.round(nominalCapacity / Number(unitWeight));
     stepTarget = hourlyStdRate;
   } else if (config.targetCapacity) {
     hourlyStdRate = Math.round(Number(config.targetCapacity));
     stepTarget = hourlyStdRate;
   }
+
+  const isIdle = (Boolean(stepTarget > 0 || hourlyStdRate > 0))
+    ? false
+    : Boolean(
+        config.isIdle ||
+        (isCompounding
+          ? (!desc && !itemCode && !config.targetRate && !config.targetCapacity)
+          : (!speed && !desc && !itemCode))
+      );
 
   const calculatedRateKgH = isCompounding
     ? hourlyStdRate
@@ -1222,11 +1240,11 @@ export function buildMorningSopModel(config = {}) {
     nominalCapacity,
     targetCapacity: isCompounding ? hourlyStdRate : nominalCapacity,
     bagPackaging: config.bagPackaging || '25 Kg / Bag',
-    hourlyStdRate,
-    stepTarget,
-    printedHourlyTarget: stepTarget,
+    hourlyStdRate: hourlyStdRate !== '' ? Math.round(Number(hourlyStdRate)) : '',
+    stepTarget: stepTarget !== '' ? Math.round(Number(stepTarget)) : '',
+    printedHourlyTarget: stepTarget !== '' ? Math.round(Number(stepTarget)) : (hourlyStdRate !== '' ? Math.round(Number(hourlyStdRate)) : ''),
     inputRealRate,
-    targetPcsH: inputRealRate ?? (isCompounding ? null : (hourlyStdRate || null)),
+    targetPcsH: inputRealRate ?? (isCompounding ? null : (hourlyStdRate !== '' ? Math.round(Number(hourlyStdRate)) : null)),
     efficiencyBenchmarkPct: (!isCompounding && inputRealRate > 0) ? 85 : null,
     calculatedRateKgH,
     utilizationPct,

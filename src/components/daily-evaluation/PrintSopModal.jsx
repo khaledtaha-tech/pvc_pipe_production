@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Sparkles } from 'lucide-react';
 import { MACHINES, matchMachine, sanitizeMachineMaster } from '../../config/machines.js';
 import {
   formatFullMachineName,
@@ -10,7 +11,8 @@ import {
   calculateBenchmarkSpeedForProduct,
   buildMorningSopModel,
   isCompoundingLineOrProduct,
-  resolveStdWeightFromSpecs
+  resolveStdWeightFromSpecs,
+  getLatestHistoricalRunDetails
 } from '../../logic/legacySopHelper.js';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 
@@ -65,6 +67,7 @@ export default function PrintSopModal({
   const [scope, setScope] = useState('current'); // 'current' | 'all' | 'previousDay'
   const [targetDate, setTargetDate] = useState(() => selectedDate || new Date().toISOString().slice(0, 10));
   const [linesState, setLinesState] = useState([]);
+  const [historicalFeedback, setHistoricalFeedback] = useState({});
 
   // Compute immediate previous calendar day (YYYY-MM-DD)
   const previousDate = useMemo(() => getPreviousDay(targetDate), [targetDate]);
@@ -232,6 +235,12 @@ export default function PrintSopModal({
 
   // Change product code and auto-resolve description, benchmark speed & standard pcs/h
   const handleProductCodeChange = (machineId, newCode) => {
+    setHistoricalFeedback((prev) => {
+      if (!prev[machineId]) return prev;
+      const next = { ...prev };
+      delete next[machineId];
+      return next;
+    });
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
@@ -307,6 +316,12 @@ export default function PrintSopModal({
 
   // Change product description and auto-synchronize item code, benchmark speed & pcs/h
   const handleProductChange = (machineId, newDesc) => {
+    setHistoricalFeedback((prev) => {
+      if (!prev[machineId]) return prev;
+      const next = { ...prev };
+      delete next[machineId];
+      return next;
+    });
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
@@ -514,6 +529,29 @@ export default function PrintSopModal({
     }
   };
 
+  // Lookup latest historical realized pace for line and product
+  const handleFetchHistoricalRate = (machineId, itemCode) => {
+    const details = getLatestHistoricalRunDetails(machineId, itemCode, records, { machineMaster: activeMaster });
+    if (details && Number(details.rate) > 0) {
+      handleRateChange(machineId, details.rate);
+      setHistoricalFeedback((prev) => ({
+        ...prev,
+        [machineId]: {
+          status: 'found',
+          rate: details.rate,
+          date: details.date || ''
+        }
+      }));
+    } else {
+      setHistoricalFeedback((prev) => ({
+        ...prev,
+        [machineId]: {
+          status: 'not_found'
+        }
+      }));
+    }
+  };
+
   // Compile active models for print or PDF export
   const compileModels = () => {
     const targets = scope === 'current'
@@ -533,6 +571,7 @@ export default function PrintSopModal({
         stdWeight: item.unitWeight,
         nominalCapacity: getMachineNominalCapacity(item.machineId, machineMaster) || item.nominalCapacity,
         targetRate: item.calculatedRate,
+        targetPcsH: item.calculatedRate,
         calculatedRateKgH: item.calculatedRateKgH,
         targetCapacity: item.calculatedRate,
         isCompounding: item.isCompounding,
@@ -976,8 +1015,37 @@ export default function PrintSopModal({
                       </div>
                     ) : (
                       <div className="print-sop-params-row">
-                        <div className="print-sop-param">
-                          <label className="print-sop-label">Target (Pcs/h):</label>
+                        <div className="print-sop-param print-sop-param-target">
+                          <div className="print-sop-param-header">
+                            <label className="print-sop-label">Target (Pcs/h):</label>
+                            <button
+                              type="button"
+                              className="print-sop-fetch-btn"
+                              title="Fetch latest realized pace from historical logs"
+                              onClick={() => handleFetchHistoricalRate(line.machineId, line.itemCode)}
+                              disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            >
+                              <Sparkles size={11} className="print-sop-fetch-icon" />
+                              <span>Fetch Historical Rate</span>
+                            </button>
+                          </div>
+
+                          {historicalFeedback[line.machineId] && (
+                            <div className={`print-sop-hist-badge ${historicalFeedback[line.machineId].status === 'found' ? 'print-sop-hist-found' : 'print-sop-hist-missing'}`}>
+                              {historicalFeedback[line.machineId].status === 'found' ? (
+                                <>
+                                  <span className="print-sop-hist-dot" />
+                                  <span>
+                                    Last Realized: {historicalFeedback[line.machineId].rate} pcs/h
+                                    {historicalFeedback[line.machineId].date ? ` (${historicalFeedback[line.machineId].date})` : ''}
+                                  </span>
+                                </>
+                              ) : (
+                                <span>No Historical Run Found</span>
+                              )}
+                            </div>
+                          )}
+
                           <input
                             type="number"
                             step="1"
@@ -989,6 +1057,12 @@ export default function PrintSopModal({
                             onChange={(e) => handleRateChange(line.machineId, e.target.value)}
                             disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
                           />
+
+                          {Number(line.calculatedRate) > 0 && (
+                            <div className="print-sop-target-caption">
+                              Printed target will scale to 85% efficiency target (~{Math.round(Number(line.calculatedRate) / 0.85)} pcs/h on sheet)
+                            </div>
+                          )}
                         </div>
 
                         <div className="print-sop-param">

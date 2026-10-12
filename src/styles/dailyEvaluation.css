@@ -6167,6 +6167,89 @@ html:not(.light) .log-table th {
   width: 100%;
 }
 
+.print-sop-param-target {
+  min-width: 175px;
+}
+
+.print-sop-param-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.print-sop-fetch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  line-height: 1.2;
+}
+
+.print-sop-fetch-btn:hover:not(:disabled) {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-color: #a5b4fc;
+  box-shadow: 0 1px 3px rgba(67, 56, 202, 0.15);
+}
+
+.print-sop-fetch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.print-sop-fetch-icon {
+  color: #6366f1;
+}
+
+.print-sop-hist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-top: 1px;
+  margin-bottom: 2px;
+}
+
+.print-sop-hist-found {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.print-sop-hist-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #22c55e;
+}
+
+.print-sop-hist-missing {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.print-sop-target-caption {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
 .print-sop-calc-summary {
   display: flex;
   flex-direction: row;
@@ -7361,6 +7444,42 @@ html:not(.light) .print-sop-inline-rate-input {
 
 html:not(.light) .print-sop-inline-rate-unit {
   color: #6ee7b7;
+}
+
+html:not(.light) .print-sop-fetch-btn {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  border-color: rgba(165, 180, 252, 0.35);
+}
+
+html:not(.light) .print-sop-fetch-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.28);
+  color: #c7d2fe;
+  border-color: rgba(165, 180, 252, 0.55);
+}
+
+html:not(.light) .print-sop-fetch-icon {
+  color: #818cf8;
+}
+
+html:not(.light) .print-sop-hist-found {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+html:not(.light) .print-sop-hist-dot {
+  background-color: #4ade80;
+}
+
+html:not(.light) .print-sop-hist-missing {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+html:not(.light) .print-sop-target-caption {
+  color: #94a3b8;
 }
 
 /* 2026 Light Mode (.daily-eval-root inside light mode) */

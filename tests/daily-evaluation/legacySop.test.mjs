@@ -20,6 +20,9 @@ import {
   getAvailableProductsCatalog,
   calculateBenchmarkSpeedForProduct,
   buildMorningSopModel,
+  generateBlankMorningSop,
+  getLatestHistoricalRealRate,
+  getLatestHistoricalRunDetails,
   buildUniversalBlankSopModel,
   resolveProductSpecification,
   isCompoundingLineOrProduct,
@@ -685,6 +688,127 @@ assert.equal(specsWithWeight.unitWeight, 3.80);
 assert.equal(specsWithWeight.stdWeight, 3.80);
 
 console.log('Standard Pipe Weight Resolution & Dynamic Recalculation: OK');
+
+// 23. Historical Realized Rate Lookup Engine
+const sampleHistoricalRuns = [
+  {
+    machineId: 'L-01',
+    itemCode: '930',
+    date: '2026-09-10',
+    actualRatePcsH: 75.0,
+    operatingHours: 20.0,
+    actualPcs: 1500
+  },
+  {
+    machineId: 'L-01',
+    itemCode: '930',
+    date: '2026-09-18',
+    actualRatePcsH: 85.0,
+    operatingHours: 22.0,
+    actualPcs: 1870
+  },
+  {
+    machineId: 'L-02',
+    itemCode: '249',
+    date: '2026-09-15',
+    actualRatePcsH: 45.0,
+    operatingHours: 18.0,
+    actualPcs: 810
+  },
+  {
+    machineId: 'L-03',
+    itemCode: '255',
+    date: '2026-09-12',
+    items: [
+      {
+        itemCode: '255',
+        actualRatePcsH: 110.0,
+        actualPcs: 1100,
+        operatingHours: 10.0
+      }
+    ]
+  }
+];
+
+// a. Returns achieved rate and prioritizes most recent run
+const latestRateL01 = getLatestHistoricalRealRate('L-01', '930', sampleHistoricalRuns, { skipStore: true });
+assert.equal(latestRateL01, 85.0);
+
+// b. Detailed lookup returns rate, date, and record
+const latestDetailsL01 = getLatestHistoricalRunDetails('L-01', '930', sampleHistoricalRuns, { skipStore: true });
+assert.equal(latestDetailsL01.rate, 85.0);
+assert.equal(latestDetailsL01.date, '2026-09-18');
+assert.equal(latestDetailsL01.record.actualRatePcsH, 85.0);
+
+// c. Multi-item sub-array extraction
+const subItemRate = getLatestHistoricalRealRate('L-03', '255', sampleHistoricalRuns, { skipStore: true });
+assert.equal(subItemRate, 110.0);
+
+// d. Canonical machine matching (e.g. line name or sub-run ID)
+const canonRate = getLatestHistoricalRealRate('L-01 - KTS 350 TDH', '930', sampleHistoricalRuns, { skipStore: true });
+assert.equal(canonRate, 85.0);
+
+// e. Returns null for unknown product code or machine with no match
+assert.equal(getLatestHistoricalRealRate('L-01', 'NONEXISTENT_ITEM', sampleHistoricalRuns, { skipStore: true }), null);
+assert.equal(getLatestHistoricalRealRate('L-99', '930', sampleHistoricalRuns, { skipStore: true }), null);
+console.log('Historical Realized Rate Lookup Engine: OK');
+
+// 24. 85% Target Inflation Benchmark on Morning Blank SOP (DOC-Ext.-03)
+const inflatedMorningSop = buildMorningSopModel({
+  lineId: 'L-01',
+  targetPcsH: 85,
+  pipeLength: 6.0,
+  date: '2026-09-20',
+  productDescription: 'HDPE 20 MM Code 930'
+});
+
+assert.equal(inflatedMorningSop.inputRealRate, 85);
+assert.equal(inflatedMorningSop.stepTarget, 100); // Math.round(85 / 0.85) = 100
+assert.equal(inflatedMorningSop.hourlyStdRate, 100);
+assert.equal(inflatedMorningSop.printedHourlyTarget, 100);
+assert.equal(inflatedMorningSop.efficiencyBenchmarkPct, 85);
+assert.equal(inflatedMorningSop.speed, 10.0); // (100 * 6.0) / 60 = 10.0 m/min
+
+// Verify cumulative 24 hourly slots reflect stepTarget = 100
+assert.equal(inflatedMorningSop.shift1Rows.length, 12);
+assert.equal(inflatedMorningSop.shift2Rows.length, 12);
+inflatedMorningSop.shift1Rows.forEach((r, idx) => {
+  assert.equal(r.stdPcs, 100 * (idx + 1));
+});
+inflatedMorningSop.shift2Rows.forEach((r, idx) => {
+  assert.equal(r.stdPcs, 100 * (idx + 13));
+});
+assert.equal(inflatedMorningSop.shift1Rows[0].stdPcs, 100);
+assert.equal(inflatedMorningSop.shift1Rows[11].stdPcs, 1200);
+assert.equal(inflatedMorningSop.shift2Rows[0].stdPcs, 1300);
+assert.equal(inflatedMorningSop.shift2Rows[11].stdPcs, 2400);
+console.log('85% Target Inflation Benchmark on Morning Blank SOP: OK');
+
+// 25. Canonical Alias generateBlankMorningSop Verification
+const aliasSop = generateBlankMorningSop({
+  lineId: 'L-01',
+  targetPcsH: 85,
+  pipeLength: 6.0,
+  date: '2026-09-20'
+});
+assert.equal(aliasSop.stepTarget, 100);
+assert.equal(aliasSop.hourlyStdRate, 100);
+assert.equal(aliasSop.speed, 10.0);
+assert.equal(aliasSop.docCode, 'DOC-Ext.-03');
+console.log('Canonical Alias generateBlankMorningSop: OK');
+
+// 26. Compounding Line Non-Inflation Guard
+const compoundSop = buildMorningSopModel({
+  lineId: 'L-08',
+  targetPcsH: 400,
+  isCompounding: true,
+  nominalCapacity: 400,
+  date: '2026-09-20'
+});
+assert.equal(compoundSop.isCompounding, true);
+assert.equal(compoundSop.hourlyStdRate, 400); // Not inflated by 0.85
+assert.equal(compoundSop.efficiencyBenchmarkPct, null);
+console.log('Compounding Line Non-Inflation Guard: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

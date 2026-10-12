@@ -3,6 +3,8 @@ export { MACHINES, matchMachine, sanitizeMachineMaster };
 import { parseProductSpecs } from './excelParser.js';
 import { getMachineNominalCapacity } from './machineSettingsConfig.js';
 export { getMachineNominalCapacity };
+import { getLatestHistoricalRealRate, getLatestHistoricalRunDetails } from './historicalLogHelper.js';
+export { getLatestHistoricalRealRate, getLatestHistoricalRunDetails };
 
 /**
  * Helper logic for Legacy Plant SOP (DOC-Ext.-03: PRODUCTION PIECES / Production follow)
@@ -1100,24 +1102,48 @@ export function buildMorningSopModel(config = {}) {
   const configuredNominal = getMachineNominalCapacity(lineId, machineMaster);
   const nominalCapacity = Number(config.nominalCapacity) || configuredNominal || Number(config.capacityKgH) || (isCompounding ? 400 : 200);
 
+  const rawTargetPcsH = config.targetPcsH !== undefined && config.targetPcsH !== null && config.targetPcsH !== ''
+    ? Number(config.targetPcsH)
+    : (config.inputRealRate !== undefined && config.inputRealRate !== null && config.inputRealRate !== ''
+        ? Number(config.inputRealRate)
+        : (config.applyEfficiencyInflation && config.targetRate ? Number(config.targetRate) : null));
+
   let hourlyStdRate = '';
-  if (config.targetRate !== undefined && config.targetRate !== null && config.targetRate !== '' && Number(config.targetRate) > 0) {
+  let inputRealRate = null;
+  let stepTarget = '';
+  let finalSpeed = speed;
+
+  if (!isCompounding && rawTargetPcsH !== null && !isNaN(rawTargetPcsH) && rawTargetPcsH > 0) {
+    inputRealRate = rawTargetPcsH;
+    stepTarget = Math.round(inputRealRate / 0.85);
+    hourlyStdRate = stepTarget;
+    if (pipeLength > 0) {
+      finalSpeed = Math.round(((stepTarget * pipeLength) / 60) * 10) / 10;
+    }
+  } else if (config.targetRate !== undefined && config.targetRate !== null && config.targetRate !== '' && Number(config.targetRate) > 0) {
     hourlyStdRate = Number(config.targetRate);
+    stepTarget = hourlyStdRate;
   } else if (isCompounding) {
     hourlyStdRate = Number(config.targetCapacity) || nominalCapacity || 400;
+    stepTarget = hourlyStdRate;
   } else if (speed && pipeLength) {
     hourlyStdRate = Math.round((speed * 60) / pipeLength);
+    stepTarget = hourlyStdRate;
   } else if (nominalCapacity > 0 && Number(unitWeight) > 0) {
     hourlyStdRate = Math.round(nominalCapacity / Number(unitWeight));
+    stepTarget = hourlyStdRate;
   } else if (config.targetCapacity) {
     hourlyStdRate = Number(config.targetCapacity);
+    stepTarget = hourlyStdRate;
   }
 
   const calculatedRateKgH = isCompounding
     ? hourlyStdRate
-    : (config.calculatedRateKgH !== undefined && config.calculatedRateKgH !== null && config.calculatedRateKgH !== ''
-        ? Number(config.calculatedRateKgH)
-        : ((hourlyStdRate && unitWeight) ? Math.round(hourlyStdRate * unitWeight) : ''));
+    : ((hourlyStdRate && unitWeight)
+        ? Math.round(hourlyStdRate * unitWeight)
+        : (config.calculatedRateKgH !== undefined && config.calculatedRateKgH !== null && config.calculatedRateKgH !== ''
+            ? Number(config.calculatedRateKgH)
+            : ''));
 
   const utilizationPct = (calculatedRateKgH && nominalCapacity > 0)
     ? Math.round((calculatedRateKgH / nominalCapacity) * 100)
@@ -1186,9 +1212,9 @@ export function buildMorningSopModel(config = {}) {
     displayProduct,
     ref1Spec: desc,
     ref2Spec: '',
-    speed1: speed,
-    speed2: speed,
-    speed: speed,
+    speed1: finalSpeed,
+    speed2: finalSpeed,
+    speed: finalSpeed,
     pipeLength,
     unitWeight,
     stdWeight: unitWeight,
@@ -1197,6 +1223,11 @@ export function buildMorningSopModel(config = {}) {
     targetCapacity: isCompounding ? hourlyStdRate : nominalCapacity,
     bagPackaging: config.bagPackaging || '25 Kg / Bag',
     hourlyStdRate,
+    stepTarget,
+    printedHourlyTarget: stepTarget,
+    inputRealRate,
+    targetPcsH: inputRealRate ?? (isCompounding ? null : (hourlyStdRate || null)),
+    efficiencyBenchmarkPct: (!isCompounding && inputRealRate > 0) ? 85 : null,
     calculatedRateKgH,
     utilizationPct,
     isCumulative,
@@ -1224,6 +1255,13 @@ export function buildMorningSopModel(config = {}) {
     isBlank: true,
     isMorningSop: true
   };
+}
+
+/**
+ * Canonical alias for buildMorningSopModel (Morning Blank SOP DOC-Ext.-03)
+ */
+export function generateBlankMorningSop(lineConfig = {}) {
+  return buildMorningSopModel(lineConfig);
 }
 
 /**

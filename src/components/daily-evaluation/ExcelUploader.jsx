@@ -115,13 +115,16 @@ export default function ExcelUploader({
           rows: res.rows,
           machineMaster: res.machineMaster,
           fileName: name,
-          sheetName: res.sheetName
+          sheetName: res.sheetName,
+          latestLoggedDate: res.latestLoggedDate || null,
+          latestDateLines: res.latestDateLines || [],
+          latestDateLineMap: res.latestDateLineMap || {}
         });
       }
 
       if (res.rows.length > 0) {
-        const firstD = res.rows[0].date;
-        if (firstD) setSelectedDate(firstD);
+        const targetD = res.latestLoggedDate || res.rows[0].date;
+        if (targetD) setSelectedDate(targetD);
         onNotify(
           `Parsed ${res.rows.length} logs from "${res.sheetName}" & ${res.machineMaster?.length || 9} lines from Machine_Master`
         );

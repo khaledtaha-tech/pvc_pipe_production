@@ -15,6 +15,10 @@ import {
   getLatestHistoricalRunDetails
 } from '../../logic/legacySopHelper.js';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
+import {
+  loadLatestExcelLoggedRun,
+  getNextDay
+} from '../../logic/excelLogParser.js';
 
 const SOP_CONFIG_STORAGE_KEY = 'sop_operational_config';
 
@@ -43,7 +47,7 @@ function savePersistedSopConfig(configByMachineId) {
 /**
  * Intelligent Morning Blank SOP (DOC-Ext.-03) Print & Export Configuration Modal
  * Features:
- * - Scope selection: Current Line vs. All Operating Lines vs. Previous Day Active Lines
+ * - Scope selection: All Operating Lines vs. Previous Day Active Lines
  * - Target Date selection with auto-lookup of previous operational run
  * - Strict Previous Day inheritance for immediate preceding operating lines
  * - Auto-inheritance of Line No, Product Specs, Speed, Cut Length & Benchmark Pcs/h
@@ -55,6 +59,8 @@ export default function PrintSopModal({
   onClose,
   records = [],
   selectedDate = '',
+  latestLoggedDate = null,
+  latestDateLines = [],
   currentMachineId = 'L-01',
   machineMaster = MACHINES,
   onConfirmPrint,
@@ -64,8 +70,15 @@ export default function PrintSopModal({
   lang = 'en'
 }) {
   const isAr = lang === 'ar';
-  const [scope, setScope] = useState('current'); // 'current' | 'all' | 'previousDay'
-  const [targetDate, setTargetDate] = useState(() => selectedDate || new Date().toISOString().slice(0, 10));
+  const [scope, setScope] = useState('all'); // 'all' | 'previousDay'
+  const [targetDate, setTargetDate] = useState(() => {
+    const cached = loadLatestExcelLoggedRun();
+    const lDate = latestLoggedDate || cached?.latestDate;
+    if (lDate) {
+      return getNextDay(lDate);
+    }
+    return selectedDate || new Date().toISOString().slice(0, 10);
+  });
   const [linesState, setLinesState] = useState([]);
   const [historicalFeedback, setHistoricalFeedback] = useState({});
 
@@ -77,11 +90,51 @@ export default function PrintSopModal({
     return sanitizeMachineMaster(machineMaster);
   }, [machineMaster]);
 
+  // Consolidated operational run data from latest uploaded Excel log
+  const effectiveLatestRun = useMemo(() => {
+    if (Array.isArray(latestDateLines) && latestDateLines.length > 0) {
+      const lineMap = {};
+      latestDateLines.forEach((l) => {
+        if (l.lineId) lineMap[l.lineId] = l;
+      });
+      return {
+        latestDate: latestLoggedDate || latestDateLines[0]?.date || null,
+        lines: latestDateLines,
+        lineMap
+      };
+    }
+    const cached = loadLatestExcelLoggedRun();
+    if (cached && Array.isArray(cached.lines) && cached.lines.length > 0) {
+      const lineMap = {};
+      cached.lines.forEach((l) => {
+        if (l.lineId) lineMap[l.lineId] = l;
+      });
+      return {
+        latestDate: cached.latestDate || null,
+        lines: cached.lines,
+        lineMap
+      };
+    }
+    return {
+      latestDate: latestLoggedDate || null,
+      lines: [],
+      lineMap: {}
+    };
+  }, [latestLoggedDate, latestDateLines]);
+
   // Count of machines strictly running on immediate previous day
   const prevDayActiveCount = useMemo(() => {
+    if (effectiveLatestRun?.latestDate && (previousDate === effectiveLatestRun.latestDate || !previousDate)) {
+      if (effectiveLatestRun.lines.length > 0) {
+        return activeMaster.filter((m) => {
+          const l = effectiveLatestRun.lineMap[m?.id];
+          return Boolean(l && (l.isOperating || l.itemCode || l.actualRatePcsH > 0));
+        }).length;
+      }
+    }
     if (!previousDate) return 0;
     return activeMaster.filter((m) => Boolean(findExactDayRunForMachine(records, m?.id, previousDate))).length;
-  }, [activeMaster, records, previousDate]);
+  }, [activeMaster, records, previousDate, effectiveLatestRun]);
 
   // Catalog of distinct products from history and factory standards
   const productCatalog = useMemo(() => {
@@ -107,63 +160,107 @@ export default function PrintSopModal({
     }
   }, []);
 
-  // Synchronize target date when modal opens or selectedDate changes
+  // Synchronize target date when modal opens, selectedDate changes, or latestLoggedDate updates
   useEffect(() => {
     if (isOpen) {
-      if (selectedDate) {
+      const lDate = effectiveLatestRun?.latestDate;
+      if (lDate) {
+        if (selectedDate && selectedDate !== lDate) {
+          setTargetDate(selectedDate);
+        } else {
+          setTargetDate(getNextDay(lDate));
+        }
+      } else if (selectedDate) {
         setTargetDate(selectedDate);
       }
     }
-  }, [isOpen, selectedDate]);
+  }, [isOpen, selectedDate, effectiveLatestRun?.latestDate]);
 
   // Build line configuration list when modal opens, targetDate changes, scope changes, or records change
   useEffect(() => {
     if (!isOpen) return;
 
     const list = activeMaster.map((m) => {
-      let prevRun = null;
-      let isSelected = false;
+      const lineId = m?.id;
+      const excelLine = effectiveLatestRun?.lineMap?.[lineId];
+      const hasExcelRun = Boolean(
+        excelLine && (excelLine.isOperating || excelLine.itemCode || excelLine.actualRatePcsH > 0)
+      );
 
-      if (scope === 'previousDay') {
-        // Strict previous day: only look for runs on exact previousDate
-        prevRun = findExactDayRunForMachine(records, m?.id, previousDate);
-        isSelected = Boolean(prevRun);
-      } else if (scope === 'all') {
-        // All registered extruder lines
-        prevRun = findPreviousRunForMachine(records, m?.id, targetDate);
-        isSelected = true;
-      } else {
-        // Current line only
-        prevRun = findPreviousRunForMachine(records, m?.id, targetDate);
-        isSelected = m?.id === currentMachineId;
-      }
+      // Search exact previous date run from loaded records
+      const exactPrevRun = previousDate ? findExactDayRunForMachine(records, lineId, previousDate) : null;
+      const hadRunOnPrevious = Boolean(exactPrevRun);
 
-      const specs = extractMachineSpecsFromRun(prevRun, m?.id, activeMaster);
-      const isCurrent = m?.id === currentMachineId;
-      const hadRun = Boolean(prevRun);
+      // Fallback past run for machine
+      const pastRun = findPreviousRunForMachine(records, lineId, targetDate);
+      const prevRun = exactPrevRun || pastRun;
+
+      const specs = extractMachineSpecsFromRun(prevRun, lineId, activeMaster);
       const isComp = Boolean(
+        excelLine?.isCompounding ||
         specs?.isCompounding ||
         isCompoundingLineOrProduct({
-          lineId: m?.id,
-          fullMachineName: specs?.fullMachineName || m?.name || m?.id,
-          itemCode: specs?.itemCode,
-          productDescription: specs?.productDescription
+          lineId,
+          fullMachineName: excelLine?.fullMachineName || specs?.fullMachineName || m?.name || lineId,
+          itemCode: excelLine?.itemCode || specs?.itemCode,
+          productDescription: excelLine?.description || specs?.productDescription
         }, activeMaster)
       );
-      const configuredCap = getMachineNominalCapacity(m?.id, activeMaster);
+
+      const configuredCap = getMachineNominalCapacity(lineId, activeMaster);
       const nominalCapacity = configuredCap > 0
         ? configuredCap
-        : (Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || (isComp ? 400 : 200));
+        : (Number(excelLine?.nominalCapacityKgH) || Number(prevRun?.nominalCapacityKgH) || Number(m?.nominalCapacity) || Number(m?.capacityKgH) || Number(specs?.nominalCapacity) || (isComp ? 400 : 200));
 
       const persistedConfig = loadPersistedSopConfig();
-      const savedForMachine = persistedConfig[m?.id];
+      const savedForMachine = persistedConfig[lineId];
 
-      // Resolve standard unit weight: prefer persisted override if present, else specs, else catalog/fallback
+      const hadRun = hasExcelRun || hadRunOnPrevious || Boolean(prevRun);
+      const hadRunOnLatest = hasExcelRun || hadRunOnPrevious;
+
+      let isSelected = false;
+      if (effectiveLatestRun?.lines?.length > 0) {
+        if (scope === 'previousDay') {
+          isSelected = hadRunOnLatest;
+        } else {
+          // In 'all' lines mode, pre-check lines active on latest date, uncheck stopped lines
+          isSelected = hadRunOnLatest;
+        }
+      } else {
+        if (scope === 'previousDay') {
+          isSelected = hadRunOnPrevious;
+        } else {
+          isSelected = hadRun;
+        }
+      }
+
+      // Pre-populate Item Code: prioritize latest Excel record (Col B), then saved, then specs
+      const itemCode = (excelLine?.itemCode !== undefined && excelLine?.itemCode !== '')
+        ? excelLine.itemCode
+        : (savedForMachine?.itemCode || specs?.itemCode || '');
+
+      // Pre-populate Product Description: prioritize latest Excel record (Col C), then specs
+      const productDescription = (excelLine?.description !== undefined && excelLine?.description !== '')
+        ? excelLine.description
+        : (excelLine?.productDescription || specs?.productDescription || '');
+
+      // Cut Length: default 6.0m for extrusion, 0 for compounding
+      const pipeLength = isComp
+        ? 0
+        : (Number(excelLine?.pipeLength) > 0
+            ? Number(excelLine.pipeLength)
+            : (Number(savedForMachine?.pipeLength) > 0
+                ? Number(savedForMachine.pipeLength)
+                : (Number(specs?.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0)));
+
+      // Std Weight (unit weight)
       let unitWeight = '';
       if (isComp) {
         unitWeight = 25.0;
       } else if (savedForMachine && Number(savedForMachine.unitWeight) > 0) {
         unitWeight = Number(savedForMachine.unitWeight);
+      } else if (excelLine && Number(excelLine.unitWeight) > 0) {
+        unitWeight = Number(excelLine.unitWeight);
       } else if (Number(specs?.unitWeight) > 0) {
         unitWeight = Number(specs.unitWeight);
       } else if (Number(specs?.stdWeight) > 0) {
@@ -172,36 +269,63 @@ export default function PrintSopModal({
         unitWeight = hadRun ? 1.0 : '';
       }
 
-      const calculatedRate = specs?.calculatedRate !== undefined && specs?.calculatedRate !== null
-        ? specs.calculatedRate
-        : (isComp ? nominalCapacity : '');
-      const calculatedRateKgH = specs?.calculatedRateKgH !== undefined && specs?.calculatedRateKgH !== ''
-        ? specs.calculatedRateKgH
-        : (isComp ? calculatedRate : (unitWeight && calculatedRate ? Math.round(Number(calculatedRate) * Number(unitWeight)) : ''));
+      // Calculated rate (Target pcs/h for extrusion, kg/h for compounding)
+      let calculatedRate = '';
+      if (isComp) {
+        calculatedRate = nominalCapacity;
+      } else if (savedForMachine && Number(savedForMachine.calculatedRate) > 0) {
+        calculatedRate = Number(savedForMachine.calculatedRate);
+      } else if (excelLine && Number(excelLine.actualRatePcsH) > 0) {
+        calculatedRate = Number(excelLine.actualRatePcsH);
+      } else if (excelLine && Number(excelLine.targetPcsH) > 0) {
+        calculatedRate = Number(excelLine.targetPcsH);
+      } else if (specs?.calculatedRate !== undefined && specs?.calculatedRate !== null && specs?.calculatedRate !== '') {
+        calculatedRate = specs.calculatedRate;
+      }
+
+      // Linear Speed (m/min)
+      let speed = '';
+      if (isComp) {
+        speed = '';
+      } else if (savedForMachine && Number(savedForMachine.speed) > 0) {
+        speed = Number(savedForMachine.speed);
+      } else if (Number(specs?.speed) > 0) {
+        speed = Number(specs.speed);
+      } else if (calculatedRate > 0 && pipeLength > 0) {
+        speed = Math.round(((calculatedRate * pipeLength) / 60) * 10) / 10;
+      }
+
+      // Output Rate in Kg/h
+      const calculatedRateKgH = isComp
+        ? (Number(calculatedRate) || nominalCapacity)
+        : (calculatedRate && unitWeight ? Math.round(Number(calculatedRate) * Number(unitWeight) * 10) / 10 : '');
+
+      const previousRunDate = excelLine?.date || (hadRunOnPrevious ? previousDate : specs?.previousRunDate) || null;
 
       return {
-        machineId: m?.id || '',
+        machineId: lineId,
         machineName: m?.name || '',
-        fullMachineName: specs?.fullMachineName || m?.name || m?.id || '',
+        fullMachineName: excelLine?.fullMachineName || specs?.fullMachineName || m?.name || lineId,
         isSelected,
-        previousRunDate: specs?.previousRunDate || null,
-        productDescription: specs?.productDescription || '',
-        itemCode: specs?.itemCode || '',
+        previousRunDate,
+        hadRunOnLatest,
+        productDescription,
+        itemCode,
         od: specs?.od || '',
         wt: specs?.wt || '',
-        speed: specs?.speed !== undefined && specs?.speed !== null ? specs.speed : '',
-        pipeLength: isComp ? 0 : (specs?.pipeLength || 6.0),
+        speed,
+        pipeLength,
         calculatedRate,
         unitWeight,
         nominalCapacity,
         calculatedRateKgH,
         isCompounding: isComp,
-        isIdle: Boolean(specs?.isIdle || (!isComp && !hadRun))
+        isIdle: Boolean(!isComp && !hasExcelRun && !hadRunOnPrevious && (!specs || specs.isIdle))
       };
     });
 
     setLinesState(list);
-  }, [isOpen, targetDate, activeMaster, records, currentMachineId, scope, previousDate, settingsVersion]);
+  }, [isOpen, targetDate, activeMaster, records, scope, previousDate, settingsVersion, effectiveLatestRun]);
 
   // Handle ESC key to dismiss modal
   useEffect(() => {
@@ -229,7 +353,16 @@ export default function PrintSopModal({
   // Toggle select all lines
   const handleSelectAll = (select) => {
     setLinesState((prev) =>
-      prev.map((item) => ({ ...item, isSelected: select }))
+      prev.map((item) => {
+        if (scope === 'previousDay') {
+          const isPrevActive = Boolean(item.hadRunOnLatest || item.previousRunDate === previousDate);
+          if (isPrevActive) {
+            return { ...item, isSelected: select };
+          }
+          return item;
+        }
+        return { ...item, isSelected: select };
+      })
     );
   };
 
@@ -554,9 +687,7 @@ export default function PrintSopModal({
 
   // Compile active models for print or PDF export
   const compileModels = () => {
-    const targets = scope === 'current'
-      ? linesState.filter((l) => l.machineId === currentMachineId)
-      : linesState.filter((l) => l.isSelected);
+    const targets = linesState.filter((l) => l.isSelected);
 
     return targets.map((item) =>
       buildMorningSopModel({
@@ -616,9 +747,7 @@ export default function PrintSopModal({
     }
   };
 
-  const activeLines = scope === 'current'
-    ? linesState.filter((l) => l.machineId === currentMachineId)
-    : linesState.filter((l) => l.isSelected);
+  const activeLines = linesState.filter((l) => l.isSelected);
 
   const selectedCount = activeLines.length;
 
@@ -672,15 +801,6 @@ export default function PrintSopModal({
         <div className="export-scope-tabs">
           <button
             type="button"
-            className={`export-scope-tab ${scope === 'current' ? 'active' : ''}`}
-            onClick={() => setScope('current')}
-            disabled={isGenerating}
-          >
-            <span className="export-scope-tab-title">Current Line</span>
-            <span className="export-scope-tab-badge">{currentMachineId}</span>
-          </button>
-          <button
-            type="button"
             className={`export-scope-tab ${scope === 'all' ? 'active' : ''}`}
             onClick={() => setScope('all')}
             disabled={isGenerating}
@@ -698,7 +818,7 @@ export default function PrintSopModal({
           >
             <span className="export-scope-tab-title">Previous Day Active Lines</span>
             <span className="export-scope-tab-badge">
-              {prevDayActiveCount} Active ({previousDate || 'N/A'})
+              {prevDayActiveCount} Active ({previousDate || effectiveLatestRun?.latestDate || 'N/A'})
             </span>
           </button>
         </div>
@@ -719,37 +839,35 @@ export default function PrintSopModal({
             <span className="export-target-lbl">Inheritance Source:</span>
             <span className="export-target-val">
               {scope === 'previousDay'
-                ? `Strict Previous Day (${previousDate || 'N/A'})`
+                ? `Strict Previous Day (${previousDate || effectiveLatestRun?.latestDate || 'N/A'})`
                 : 'Latest Logged Operational Run'}
             </span>
           </div>
-          {scope !== 'current' ? (
-            <div className="print-sop-batch-actions">
-              <button
-                type="button"
-                className="btn-link-action"
-                onClick={() => handleSelectAll(true)}
-                disabled={isGenerating}
-              >
-                Select All
-              </button>
-              <span className="sep">|</span>
-              <button
-                type="button"
-                className="btn-link-action"
-                onClick={() => handleSelectAll(false)}
-                disabled={isGenerating}
-              >
-                Deselect All
-              </button>
-            </div>
-          ) : null}
+          <div className="print-sop-batch-actions">
+            <button
+              type="button"
+              className="btn-link-action"
+              onClick={() => handleSelectAll(true)}
+              disabled={isGenerating}
+            >
+              Select All
+            </button>
+            <span className="sep">|</span>
+            <button
+              type="button"
+              className="btn-link-action"
+              onClick={() => handleSelectAll(false)}
+              disabled={isGenerating}
+            >
+              Deselect All
+            </button>
+          </div>
         </div>
 
         {/* Machine Specifications List */}
         <div className="print-sop-list-container">
           {linesState
-            .filter((l) => (scope === 'current' ? l.machineId === currentMachineId : true))
+            .filter((l) => (scope === 'previousDay' ? (l.hadRunOnLatest || l.previousRunDate === previousDate || l.isSelected) : true))
             .map((line) => {
               const isLineComp = Boolean(
                 line.isCompounding ||
@@ -785,19 +903,17 @@ export default function PrintSopModal({
               return (
                 <div
                   key={line.machineId}
-                  className={`print-sop-line-card${line.isSelected || scope === 'current' ? ' active' : ' disabled'}`}
+                  className={`print-sop-line-card${line.isSelected ? ' active' : ' disabled'}`}
                 >
                   <div className="print-sop-line-header">
                     <div className="print-sop-line-title-row">
-                      {scope !== 'current' && (
-                        <input
-                          type="checkbox"
-                          className="print-sop-checkbox"
-                          checked={line.isSelected}
-                          onChange={() => handleToggleSelect(line.machineId)}
-                          disabled={isGenerating}
-                        />
-                      )}
+                      <input
+                        type="checkbox"
+                        className="print-sop-checkbox"
+                        checked={line.isSelected}
+                        onChange={() => handleToggleSelect(line.machineId)}
+                        disabled={isGenerating}
+                      />
                       <span className="print-sop-line-name">{line.fullMachineName}</span>
                     </div>
 
@@ -823,7 +939,7 @@ export default function PrintSopModal({
                               value={line.calculatedRate !== undefined && line.calculatedRate !== null ? line.calculatedRate : ''}
                               placeholder="0"
                               onChange={(e) => handleCapacityChange(line.machineId, e.target.value)}
-                              disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                              disabled={isGenerating || !line.isSelected}
                             />
                             <span className="print-sop-inline-rate-unit">Kg / hr</span>
                           </div>
@@ -849,7 +965,7 @@ export default function PrintSopModal({
                                 className="print-sop-inline-rate-input"
                                 value={line.calculatedRate}
                                 onChange={(e) => handleRateChange(line.machineId, e.target.value)}
-                                disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                                disabled={isGenerating || !line.isSelected}
                               />
                               <span className="print-sop-inline-rate-unit">Pcs / hr</span>
                             </div>
@@ -875,7 +991,7 @@ export default function PrintSopModal({
                                 value=""
                                 placeholder="--"
                                 onChange={(e) => handleRateChange(line.machineId, e.target.value)}
-                                disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                                disabled={isGenerating || !line.isSelected}
                               />
                               <span className="print-sop-inline-rate-unit">Pcs / hr</span>
                             </div>
@@ -903,7 +1019,7 @@ export default function PrintSopModal({
                           className="print-sop-select print-sop-code-select"
                           value={line.itemCode || ''}
                           onChange={(e) => handleProductCodeChange(line.machineId, e.target.value)}
-                          disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                          disabled={isGenerating || !line.isSelected}
                         >
                           <option value="">-- No Product (Blank Sheet) --</option>
                           {line.itemCode && !distinctCodes.some((c) => c === line.itemCode) && (
@@ -931,7 +1047,7 @@ export default function PrintSopModal({
                           className="print-sop-select"
                           value={line.productDescription || ''}
                           onChange={(e) => handleProductChange(line.machineId, e.target.value)}
-                          disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                          disabled={isGenerating || !line.isSelected}
                         >
                           <option value="">-- Manual Pen Entry (Blank) --</option>
                           {/* Ensure currently selected product is represented */}
@@ -963,7 +1079,7 @@ export default function PrintSopModal({
                             value={line.calculatedRate !== undefined && line.calculatedRate !== null ? line.calculatedRate : ''}
                             placeholder="Target (Kg/h)"
                             onChange={(e) => handleCapacityChange(line.machineId, e.target.value)}
-                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            disabled={isGenerating || !line.isSelected}
                           />
                         </div>
 
@@ -1023,7 +1139,7 @@ export default function PrintSopModal({
                               className="print-sop-fetch-btn"
                               title="Fetch latest realized pace from historical logs"
                               onClick={() => handleFetchHistoricalRate(line.machineId, line.itemCode)}
-                              disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                              disabled={isGenerating || !line.isSelected}
                             >
                               <Sparkles size={11} className="print-sop-fetch-icon" />
                               <span>Fetch Historical Rate</span>
@@ -1055,7 +1171,7 @@ export default function PrintSopModal({
                             value={line.calculatedRate !== undefined && line.calculatedRate !== null ? line.calculatedRate : ''}
                             placeholder="Target (Pcs/h)"
                             onChange={(e) => handleRateChange(line.machineId, e.target.value)}
-                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            disabled={isGenerating || !line.isSelected}
                           />
 
                           {Number(line.calculatedRate) > 0 && (
@@ -1076,7 +1192,7 @@ export default function PrintSopModal({
                             value={line.speed !== undefined && line.speed !== null ? line.speed : ''}
                             placeholder="Manual (Blank)"
                             onChange={(e) => handleSpeedChange(line.machineId, e.target.value)}
-                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            disabled={isGenerating || !line.isSelected}
                           />
                         </div>
 
@@ -1090,7 +1206,7 @@ export default function PrintSopModal({
                             className="print-sop-input"
                             value={line.pipeLength}
                             onChange={(e) => handlePipeLengthChange(line.machineId, e.target.value)}
-                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            disabled={isGenerating || !line.isSelected}
                           />
                         </div>
 
@@ -1105,7 +1221,7 @@ export default function PrintSopModal({
                             value={line.unitWeight !== undefined && line.unitWeight !== null ? line.unitWeight : ''}
                             placeholder="kg/pipe"
                             onChange={(e) => handleUnitWeightChange(line.machineId, e.target.value)}
-                            disabled={isGenerating || (scope !== 'current' && !line.isSelected)}
+                            disabled={isGenerating || !line.isSelected}
                           />
                         </div>
 

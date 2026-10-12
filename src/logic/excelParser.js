@@ -3,6 +3,24 @@ import { MACHINES, matchMachine, normalizeLineId, sanitizeMachineMaster, PLANT_N
 import { getMachineNominalCapacity } from './machineSettingsConfig.js';
 export { normalizeLineId, sanitizeMachineMaster, getMachineNominalCapacity };
 import {
+  findLatestProductionDate,
+  extractLatestDateOperationalLines,
+  saveLatestExcelLoggedRun,
+  loadLatestExcelLoggedRun,
+  normalizeMachineLine,
+  getNextDay,
+  getPreviousDay
+} from './excelLogParser.js';
+export {
+  findLatestProductionDate,
+  extractLatestDateOperationalLines,
+  saveLatestExcelLoggedRun,
+  loadLatestExcelLoggedRun,
+  normalizeMachineLine,
+  getNextDay,
+  getPreviousDay
+};
+import {
   makeRefSpec,
   generateReport,
   round1,
@@ -583,11 +601,20 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
   // Consolidate multi-item records for the same machine on the same date into single 24-hour machine records
   const consolidated = consolidateDailyMachineRecords(parsed, dynamicMaster);
 
+  // Extract latest date operational line mappings
+  const latestExcelData = extractLatestDateOperationalLines(parsed, null, dynamicMaster);
+  if (latestExcelData && latestExcelData.latestDate) {
+    saveLatestExcelLoggedRun(latestExcelData);
+  }
+
   return {
     sheetName: targetSheetName,
     machineMaster: dynamicMaster,
     rawRows: parsed,
-    rows: consolidated
+    rows: consolidated,
+    latestLoggedDate: latestExcelData?.latestDate || null,
+    latestDateLines: latestExcelData?.lines || [],
+    latestDateLineMap: latestExcelData?.lineMap || {}
   };
 }
 

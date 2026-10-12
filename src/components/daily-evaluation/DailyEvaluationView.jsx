@@ -25,6 +25,10 @@ import {
   normalizeExcelDate
 } from '../../logic/excelParser.js';
 import {
+  loadLatestExcelLoggedRun,
+  clearLatestExcelLoggedRun
+} from '../../logic/excelLogParser.js';
+import {
   queryProductionRecords,
   queryProductionRecordsForDate,
   normalizeProductionRow,
@@ -123,6 +127,14 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const [machineMaster, setMachineMaster] = useState(() => {
     const meta = loadPersistedMeta();
     return sanitizeMachineMaster(meta.machineMaster);
+  });
+  const [latestExcelLoggedDate, setLatestExcelLoggedDate] = useState(() => {
+    const cached = loadLatestExcelLoggedRun();
+    return cached?.latestDate || null;
+  });
+  const [latestExcelDateLines, setLatestExcelDateLines] = useState(() => {
+    const cached = loadLatestExcelLoggedRun();
+    return cached?.lines || [];
   });
   const [report, setReport] = useState(() => {
     const persisted = loadPersistedRecords();
@@ -245,13 +257,22 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
     }
   }, [report]);
 
-  const handleWorkbookParsed = useCallback(({ rows, machineMaster: newMaster, fileName, sheetName, cleared }) => {
+  const handleWorkbookParsed = useCallback(({ rows, machineMaster: newMaster, fileName, sheetName, cleared, latestLoggedDate, latestDateLines }) => {
     if (cleared) {
       setRecords([]);
       setMachineMaster(MACHINES);
       setReport(blankReport());
       clearPersistedRecords();
+      clearLatestExcelLoggedRun();
+      setLatestExcelLoggedDate(null);
+      setLatestExcelDateLines([]);
       return;
+    }
+    if (latestLoggedDate) {
+      setLatestExcelLoggedDate(latestLoggedDate);
+    }
+    if (Array.isArray(latestDateLines) && latestDateLines.length > 0) {
+      setLatestExcelDateLines(latestDateLines);
     }
     if (Array.isArray(rows)) {
       const activeMaster = sanitizeMachineMaster(newMaster || machineMaster);
@@ -2277,6 +2298,8 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         onClose={() => setIsPrintSopModalOpen(false)}
         records={records}
         selectedDate={selectedDate}
+        latestLoggedDate={latestExcelLoggedDate}
+        latestDateLines={latestExcelDateLines}
         currentMachineId={report?.header?.lineId || 'L-01'}
         machineMaster={machineMaster}
         onConfirmPrint={handleTriggerMorningSopPrint}

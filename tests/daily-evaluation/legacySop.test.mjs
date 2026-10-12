@@ -27,10 +27,16 @@ import {
   resolveProductSpecification,
   isCompoundingLineOrProduct,
   resolveStdWeightFromSpecs,
+  addDays,
+  buildMultiDayMorningSopModels,
   SOP_FACTORY_PRESETS,
   SOP_SHIFT1_HOURS,
   SOP_SHIFT2_HOURS
 } from '../../src/logic/legacySopHelper.js';
+import {
+  addDays as addDaysUtil,
+  buildMultiDayMorningSopModels as buildMultiDayMorningSopModelsUtil
+} from '../../src/utils/legacySopHelper.js';
 import { getBenchmarkReport } from '../../src/data/store.js';
 import { buildAll } from '../../src/logic/engine.js';
 
@@ -896,6 +902,128 @@ fractionalSop2.shift2Rows.forEach((slot, idx) => {
 });
 
 console.log('Strict Whole Integer Pieces (No Decimals) Enforcement: OK');
+
+// 28. Multi-Day Ahead Batch SOP Generation & Printing (DOC-Ext.-03)
+// a. Date navigation helper addDays
+assert.equal(addDays('2026-10-12', 0), '2026-10-12');
+assert.equal(addDays('2026-10-12', 1), '2026-10-13');
+assert.equal(addDays('2026-10-12', 3), '2026-10-15');
+assert.equal(addDays('2026-10-31', 1), '2026-11-01'); // Month boundary
+assert.equal(addDays('2026-12-31', 1), '2027-01-01'); // Year boundary
+assert.equal(addDays('2026-10-12', -1), '2026-10-11'); // Negative offset
+assert.equal(addDaysUtil('2026-10-12', 2), '2026-10-14'); // Utility parity check
+
+// b. Single day generation returns 1:1 copies
+const sampleConfigs = [
+  {
+    lineId: 'L-01',
+    fullMachineName: 'L-01 - KTS 350 TDH',
+    itemCode: '930',
+    productDescription: 'HDPE 20 MM',
+    speed: 10.0,
+    pipeLength: 6.0,
+    unitWeight: 1.5,
+    targetRate: 85,
+    targetPcsH: 85
+  },
+  {
+    lineId: 'L-02',
+    fullMachineName: 'L-02 - KTS 170',
+    itemCode: '249',
+    productDescription: 'PVC 110 MM',
+    speed: 1.1,
+    pipeLength: 6.0,
+    unitWeight: 8.5,
+    targetRate: 11,
+    targetPcsH: 11
+  }
+];
+
+const singleDayModels = buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 1);
+assert.equal(singleDayModels.length, 2);
+assert.equal(singleDayModels[0].dateIso, '2026-10-12');
+assert.equal(singleDayModels[0].dateDots, '12.10.2026');
+assert.equal(singleDayModels[0].lineCode, 'L-01');
+assert.equal(singleDayModels[1].dateIso, '2026-10-12');
+assert.equal(singleDayModels[1].dateDots, '12.10.2026');
+assert.equal(singleDayModels[1].lineCode, 'L-02');
+
+// c. Multi-day batch generation (3 consecutive days ahead: 2 lines * 3 days = 6 sheets)
+const multiDay3Models = buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 3);
+assert.equal(multiDay3Models.length, 6);
+
+// Day 1: 2026-10-12
+assert.equal(multiDay3Models[0].dateIso, '2026-10-12');
+assert.equal(multiDay3Models[0].dateDots, '12.10.2026');
+assert.equal(multiDay3Models[0].lineCode, 'L-01');
+assert.equal(multiDay3Models[0].stepTarget, 100); // 85 / 0.85 = 100
+assert.equal(multiDay3Models[1].dateIso, '2026-10-12');
+assert.equal(multiDay3Models[1].dateDots, '12.10.2026');
+assert.equal(multiDay3Models[1].lineCode, 'L-02');
+assert.equal(multiDay3Models[1].stepTarget, 13); // 11 / 0.85 = 13
+
+// Day 2: 2026-10-13 (incremented by 1 day)
+assert.equal(multiDay3Models[2].dateIso, '2026-10-13');
+assert.equal(multiDay3Models[2].dateDots, '13.10.2026');
+assert.equal(multiDay3Models[2].lineCode, 'L-01');
+assert.equal(multiDay3Models[2].stepTarget, 100);
+assert.equal(multiDay3Models[3].dateIso, '2026-10-13');
+assert.equal(multiDay3Models[3].dateDots, '13.10.2026');
+assert.equal(multiDay3Models[3].lineCode, 'L-02');
+assert.equal(multiDay3Models[3].stepTarget, 13);
+
+// Day 3: 2026-10-14 (incremented by 2 days)
+assert.equal(multiDay3Models[4].dateIso, '2026-10-14');
+assert.equal(multiDay3Models[4].dateDots, '14.10.2026');
+assert.equal(multiDay3Models[4].lineCode, 'L-01');
+assert.equal(multiDay3Models[5].dateIso, '2026-10-14');
+assert.equal(multiDay3Models[5].dateDots, '14.10.2026');
+assert.equal(multiDay3Models[5].lineCode, 'L-02');
+
+// All models must have DOC-Ext.-03 docCode and 24 integer hourly slots
+multiDay3Models.forEach((m) => {
+  assert.equal(m.docCode, 'DOC-Ext.-03');
+  assert.equal(m.shift1Rows.length, 12);
+  assert.equal(m.shift2Rows.length, 12);
+  m.shift1Rows.forEach((s) => assert.equal(Number.isInteger(s.stdPcs), true));
+  m.shift2Rows.forEach((s) => assert.equal(Number.isInteger(s.stdPcs), true));
+});
+
+// d. Full week batch generation (7 days ahead: 2 lines * 7 days = 14 sheets)
+const weekModels = buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 7);
+assert.equal(weekModels.length, 14);
+assert.equal(weekModels[0].dateIso, '2026-10-12');
+assert.equal(weekModels[12].dateIso, '2026-10-18');
+assert.equal(weekModels[13].dateIso, '2026-10-18');
+
+// e. Group by line option (Line 1 Days 1..3, then Line 2 Days 1..3)
+const groupedByLine = buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 3, { groupBy: 'line' });
+assert.equal(groupedByLine.length, 6);
+assert.equal(groupedByLine[0].lineCode, 'L-01');
+assert.equal(groupedByLine[0].dateIso, '2026-10-12');
+assert.equal(groupedByLine[1].lineCode, 'L-01');
+assert.equal(groupedByLine[1].dateIso, '2026-10-13');
+assert.equal(groupedByLine[2].lineCode, 'L-01');
+assert.equal(groupedByLine[2].dateIso, '2026-10-14');
+assert.equal(groupedByLine[3].lineCode, 'L-02');
+assert.equal(groupedByLine[3].dateIso, '2026-10-12');
+assert.equal(groupedByLine[4].lineCode, 'L-02');
+assert.equal(groupedByLine[4].dateIso, '2026-10-13');
+assert.equal(groupedByLine[5].lineCode, 'L-02');
+assert.equal(groupedByLine[5].dateIso, '2026-10-14');
+
+// f. Utility parity check with buildMultiDayMorningSopModelsUtil
+const utilModels = buildMultiDayMorningSopModelsUtil(sampleConfigs, '2026-10-12', 2);
+assert.equal(utilModels.length, 4);
+assert.equal(utilModels[0].dateIso, '2026-10-12');
+assert.equal(utilModels[2].dateIso, '2026-10-13');
+
+// g. Edge cases: empty configs, clamped days
+assert.equal(buildMultiDayMorningSopModels([], '2026-10-12', 5).length, 0);
+assert.equal(buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 0).length, 2); // Clamps min to 1
+assert.equal(buildMultiDayMorningSopModels(sampleConfigs, '2026-10-12', 25).length, 28); // Clamps max to 14 (2 * 14 = 28)
+
+console.log('Multi-Day Ahead Batch SOP Generation & Printing Engine: OK');
 
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 

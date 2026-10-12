@@ -1340,3 +1340,74 @@ export function buildUniversalBlankSopModel(config = {}) {
     isUniversalBlank: true
   };
 }
+
+/**
+ * Safely compute a new date string (YYYY-MM-DD) by adding an integer number of days
+ * to the input date string (YYYY-MM-DD) using UTC date arithmetic.
+ */
+export function addDays(dateStr, days = 0) {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const match = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1;
+  const day = parseInt(match[3], 10);
+  const d = new Date(Date.UTC(year, month, day + Number(days || 0)));
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dayNum = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${dayNum}`;
+}
+
+/**
+ * Generate Morning SOP models for multi-day ahead batch printing (DOC-Ext.-03).
+ * Loops through d = 0 to daysCount - 1, duplicating the provided machine line configurations
+ * with incremented consecutive dates.
+ *
+ * @param {Array<Object>} lineConfigs List of selected line configuration objects
+ * @param {string} startDate Starting date in YYYY-MM-DD format
+ * @param {number} daysCount Number of consecutive days (default: 1, min: 1, max: 14)
+ * @param {Object} [options] Optional settings (e.g. groupBy: 'date' | 'line')
+ * @returns {Array<Object>} Flat array of compiled SOP models for batch printing / PDF download
+ */
+export function buildMultiDayMorningSopModels(lineConfigs = [], startDate = '', daysCount = 1, options = {}) {
+  if (!Array.isArray(lineConfigs) || lineConfigs.length === 0) {
+    return [];
+  }
+
+  const safeDays = Math.max(1, Math.min(14, parseInt(daysCount, 10) || 1));
+  const validStart = (startDate && /^\d{4}-\d{2}-\d{2}$/.test(String(startDate).trim()))
+    ? String(startDate).trim()
+    : (new Date()).toISOString().slice(0, 10);
+
+  const groupBy = options.groupBy || 'date';
+  const models = [];
+
+  if (groupBy === 'line') {
+    for (const config of lineConfigs) {
+      for (let d = 0; d < safeDays; d++) {
+        const currentDate = addDays(validStart, d);
+        models.push(buildMorningSopModel({
+          ...config,
+          date: currentDate,
+          targetDate: currentDate
+        }));
+      }
+    }
+  } else {
+    // Default: Group by date (Day 1: all lines, Day 2: all lines, etc.)
+    for (let d = 0; d < safeDays; d++) {
+      const currentDate = addDays(validStart, d);
+      for (const config of lineConfigs) {
+        models.push(buildMorningSopModel({
+          ...config,
+          date: currentDate,
+          targetDate: currentDate
+        }));
+      }
+    }
+  }
+
+  return models;
+}
+

@@ -12,7 +12,9 @@ import {
   buildMorningSopModel,
   isCompoundingLineOrProduct,
   resolveStdWeightFromSpecs,
-  getLatestHistoricalRunDetails
+  getLatestHistoricalRunDetails,
+  addDays,
+  buildMultiDayMorningSopModels
 } from '../../logic/legacySopHelper.js';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import {
@@ -81,6 +83,12 @@ export default function PrintSopModal({
   });
   const [linesState, setLinesState] = useState([]);
   const [historicalFeedback, setHistoricalFeedback] = useState({});
+  const [printAheadDays, setPrintAheadDays] = useState(1);
+
+  const daysCount = Math.max(1, Math.min(14, parseInt(printAheadDays, 10) || 1));
+  const endDate = useMemo(() => {
+    return daysCount > 1 ? addDays(targetDate, daysCount - 1) : targetDate;
+  }, [targetDate, daysCount]);
 
   // Compute immediate previous calendar day (YYYY-MM-DD)
   const previousDate = useMemo(() => getPreviousDay(targetDate), [targetDate]);
@@ -688,18 +696,17 @@ export default function PrintSopModal({
     }
   };
 
-  // Compile active models for print or PDF export
+  // Compile active models for print or PDF export (supports multi-day batch)
   const compileModels = () => {
     const targets = linesState.filter((l) => l.isSelected);
 
-    return targets.map((item) => {
+    const baseConfigs = targets.map((item) => {
       const calcRateInt = item.calculatedRate !== '' && item.calculatedRate !== null && !isNaN(item.calculatedRate)
         ? Math.round(Number(item.calculatedRate))
         : '';
-      return buildMorningSopModel({
+      return {
         lineId: item.machineId,
         fullMachineName: item.fullMachineName,
-        date: targetDate,
         itemCode: item.itemCode,
         productDescription: item.productDescription,
         speed: item.speed,
@@ -714,8 +721,10 @@ export default function PrintSopModal({
         isCompounding: item.isCompounding,
         isIdle: Boolean(item.isIdle || (!item.isCompounding && !item.speed && !item.productDescription && !item.itemCode)),
         machineMaster
-      });
+      };
     });
+
+    return buildMultiDayMorningSopModels(baseConfigs, targetDate, daysCount);
   };
 
   const persistCurrentLines = () => {
@@ -754,8 +763,8 @@ export default function PrintSopModal({
   };
 
   const activeLines = linesState.filter((l) => l.isSelected);
-
-  const selectedCount = activeLines.length;
+  const activeLinesCount = activeLines.length;
+  const totalSheets = activeLinesCount * daysCount;
 
   return (
     <div className="export-modal-backdrop no-print" onClick={!isGenerating ? onClose : undefined}>
@@ -840,6 +849,28 @@ export default function PrintSopModal({
               onChange={(e) => setTargetDate(e.target.value)}
               disabled={isGenerating}
             />
+          </div>
+          <div className="export-target-item print-sop-days-item">
+            <span className="export-target-lbl">Days to Print:</span>
+            <select
+              className="sheet-select print-sop-days-select"
+              value={daysCount}
+              onChange={(e) => setPrintAheadDays(Math.max(1, Math.min(14, parseInt(e.target.value, 10) || 1)))}
+              disabled={isGenerating}
+              title="Consecutive Days to Print Ahead (DOC-Ext.-03)"
+            >
+              <option value={1}>1 Day (Default)</option>
+              <option value={2}>2 Days</option>
+              <option value={3}>3 Days</option>
+              <option value={4}>4 Days</option>
+              <option value={5}>5 Days</option>
+              <option value={6}>6 Days</option>
+              <option value={7}>7 Days (Full Week)</option>
+              <option value={8}>8 Days</option>
+              <option value={9}>9 Days</option>
+              <option value={10}>10 Days</option>
+              <option value={14}>14 Days (Max)</option>
+            </select>
           </div>
           <div className="export-target-item">
             <span className="export-target-lbl">Inheritance Source:</span>
@@ -1279,7 +1310,11 @@ export default function PrintSopModal({
         <div className="export-modal-footer print-sop-footer">
           <div className="print-sop-summary-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span>
-              Target: <strong>{selectedCount}</strong> {selectedCount === 1 ? 'Sheet' : 'Sheets'} ({targetDate})
+              {daysCount === 1 ? (
+                <>Target: <strong>{totalSheets}</strong> {totalSheets === 1 ? 'Sheet' : 'Sheets'} ({targetDate})</>
+              ) : (
+                <>Target: <strong>{totalSheets}</strong> Sheets ({daysCount} Days: {targetDate} to {endDate})</>
+              )}
             </span>
             <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontWeight: 600 }}>
               A4 Portrait &bull; 5mm Margin
@@ -1300,7 +1335,7 @@ export default function PrintSopModal({
               type="button"
               className="btn btn-secondary btn-sop-pdf"
               onClick={handlePdf}
-              disabled={isGenerating || selectedCount === 0}
+              disabled={isGenerating || activeLinesCount === 0}
               title="Download single or multi-page PDF"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
@@ -1310,14 +1345,14 @@ export default function PrintSopModal({
                 <line x1="9" y1="15" x2="12" y2="18" />
                 <line x1="15" y1="15" x2="12" y2="18" />
               </svg>
-              Download PDF
+              Download PDF {totalSheets > 1 ? `(${totalSheets} Sheets)` : ''}
             </button>
 
             <button
               type="button"
               className="btn btn-primary btn-sop-print"
               onClick={handlePrint}
-              disabled={isGenerating || selectedCount === 0}
+              disabled={isGenerating || activeLinesCount === 0}
               title="Print via system dialog with automatic page breaks"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
@@ -1325,7 +1360,7 @@ export default function PrintSopModal({
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
                 <rect x="6" y="14" width="12" height="8" />
               </svg>
-              Print SOP {selectedCount > 1 ? `(${selectedCount} Sheets)` : 'Sheet'}
+              Print SOP {totalSheets > 1 ? `(${totalSheets} Sheets)` : 'Sheet'}
             </button>
           </div>
         </div>

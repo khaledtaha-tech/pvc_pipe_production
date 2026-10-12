@@ -5812,7 +5812,8 @@ html:not(.light) .log-table th {
   font-size: 12px;
 }
 
-.print-sop-modal-dialog .print-sop-date-input {
+.print-sop-modal-dialog .print-sop-date-input,
+.print-sop-modal-dialog .print-sop-days-select {
   padding: 3px 8px;
   font-size: 12px;
 }
@@ -5937,6 +5938,23 @@ html:not(.light) .log-table th {
   border: 1px solid #94a3b8;
   background: #ffffff;
   color: #0f172a;
+}
+
+.print-sop-days-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-sop-days-select {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #94a3b8;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
 }
 
 .print-sop-batch-actions {
@@ -7336,6 +7354,7 @@ html:not(.light) .print-sop-date-bar {
 }
 
 html:not(.light) .print-sop-date-input,
+html:not(.light) .print-sop-days-select,
 html:not(.light) .print-sop-select,
 html:not(.light) .print-sop-input {
   background: #0f172a;

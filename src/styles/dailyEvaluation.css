@@ -6229,6 +6229,68 @@ html:not(.light) .log-table th {
   color: #6366f1;
 }
 
+.print-sop-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.print-sop-baseline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  line-height: 1.2;
+}
+
+.print-sop-baseline-btn:hover:not(:disabled) {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: #7dd3fc;
+  box-shadow: 0 1px 3px rgba(3, 105, 161, 0.15);
+}
+
+.print-sop-baseline-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.print-sop-baseline-btn.print-sop-baseline-active {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #38bdf8;
+}
+
+.print-sop-baseline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-top: 1px;
+  margin-bottom: 2px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.print-sop-baseline-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #16a34a;
+}
+
 .print-sop-hist-badge {
   display: inline-flex;
   align-items: center;
@@ -7479,6 +7541,34 @@ html:not(.light) .print-sop-fetch-btn:hover:not(:disabled) {
 
 html:not(.light) .print-sop-fetch-icon {
   color: #818cf8;
+}
+
+html:not(.light) .print-sop-baseline-btn {
+  background: rgba(14, 165, 233, 0.18);
+  color: #7dd3fc;
+  border-color: rgba(125, 211, 252, 0.35);
+}
+
+html:not(.light) .print-sop-baseline-btn:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.28);
+  color: #bae6fd;
+  border-color: rgba(125, 211, 252, 0.55);
+}
+
+html:not(.light) .print-sop-baseline-btn.print-sop-baseline-active {
+  background: rgba(14, 165, 233, 0.3);
+  color: #38bdf8;
+  border-color: #38bdf8;
+}
+
+html:not(.light) .print-sop-baseline-badge {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+html:not(.light) .print-sop-baseline-badge-dot {
+  background-color: #4ade80;
 }
 
 html:not(.light) .print-sop-hist-found {

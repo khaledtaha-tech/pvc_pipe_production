@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Bookmark } from 'lucide-react';
 import { MACHINES, matchMachine, sanitizeMachineMaster } from '../../config/machines.js';
 import {
   formatFullMachineName,
@@ -17,6 +17,12 @@ import {
   buildMultiDayMorningSopModels
 } from '../../logic/legacySopHelper.js';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
+import {
+  getBaselineRate,
+  saveBaselineRate,
+  getBaselineEntry,
+  BASELINE_CATALOG_UPDATED_EVENT
+} from '../../logic/standardCatalogHelper.js';
 import {
   loadLatestExcelLoggedRun,
   getNextDay
@@ -277,10 +283,17 @@ export default function PrintSopModal({
         unitWeight = (hadRun || nominalCapacity > 0) ? 1.0 : '';
       }
 
+      // Baseline Operating Standard lookup for machine-mold combination
+      const baselineEntry = (!isComp && itemCode) ? getBaselineEntry(lineId, itemCode) : null;
+      const hasBaseline = Boolean(baselineEntry && Number(baselineEntry.baselinePcsH) > 0);
+      const baselineRate = hasBaseline ? Math.round(Number(baselineEntry.baselinePcsH)) : null;
+
       // Calculated rate (Target pcs/h for extrusion, kg/h for compounding)
       let calculatedRate = '';
       if (isComp) {
         calculatedRate = nominalCapacity;
+      } else if (hasBaseline) {
+        calculatedRate = baselineRate;
       } else if (savedForMachine && Number(savedForMachine.calculatedRate) > 0) {
         calculatedRate = Math.round(Number(savedForMachine.calculatedRate));
       } else if (excelLine && Number(excelLine.actualRatePcsH) > 0) {
@@ -332,7 +345,9 @@ export default function PrintSopModal({
         nominalCapacity,
         calculatedRateKgH,
         isCompounding: isComp,
-        isIdle: Boolean(!isComp && !hasExcelRun && !hadRunOnPrevious && (!specs || specs.isIdle))
+        isIdle: Boolean(!isComp && !hasExcelRun && !hadRunOnPrevious && (!specs || specs.isIdle)),
+        isBaseline: hasBaseline,
+        baselineRate
       };
     });
 
@@ -443,17 +458,27 @@ export default function PrintSopModal({
           pipeLen
         );
 
+        // Check if there is an approved baseline in catalog
+        const bEntry = getBaselineEntry(machineId, newCode);
+        const hasB = Boolean(bEntry && Number(bEntry.baselinePcsH) > 0);
+        const effectiveRate = hasB ? Math.round(Number(bEntry.baselinePcsH)) : benchmark.calculatedRate;
+        const effectiveSpeed = hasB
+          ? (pipeLen > 0 ? Math.round(((effectiveRate * pipeLen) / 60) * 10) / 10 : benchmark.speed)
+          : benchmark.speed;
+
         return {
           ...item,
           itemCode: newCode,
           productDescription: newDesc,
           unitWeight,
           pipeLength: pipeLen,
-          speed: benchmark.speed,
-          calculatedRate: benchmark.calculatedRate,
-          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight),
+          speed: effectiveSpeed,
+          calculatedRate: effectiveRate,
+          calculatedRateKgH: Math.round(effectiveRate * unitWeight),
           isCompounding: false,
-          isIdle: false
+          isIdle: false,
+          isBaseline: hasB,
+          baselineRate: hasB ? effectiveRate : null
         };
       })
     );
@@ -480,7 +505,9 @@ export default function PrintSopModal({
             speed: '',
             calculatedRate: item.isCompounding ? (item.nominalCapacity || 400) : '',
             calculatedRateKgH: item.isCompounding ? (item.nominalCapacity || 400) : '',
-            isIdle: !item.isCompounding
+            isIdle: !item.isCompounding,
+            isBaseline: false,
+            baselineRate: null
           };
         }
 
@@ -509,7 +536,9 @@ export default function PrintSopModal({
             calculatedRate: cap,
             calculatedRateKgH: cap,
             isCompounding: true,
-            isIdle: false
+            isIdle: false,
+            isBaseline: false,
+            baselineRate: null
           };
         }
 
@@ -523,17 +552,27 @@ export default function PrintSopModal({
           pipeLen
         );
 
+        // Check if there is an approved baseline in catalog
+        const bEntry = itemCode ? getBaselineEntry(machineId, itemCode) : null;
+        const hasB = Boolean(bEntry && Number(bEntry.baselinePcsH) > 0);
+        const effectiveRate = hasB ? Math.round(Number(bEntry.baselinePcsH)) : benchmark.calculatedRate;
+        const effectiveSpeed = hasB
+          ? (pipeLen > 0 ? Math.round(((effectiveRate * pipeLen) / 60) * 10) / 10 : benchmark.speed)
+          : benchmark.speed;
+
         return {
           ...item,
           itemCode,
           productDescription: newDesc,
           unitWeight,
           pipeLength: pipeLen,
-          speed: benchmark.speed,
-          calculatedRate: benchmark.calculatedRate,
-          calculatedRateKgH: Math.round(benchmark.calculatedRate * unitWeight),
+          speed: effectiveSpeed,
+          calculatedRate: effectiveRate,
+          calculatedRateKgH: Math.round(effectiveRate * unitWeight),
           isCompounding: false,
-          isIdle: false
+          isIdle: false,
+          isBaseline: hasB,
+          baselineRate: hasB ? effectiveRate : null
         };
       })
     );
@@ -552,7 +591,8 @@ export default function PrintSopModal({
             calculatedRate: '',
             calculatedRateKgH: '',
             speed: '',
-            isIdle: !item.productDescription
+            isIdle: !item.productDescription,
+            isBaseline: false
           };
         }
         if (item.isCompounding) {
@@ -561,7 +601,8 @@ export default function PrintSopModal({
             ...item,
             calculatedRate: intCompRate,
             calculatedRateKgH: intCompRate,
-            isIdle: false
+            isIdle: false,
+            isBaseline: false
           };
         }
         const intRate = Math.round(num);
@@ -569,12 +610,14 @@ export default function PrintSopModal({
         const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
         const calcKgH = Math.round(intRate * unitWeight * 10) / 10;
         const harmonizedSpeed = pipeLen > 0 ? Math.round(((intRate * pipeLen) / 60) * 100) / 100 : item.speed;
+        const isMatch = Boolean(item.baselineRate && intRate === Number(item.baselineRate));
         return {
           ...item,
           calculatedRate: intRate,
           calculatedRateKgH: calcKgH,
           speed: harmonizedSpeed,
-          isIdle: false
+          isIdle: false,
+          isBaseline: isMatch
         };
       })
     );
@@ -700,6 +743,29 @@ export default function PrintSopModal({
     }
   };
 
+  // Save typed rate as permanent baseline standard in catalog
+  const handleSaveBaseline = (machineId, itemCode, currentRate) => {
+    if (!machineId || !itemCode) return;
+    const numRate = Math.round(Number(currentRate));
+    if (isNaN(numRate) || numRate <= 0) return;
+
+    saveBaselineRate(machineId, itemCode, numRate);
+    setLinesState((prev) =>
+      prev.map((item) =>
+        item.machineId === machineId
+          ? { ...item, isBaseline: true, baselineRate: numRate, calculatedRate: numRate }
+          : item
+      )
+    );
+    setHistoricalFeedback((prev) => ({
+      ...prev,
+      [machineId]: {
+        status: 'baseline_saved',
+        rate: numRate
+      }
+    }));
+  };
+
   // Compile active models for print or PDF export (supports multi-day batch)
   const compileModels = () => {
     const targets = linesState.filter((l) => l.isSelected);
@@ -714,6 +780,12 @@ export default function PrintSopModal({
       const nomCap = getMachineNominalCapacity(item.machineId, machineMaster) || Number(item.nominalCapacity) || 200;
 
       let effectiveRate = calcRateInt;
+      if (!effectiveRate && !item.isCompounding && item.itemCode) {
+        const baseRate = getBaselineRate(item.machineId, item.itemCode, records, { machineMaster });
+        if (baseRate && Number(baseRate) > 0) {
+          effectiveRate = Math.round(Number(baseRate));
+        }
+      }
       if (!effectiveRate && !item.isCompounding) {
         if (speedVal > 0 && pipeLen > 0) {
           effectiveRate = Math.round((speedVal * 60) / pipeLen);
@@ -1194,20 +1266,39 @@ export default function PrintSopModal({
                         <div className="print-sop-param print-sop-param-target">
                           <div className="print-sop-param-header">
                             <label className="print-sop-label">Target (Pcs/h):</label>
-                            <button
-                              type="button"
-                              className="print-sop-fetch-btn"
-                              title="Fetch latest realized pace from historical logs"
-                              onClick={() => handleFetchHistoricalRate(line.machineId, line.itemCode)}
-                              disabled={isGenerating || !line.isSelected}
-                            >
-                              <Sparkles size={11} className="print-sop-fetch-icon" />
-                              <span>Fetch Historical Rate</span>
-                            </button>
+                            <div className="print-sop-btn-group">
+                              <button
+                                type="button"
+                                className="print-sop-fetch-btn"
+                                title="Fetch latest realized pace from historical logs"
+                                onClick={() => handleFetchHistoricalRate(line.machineId, line.itemCode)}
+                                disabled={isGenerating || !line.isSelected}
+                              >
+                                <Sparkles size={11} className="print-sop-fetch-icon" />
+                                <span>Fetch Historical Rate</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`print-sop-baseline-btn ${line.isBaseline ? 'print-sop-baseline-active' : ''}`}
+                                title="Save current rate as permanent baseline standard in catalog"
+                                onClick={() => handleSaveBaseline(line.machineId, line.itemCode, line.calculatedRate)}
+                                disabled={isGenerating || !line.isSelected || !line.itemCode || !line.calculatedRate || Number(line.calculatedRate) <= 0}
+                              >
+                                <Bookmark size={11} className="print-sop-fetch-icon" />
+                                <span>Save as Baseline</span>
+                              </button>
+                            </div>
                           </div>
 
+                          {line.isBaseline && Number(line.baselineRate || line.calculatedRate) > 0 && (
+                            <div className="print-sop-baseline-badge">
+                              <span className="print-sop-baseline-badge-dot" />
+                              <span>Baseline Standard: {Number(line.baselineRate || line.calculatedRate).toLocaleString()} pcs/h</span>
+                            </div>
+                          )}
+
                           {historicalFeedback[line.machineId] && (
-                            <div className={`print-sop-hist-badge ${historicalFeedback[line.machineId].status === 'found' ? 'print-sop-hist-found' : 'print-sop-hist-missing'}`}>
+                            <div className={`print-sop-hist-badge ${historicalFeedback[line.machineId].status === 'found' ? 'print-sop-hist-found' : (historicalFeedback[line.machineId].status === 'baseline_saved' ? 'print-sop-hist-found' : 'print-sop-hist-missing')}`}>
                               {historicalFeedback[line.machineId].status === 'found' ? (
                                 <>
                                   <span className="print-sop-hist-dot" />
@@ -1215,6 +1306,11 @@ export default function PrintSopModal({
                                     Last Realized: {historicalFeedback[line.machineId].rate} pcs/h
                                     {historicalFeedback[line.machineId].date ? ` (${historicalFeedback[line.machineId].date})` : ''}
                                   </span>
+                                </>
+                              ) : historicalFeedback[line.machineId].status === 'baseline_saved' ? (
+                                <>
+                                  <span className="print-sop-hist-dot" />
+                                  <span>Saved as Baseline Standard ({historicalFeedback[line.machineId].rate} pcs/h)</span>
                                 </>
                               ) : (
                                 <span>No Historical Run Found</span>

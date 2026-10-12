@@ -5,6 +5,8 @@ import { getMachineNominalCapacity } from './machineSettingsConfig.js';
 export { getMachineNominalCapacity };
 import { getLatestHistoricalRealRate, getLatestHistoricalRunDetails } from './historicalLogHelper.js';
 export { getLatestHistoricalRealRate, getLatestHistoricalRunDetails };
+import { getBaselineRate, getBaselineEntry, saveBaselineRate, getAllBaselines } from './standardCatalogHelper.js';
+export { getBaselineRate, getBaselineEntry, saveBaselineRate, getAllBaselines };
 
 /**
  * Helper logic for Legacy Plant SOP (DOC-Ext.-03: PRODUCTION PIECES / Production follow)
@@ -1116,14 +1118,28 @@ export function buildMorningSopModel(config = {}) {
   let stepTarget = '';
   let finalSpeed = speed;
 
+  let baselineRateVal = null;
+  if ((rawTargetPcsH === null || isNaN(rawTargetPcsH) || Number(rawTargetPcsH) <= 0) && !isCompounding && itemCode) {
+    try {
+      const bRate = getBaselineRate(lineId, itemCode);
+      if (bRate && Number(bRate) > 0) {
+        baselineRateVal = Math.round(Number(bRate));
+      }
+    } catch (_) {}
+  }
+
+  const effectiveRawRate = (rawTargetPcsH !== null && !isNaN(rawTargetPcsH) && Number(rawTargetPcsH) > 0)
+    ? Number(rawTargetPcsH)
+    : baselineRateVal;
+
   if (precomputedStep !== null && !isNaN(precomputedStep) && precomputedStep > 0) {
     stepTarget = Math.round(precomputedStep);
     hourlyStdRate = stepTarget;
     if (pipeLength > 0 && (!finalSpeed || finalSpeed <= 0)) {
       finalSpeed = Math.round(((stepTarget * pipeLength) / 60) * 10) / 10;
     }
-  } else if (!isCompounding && rawTargetPcsH !== null && !isNaN(rawTargetPcsH) && rawTargetPcsH > 0) {
-    inputRealRate = Math.round(Number(rawTargetPcsH));
+  } else if (!isCompounding && effectiveRawRate !== null && !isNaN(effectiveRawRate) && effectiveRawRate > 0) {
+    inputRealRate = Math.round(Number(effectiveRawRate));
     stepTarget = Math.round(Number(inputRealRate || 0) / 0.85);
     hourlyStdRate = stepTarget;
     if (pipeLength > 0 && (!finalSpeed || finalSpeed <= 0)) {
@@ -1171,10 +1187,13 @@ export function buildMorningSopModel(config = {}) {
     ? Boolean(config.cumulative)
     : (config.isCumulative !== undefined ? Boolean(config.isCumulative) : true);
 
+  const numStdRate = Number(hourlyStdRate);
+  const isRateActive = !isIdle && !isNaN(numStdRate) && numStdRate > 0;
+
   const shift1Rows = SOP_SHIFT1_HOURS.map((hour, idx) => {
     const slotNum = idx + 1; // 1 to 12
-    const target = (!isIdle && typeof hourlyStdRate === 'number' && hourlyStdRate > 0)
-      ? (isCumulative ? Math.round(hourlyStdRate * slotNum) : Math.round(hourlyStdRate))
+    const target = isRateActive
+      ? (isCumulative ? Math.round(numStdRate * slotNum) : Math.round(numStdRate))
       : '';
     return {
       hour,
@@ -1190,8 +1209,8 @@ export function buildMorningSopModel(config = {}) {
 
   const shift2Rows = SOP_SHIFT2_HOURS.map((hour, idx) => {
     const slotNum = idx + 13; // 13 to 24
-    const target = (!isIdle && typeof hourlyStdRate === 'number' && hourlyStdRate > 0)
-      ? (isCumulative ? Math.round(hourlyStdRate * slotNum) : Math.round(hourlyStdRate))
+    const target = isRateActive
+      ? (isCumulative ? Math.round(numStdRate * slotNum) : Math.round(numStdRate))
       : '';
     return {
       hour,

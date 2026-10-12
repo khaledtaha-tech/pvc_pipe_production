@@ -73,6 +73,20 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
     return String(val);
   };
 
+  const effectiveStep = (!isUniversal && !model?.isIdle)
+    ? (Number(model?.stepTarget) > 0
+        ? Number(model.stepTarget)
+        : (Number(model?.printedHourlyTarget) > 0
+            ? Number(model.printedHourlyTarget)
+            : (Number(model?.hourlyStdRate) > 0
+                ? Number(model.hourlyStdRate)
+                : (Number(model?.targetPcsH) > 0
+                    ? Math.round(Number(model.targetPcsH) / 0.85)
+                    : (Number(model?.inputRealRate) > 0
+                        ? Math.round(Number(model.inputRealRate) / 0.85)
+                        : 0)))))
+    : 0;
+
   return (
     <div
       className={`sop-sheet-container${isExporting ? ' sop-compact-export' : ''}${isBlankMode ? ' sop-blank-template' : ''}`}
@@ -225,12 +239,12 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                 <td className="sop-cell-hour">{r.hour}</td>
                 <td className="sop-cell-std">
                   {isUniversal ? '' : (
-                    r.stdPcs !== undefined && r.stdPcs !== ''
+                    r.stdPcs !== undefined && r.stdPcs !== null && r.stdPcs !== ''
                       ? renderStdPcs(r.stdPcs)
                       : (r.stdM != null && r.stdM !== ''
                           ? renderStdPcs(r.stdM)
-                          : ((Number(model?.stepTarget) > 0 ? Number(model.stepTarget) : Number(model?.hourlyStdRate) || 0) > 0
-                              ? renderStdPcs((Number(model?.stepTarget) > 0 ? Number(model.stepTarget) : Number(model?.hourlyStdRate)) * (i + 1))
+                          : (effectiveStep > 0
+                              ? renderStdPcs(effectiveStep * (i + 1))
                               : ''))
                   )}
                 </td>
@@ -320,12 +334,12 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
                 <td className="sop-cell-hour">{r.hour}</td>
                 <td className="sop-cell-std">
                   {isUniversal ? '' : (
-                    r.stdPcs !== undefined && r.stdPcs !== ''
+                    r.stdPcs !== undefined && r.stdPcs !== null && r.stdPcs !== ''
                       ? renderStdPcs(r.stdPcs)
                       : (r.stdM != null && r.stdM !== ''
                           ? renderStdPcs(r.stdM)
-                          : ((Number(model?.stepTarget) > 0 ? Number(model.stepTarget) : Number(model?.hourlyStdRate) || 0) > 0
-                              ? renderStdPcs((Number(model?.stepTarget) > 0 ? Number(model.stepTarget) : Number(model?.hourlyStdRate)) * (i + 13))
+                          : (effectiveStep > 0
+                              ? renderStdPcs(effectiveStep * (i + 13))
                               : ''))
                   )}
                 </td>

@@ -274,13 +274,13 @@ export default function PrintSopModal({
       if (isComp) {
         calculatedRate = nominalCapacity;
       } else if (savedForMachine && Number(savedForMachine.calculatedRate) > 0) {
-        calculatedRate = Number(savedForMachine.calculatedRate);
+        calculatedRate = Math.round(Number(savedForMachine.calculatedRate));
       } else if (excelLine && Number(excelLine.actualRatePcsH) > 0) {
-        calculatedRate = Number(excelLine.actualRatePcsH);
+        calculatedRate = Math.round(Number(excelLine.actualRatePcsH));
       } else if (excelLine && Number(excelLine.targetPcsH) > 0) {
-        calculatedRate = Number(excelLine.targetPcsH);
+        calculatedRate = Math.round(Number(excelLine.targetPcsH));
       } else if (specs?.calculatedRate !== undefined && specs?.calculatedRate !== null && specs?.calculatedRate !== '') {
-        calculatedRate = specs.calculatedRate;
+        calculatedRate = Math.round(Number(specs.calculatedRate));
       }
 
       // Linear Speed (m/min)
@@ -544,20 +544,22 @@ export default function PrintSopModal({
           };
         }
         if (item.isCompounding) {
+          const intCompRate = Math.round(num);
           return {
             ...item,
-            calculatedRate: num,
-            calculatedRateKgH: num,
+            calculatedRate: intCompRate,
+            calculatedRateKgH: intCompRate,
             isIdle: false
           };
         }
+        const intRate = Math.round(num);
         const unitWeight = Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0;
         const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
-        const calcKgH = Math.round(num * unitWeight * 10) / 10;
-        const harmonizedSpeed = pipeLen > 0 ? Math.round(((num * pipeLen) / 60) * 100) / 100 : item.speed;
+        const calcKgH = Math.round(intRate * unitWeight * 10) / 10;
+        const harmonizedSpeed = pipeLen > 0 ? Math.round(((intRate * pipeLen) / 60) * 100) / 100 : item.speed;
         return {
           ...item,
-          calculatedRate: num,
+          calculatedRate: intRate,
           calculatedRateKgH: calcKgH,
           speed: harmonizedSpeed,
           isIdle: false
@@ -588,7 +590,7 @@ export default function PrintSopModal({
         return {
           ...item,
           speed: num,
-          calculatedRate: rate,
+          calculatedRate: Math.round(rate),
           calculatedRateKgH: Math.round(rate * unitWeight * 10) / 10,
           isIdle: false
         };
@@ -599,7 +601,7 @@ export default function PrintSopModal({
   // Update target capacity (kg/h) for compounding lines
   const handleCapacityChange = (machineId, capVal) => {
     const rawVal = capVal === '' ? '' : Number(capVal);
-    const num = typeof rawVal === 'number' && !isNaN(rawVal) && rawVal > 0 ? rawVal : '';
+    const num = typeof rawVal === 'number' && !isNaN(rawVal) && rawVal > 0 ? Math.round(rawVal) : '';
     setLinesState((prev) =>
       prev.map((item) => {
         if (item.machineId !== machineId) return item;
@@ -625,7 +627,7 @@ export default function PrintSopModal({
         return {
           ...item,
           pipeLength: num,
-          calculatedRate: rate,
+          calculatedRate: rate !== '' ? Math.round(rate) : '',
           calculatedRateKgH: rate ? Math.round(rate * unitWeight * 10) / 10 : ''
         };
       })
@@ -666,12 +668,13 @@ export default function PrintSopModal({
   const handleFetchHistoricalRate = (machineId, itemCode) => {
     const details = getLatestHistoricalRunDetails(machineId, itemCode, records, { machineMaster: activeMaster });
     if (details && Number(details.rate) > 0) {
-      handleRateChange(machineId, details.rate);
+      const intRate = Math.round(Number(details.rate));
+      handleRateChange(machineId, intRate);
       setHistoricalFeedback((prev) => ({
         ...prev,
         [machineId]: {
           status: 'found',
-          rate: details.rate,
+          rate: intRate,
           date: details.date || ''
         }
       }));
@@ -689,8 +692,11 @@ export default function PrintSopModal({
   const compileModels = () => {
     const targets = linesState.filter((l) => l.isSelected);
 
-    return targets.map((item) =>
-      buildMorningSopModel({
+    return targets.map((item) => {
+      const calcRateInt = item.calculatedRate !== '' && item.calculatedRate !== null && !isNaN(item.calculatedRate)
+        ? Math.round(Number(item.calculatedRate))
+        : '';
+      return buildMorningSopModel({
         lineId: item.machineId,
         fullMachineName: item.fullMachineName,
         date: targetDate,
@@ -701,15 +707,15 @@ export default function PrintSopModal({
         unitWeight: item.unitWeight,
         stdWeight: item.unitWeight,
         nominalCapacity: getMachineNominalCapacity(item.machineId, machineMaster) || item.nominalCapacity,
-        targetRate: item.calculatedRate,
-        targetPcsH: item.calculatedRate,
+        targetRate: calcRateInt,
+        targetPcsH: calcRateInt,
         calculatedRateKgH: item.calculatedRateKgH,
-        targetCapacity: item.calculatedRate,
+        targetCapacity: calcRateInt,
         isCompounding: item.isCompounding,
         isIdle: Boolean(item.isIdle || (!item.isCompounding && !item.speed && !item.productDescription && !item.itemCode)),
         machineMaster
-      })
-    );
+      });
+    });
   };
 
   const persistCurrentLines = () => {

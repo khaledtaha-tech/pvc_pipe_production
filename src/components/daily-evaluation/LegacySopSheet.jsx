@@ -62,6 +62,17 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
       : String(val);
   };
 
+  const renderStdPcs = (val) => {
+    if (isUniversal || isBlankMode || val === '' || val === null || val === undefined) {
+      return '';
+    }
+    const num = Number(val);
+    if (!isNaN(num) && typeof num === 'number') {
+      return Math.round(num).toLocaleString();
+    }
+    return String(val);
+  };
+
   return (
     <div
       className={`sop-sheet-container${isExporting ? ' sop-compact-export' : ''}${isBlankMode ? ' sop-blank-template' : ''}`}
@@ -212,7 +223,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
             return (
               <tr key={`s1_${r.hour}`} className={`sop-row${isLast ? ' sop-shift-divider' : ''}`}>
                 <td className="sop-cell-hour">{r.hour}</td>
-                <td className="sop-cell-std">{isUniversal ? '' : (r.stdPcs !== undefined && r.stdPcs !== '' ? (typeof r.stdPcs === 'number' ? r.stdPcs.toLocaleString() : r.stdPcs) : (r.stdM != null && r.stdM !== '' ? r.stdM.toLocaleString() : ''))}</td>
+                <td className="sop-cell-std">{renderStdPcs(r.stdPcs !== undefined && r.stdPcs !== '' ? r.stdPcs : r.stdM)}</td>
                 <td className="sop-cell-good">
                   {r.goodPcs !== '' && r.goodPcs !== undefined ? (typeof r.goodPcs === 'number' ? (Number.isInteger(r.goodPcs) ? r.goodPcs.toLocaleString() : r.goodPcs.toFixed(1)) : r.goodPcs) : (r.goodM !== '' && r.goodM !== undefined ? (typeof r.goodM === 'number' ? (Number.isInteger(r.goodM) ? r.goodM.toLocaleString() : r.goodM.toFixed(1)) : r.goodM) : '')}
                 </td>
@@ -297,7 +308,7 @@ export const LegacySopSheet = forwardRef(function LegacySopSheet(
             return (
               <tr key={`s2_${r.hour}`} className={`sop-row${isLast ? ' sop-shift-divider' : ''}`}>
                 <td className="sop-cell-hour">{r.hour}</td>
-                <td className="sop-cell-std">{isUniversal ? '' : (r.stdPcs !== undefined && r.stdPcs !== '' ? (typeof r.stdPcs === 'number' ? r.stdPcs.toLocaleString() : r.stdPcs) : (r.stdM != null && r.stdM !== '' ? r.stdM.toLocaleString() : ''))}</td>
+                <td className="sop-cell-std">{renderStdPcs(r.stdPcs !== undefined && r.stdPcs !== '' ? r.stdPcs : r.stdM)}</td>
                 <td className="sop-cell-good">
                   {r.goodPcs !== '' && r.goodPcs !== undefined ? (typeof r.goodPcs === 'number' ? (Number.isInteger(r.goodPcs) ? r.goodPcs.toLocaleString() : r.goodPcs.toFixed(1)) : r.goodPcs) : (r.goodM !== '' && r.goodM !== undefined ? (typeof r.goodM === 'number' ? (Number.isInteger(r.goodM) ? r.goodM.toLocaleString() : r.goodM.toFixed(1)) : r.goodM) : '')}
                 </td>

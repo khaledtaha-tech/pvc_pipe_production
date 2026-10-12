@@ -108,12 +108,12 @@ function extractAchievedRate(record, targetProductCode) {
     });
     if (matchedItem) {
       if (Number(matchedItem.actualRatePcsH) > 0) {
-        return Math.round(Number(matchedItem.actualRatePcsH) * 10) / 10;
+        return Math.round(Number(matchedItem.actualRatePcsH));
       }
       const pcs = Number(matchedItem.actualPcs ?? matchedItem.productionQty ?? matchedItem.qty) || 0;
       const hrs = Number(matchedItem.operatingHours ?? matchedItem.hours) || 0;
       if (pcs > 0 && hrs > 0) {
-        return Math.round((pcs / hrs) * 10) / 10;
+        return Math.round(pcs / hrs);
       }
     }
   }
@@ -126,12 +126,12 @@ function extractAchievedRate(record, targetProductCode) {
       const code = String(ref.itemCode || ref.productCode || ref.code || '').trim().toUpperCase();
       if (code === cleanTarget || code.replace(/^0+/, '') === normTarget) {
         if (Number(ref.actualRatePcsH) > 0) {
-          return Math.round(Number(ref.actualRatePcsH) * 10) / 10;
+          return Math.round(Number(ref.actualRatePcsH));
         }
         const pcs = Number(ref.actualPcs ?? ref.pieces ?? ref.qty) || 0;
         const hrs = Number(ref.operatingHours ?? ref.hours) || 0;
         if (pcs > 0 && hrs > 0) {
-          return Math.round((pcs / hrs) * 10) / 10;
+          return Math.round(pcs / hrs);
         }
       }
     }
@@ -139,13 +139,13 @@ function extractAchievedRate(record, targetProductCode) {
 
   // 3. Direct actualRatePcsH or engineering rate
   if (Number(record.actualRatePcsH) > 0) {
-    return Math.round(Number(record.actualRatePcsH) * 10) / 10;
+    return Math.round(Number(record.actualRatePcsH));
   }
   if (Number(record.engineering?.actualRatePcsH) > 0) {
-    return Math.round(Number(record.engineering.actualRatePcsH) * 10) / 10;
+    return Math.round(Number(record.engineering.actualRatePcsH));
   }
   if (Number(record.realRatePcsH) > 0) {
-    return Math.round(Number(record.realRatePcsH) * 10) / 10;
+    return Math.round(Number(record.realRatePcsH));
   }
 
   // 4. Calculate directly from actualPcs / operatingHours
@@ -166,7 +166,7 @@ function extractAchievedRate(record, targetProductCode) {
   ) || 0;
 
   if (pcs > 0 && hrs > 0) {
-    return Math.round((pcs / hrs) * 10) / 10;
+    return Math.round(pcs / hrs);
   }
 
   // 5. Fallback: actualKg / (unitWeight * operatingHours)
@@ -174,7 +174,7 @@ function extractAchievedRate(record, targetProductCode) {
   const unitWeight = Number(record.unitWeight ?? record.stdWeight ?? record.engineering?.unitWeight) || 0;
   if (kg > 0 && unitWeight > 0 && hrs > 0) {
     const derivedPcs = kg / unitWeight;
-    return Math.round((derivedPcs / hrs) * 10) / 10;
+    return Math.round(derivedPcs / hrs);
   }
 
   return null;
@@ -237,7 +237,7 @@ export function getLatestHistoricalRunDetails(lineId, productCode, records = nul
       const rate = extractAchievedRate(rec, productCode);
       if (rate !== null && rate > 0) {
         matches.push({
-          rate,
+          rate: Math.round(rate),
           date: extractRecordDate(rec),
           record: rec
         });
@@ -266,5 +266,5 @@ export function getLatestHistoricalRealRate(lineId, productCode, records = null,
   if (options.detailed || options.includeDetails) {
     return details;
   }
-  return details.rate;
+  return Math.round(details.rate);
 }

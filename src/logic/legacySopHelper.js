@@ -1114,17 +1114,17 @@ export function buildMorningSopModel(config = {}) {
   let finalSpeed = speed;
 
   if (!isCompounding && rawTargetPcsH !== null && !isNaN(rawTargetPcsH) && rawTargetPcsH > 0) {
-    inputRealRate = rawTargetPcsH;
-    stepTarget = Math.round(inputRealRate / 0.85);
+    inputRealRate = Math.round(Number(rawTargetPcsH));
+    stepTarget = Math.round(Number(inputRealRate || 0) / 0.85);
     hourlyStdRate = stepTarget;
     if (pipeLength > 0) {
       finalSpeed = Math.round(((stepTarget * pipeLength) / 60) * 10) / 10;
     }
   } else if (config.targetRate !== undefined && config.targetRate !== null && config.targetRate !== '' && Number(config.targetRate) > 0) {
-    hourlyStdRate = Number(config.targetRate);
+    hourlyStdRate = Math.round(Number(config.targetRate));
     stepTarget = hourlyStdRate;
   } else if (isCompounding) {
-    hourlyStdRate = Number(config.targetCapacity) || nominalCapacity || 400;
+    hourlyStdRate = Math.round(Number(config.targetCapacity) || nominalCapacity || 400);
     stepTarget = hourlyStdRate;
   } else if (speed && pipeLength) {
     hourlyStdRate = Math.round((speed * 60) / pipeLength);
@@ -1133,7 +1133,7 @@ export function buildMorningSopModel(config = {}) {
     hourlyStdRate = Math.round(nominalCapacity / Number(unitWeight));
     stepTarget = hourlyStdRate;
   } else if (config.targetCapacity) {
-    hourlyStdRate = Number(config.targetCapacity);
+    hourlyStdRate = Math.round(Number(config.targetCapacity));
     stepTarget = hourlyStdRate;
   }
 
@@ -1142,7 +1142,7 @@ export function buildMorningSopModel(config = {}) {
     : ((hourlyStdRate && unitWeight)
         ? Math.round(hourlyStdRate * unitWeight)
         : (config.calculatedRateKgH !== undefined && config.calculatedRateKgH !== null && config.calculatedRateKgH !== ''
-            ? Number(config.calculatedRateKgH)
+            ? Math.round(Number(config.calculatedRateKgH))
             : ''));
 
   const utilizationPct = (calculatedRateKgH && nominalCapacity > 0)
@@ -1155,13 +1155,13 @@ export function buildMorningSopModel(config = {}) {
 
   const shift1Rows = SOP_SHIFT1_HOURS.map((hour, idx) => {
     const slotNum = idx + 1; // 1 to 12
-    const target = (!isIdle && hourlyStdRate > 0)
-      ? (isCumulative ? hourlyStdRate * slotNum : hourlyStdRate)
+    const target = (!isIdle && typeof hourlyStdRate === 'number' && hourlyStdRate > 0)
+      ? (isCumulative ? Math.round(hourlyStdRate * slotNum) : Math.round(hourlyStdRate))
       : '';
     return {
       hour,
-      stdPcs: target,
-      stdM: target,
+      stdPcs: target !== '' ? Math.round(Number(target)) : '',
+      stdM: target !== '' ? Math.round(Number(target)) : '',
       goodPcs: '',
       goodM: '',
       cause: '',
@@ -1172,13 +1172,13 @@ export function buildMorningSopModel(config = {}) {
 
   const shift2Rows = SOP_SHIFT2_HOURS.map((hour, idx) => {
     const slotNum = idx + 13; // 13 to 24
-    const target = (!isIdle && hourlyStdRate > 0)
-      ? (isCumulative ? hourlyStdRate * slotNum : hourlyStdRate)
+    const target = (!isIdle && typeof hourlyStdRate === 'number' && hourlyStdRate > 0)
+      ? (isCumulative ? Math.round(hourlyStdRate * slotNum) : Math.round(hourlyStdRate))
       : '';
     return {
       hour,
-      stdPcs: target,
-      stdM: target,
+      stdPcs: target !== '' ? Math.round(Number(target)) : '',
+      stdM: target !== '' ? Math.round(Number(target)) : '',
       goodPcs: '',
       goodM: '',
       cause: '',

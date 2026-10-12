@@ -810,6 +810,93 @@ assert.equal(compoundSop.hourlyStdRate, 400); // Not inflated by 0.85
 assert.equal(compoundSop.efficiencyBenchmarkPct, null);
 console.log('Compounding Line Non-Inflation Guard: OK');
 
+// 27. Strictly Enforce Whole Integer Pieces (No Decimals) for Morning SOP
+// a. Historical lookup with floating-point rate: rounds to nearest integer
+const fractionalHistoricalRuns = [
+  {
+    machineId: 'L-02',
+    itemCode: '249',
+    date: '2026-09-21',
+    actualRatePcsH: 11.3,
+    operatingHours: 20.0,
+    actualPcs: 226
+  },
+  {
+    machineId: 'L-04',
+    itemCode: '500',
+    date: '2026-09-21',
+    operatingHours: 9.0,
+    actualPcs: 133 // 133 / 9 = 14.777...
+  }
+];
+
+const rateL02 = getLatestHistoricalRealRate('L-02', '249', fractionalHistoricalRuns, { skipStore: true });
+assert.equal(rateL02, 11);
+assert.equal(Number.isInteger(rateL02), true);
+
+const detailsL02 = getLatestHistoricalRunDetails('L-02', '249', fractionalHistoricalRuns, { skipStore: true });
+assert.equal(detailsL02.rate, 11);
+assert.equal(Number.isInteger(detailsL02.rate), true);
+
+const rateL04 = getLatestHistoricalRealRate('L-04', '500', fractionalHistoricalRuns, { skipStore: true });
+assert.equal(rateL04, 15); // Math.round(133 / 9) = 15
+assert.equal(Number.isInteger(rateL04), true);
+
+// b. buildMorningSopModel with fractional input rate enforces integer input, step target, and all slots
+const fractionalSop = buildMorningSopModel({
+  lineId: 'L-02',
+  targetPcsH: 11.3, // fractional input
+  pipeLength: 6.0,
+  date: '2026-09-22',
+  productDescription: 'PVC 110 MM'
+});
+
+assert.equal(fractionalSop.inputRealRate, 11); // Rounded to 11
+assert.equal(Number.isInteger(fractionalSop.inputRealRate), true);
+assert.equal(fractionalSop.stepTarget, 13); // Math.round(11 / 0.85) = Math.round(12.941) = 13
+assert.equal(Number.isInteger(fractionalSop.stepTarget), true);
+assert.equal(fractionalSop.hourlyStdRate, 13);
+assert.equal(Number.isInteger(fractionalSop.hourlyStdRate), true);
+assert.equal(fractionalSop.printedHourlyTarget, 13);
+
+// Verify each slot in Shift 1 and Shift 2 is strictly an integer
+fractionalSop.shift1Rows.forEach((slot, idx) => {
+  assert.equal(Number.isInteger(slot.stdPcs), true);
+  assert.equal(Number.isInteger(slot.stdM), true);
+  assert.equal(slot.stdPcs, 13 * (idx + 1));
+});
+
+fractionalSop.shift2Rows.forEach((slot, idx) => {
+  assert.equal(Number.isInteger(slot.stdPcs), true);
+  assert.equal(Number.isInteger(slot.stdM), true);
+  assert.equal(slot.stdPcs, 13 * (idx + 13));
+});
+
+// c. Verify with another rate (e.g. 14.7 -> 15 -> stepTarget: Math.round(15 / 0.85) = 18)
+const fractionalSop2 = buildMorningSopModel({
+  lineId: 'L-04',
+  targetPcsH: 14.7,
+  pipeLength: 6.0,
+  date: '2026-09-22',
+  productDescription: 'PVC 160 MM'
+});
+
+assert.equal(fractionalSop2.inputRealRate, 15);
+assert.equal(Number.isInteger(fractionalSop2.inputRealRate), true);
+assert.equal(fractionalSop2.stepTarget, 18); // Math.round(15 / 0.85) = Math.round(17.647) = 18
+assert.equal(Number.isInteger(fractionalSop2.stepTarget), true);
+
+fractionalSop2.shift1Rows.forEach((slot, idx) => {
+  assert.equal(Number.isInteger(slot.stdPcs), true);
+  assert.equal(slot.stdPcs, 18 * (idx + 1));
+});
+fractionalSop2.shift2Rows.forEach((slot, idx) => {
+  assert.equal(Number.isInteger(slot.stdPcs), true);
+  assert.equal(slot.stdPcs, 18 * (idx + 13));
+});
+
+console.log('Strict Whole Integer Pieces (No Decimals) Enforcement: OK');
+
 console.log('All Legacy SOP Helper unit tests passed successfully!');
 
 

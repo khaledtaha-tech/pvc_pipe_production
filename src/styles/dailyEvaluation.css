@@ -35,7 +35,104 @@
   flex-direction: column;
 }
 
-/* ============ HEADER ============ */
+/* ============ CONSOLIDATED INDUSTRIAL TOOLBAR ============ */
+.app-header-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1rem;
+}
+
+html:not(.light) .app-header-toolbar {
+  background: #0f172a;
+  border-color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  line-height: 1;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.toolbar-btn svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.toolbar-btn-primary {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8 !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+}
+
+.toolbar-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  border-color: #1e40af !important;
+}
+
+.toolbar-btn-outline {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.toolbar-btn-outline:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.toolbar-btn-outline svg {
+  color: #64748b;
+}
+
+.toolbar-btn-outline:hover:not(:disabled) svg {
+  color: #0f172a;
+}
+
+html:not(.light) .toolbar-btn-outline {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+html:not(.light) .toolbar-btn-outline:hover:not(:disabled) {
+  background: #334155;
+  color: #ffffff;
+  border-color: #475569;
+}
+
+html:not(.light) .toolbar-btn-outline svg {
+  color: #94a3b8;
+}
+
+html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
+  color: #f8fafc;
+}
+
+/* Legacy app-header fallback */
 .app-header {
   display: flex;
   align-items: center;

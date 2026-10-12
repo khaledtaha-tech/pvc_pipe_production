@@ -1667,70 +1667,125 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
 
   return (
     <div className={`app-root tab-${tab} ${tab === 'analytics' ? 'print-analytics-active' : ''} ${isLaserMonochrome ? 'theme-laser-monochrome' : ''}`}>
-      <header className="app-header no-print">
-        <div className="app-title">
-          <div className="app-brand">PVC Pipe Daily Monitoring Report</div>
-          <div className="app-sub">
-            {PLANT_NAME} &middot; {SOP_REF} &middot; Version {DOC_VERSION} &middot; Standardized
+      {/* Consolidated Industrial Action Bar */}
+      <header className="app-header-toolbar flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-sm mb-4 no-print">
+        {/* Left Side: Daily Monitoring Identity & Bismillah title */}
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
+                PVC Pipe Daily Monitoring Report
+              </h1>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                v{DOC_VERSION}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {PLANT_NAME} &middot; {SOP_REF} &middot; Standardized Extrusion Audit
+            </div>
+          </div>
+          <div
+            className="hidden xl:flex items-center px-3 py-1 rounded-md bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 text-xs font-medium text-slate-600 dark:text-slate-300 font-serif"
+            aria-label="Bismillah"
+          >
+            {'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064E\u0647\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0652\u0645\u064E\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0650\u064A\u0645\u0650'}
           </div>
         </div>
-        <div className="app-header-bismillah" aria-label="Bismillah">
-          {'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064E\u0647\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0652\u0645\u064E\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0650\u064A\u0645\u0650'}
-        </div>
-        <div className="app-actions">
+
+        {/* Right Side: Operations & Tools Group */}
+        <div className="flex items-center flex-wrap gap-2">
+          {/* Primary Action: Print Morning SOP */}
           <button
             type="button"
-            className="btn btn-supervisor-header-quick"
+            className="toolbar-btn toolbar-btn-primary h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3.5 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsPrintChoiceModalOpen(true)}
-            style={{ backgroundColor: '#2563eb', color: '#ffffff', border: '1px solid #3b82f6' }}
+            style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
             title="Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.4" style={{ marginInlineEnd: 4, stroke: '#ffffff', color: '#ffffff' }}>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" className="flex-shrink-0" style={{ stroke: '#ffffff', color: '#ffffff' }}>
+              <path d="M6 9V2h12v7" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
             </svg>
-            <span style={{ color: '#ffffff', fontWeight: 600 }}>Morning Blank SOP (Supervisor)</span>
+            <span style={{ color: '#ffffff' }}>Print Morning SOP</span>
           </button>
+
+          {/* Catalog Action: Standards Catalog */}
           <button
             type="button"
-            className="btn btn-ghost"
-            onClick={() => setIsMachineSettingsOpen(true)}
-            title="Machine Master Settings: Configure and persist nominal machine rates (kg/h)"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginInlineEnd: 4 }}>
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-            Machine Settings
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsCatalogModalOpen(true)}
             title="Machine-Mold Standards Catalog: Manage approved operational rates (pcs/h)"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginInlineEnd: 4 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
               <path d="M6 6h10" />
               <path d="M6 10h10" />
             </svg>
-            Standards Catalog
+            <span>Standards Catalog</span>
           </button>
-          <a
-            href="./Master_Upload.xlsx"
-            download="Master_Upload.xlsx"
-            className="btn btn-ghost"
-            title="Download Master Consolidated Workbook (Log & Machine Master)"
+
+          {/* Machine Config: Machine Settings */}
+          <button
+            type="button"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
+            onClick={() => setIsMachineSettingsOpen(true)}
+            title="Machine Master Settings: Configure and persist nominal machine rates (kg/h)"
           >
-            Master Upload Excel
-          </a>
-          <button type="button" className="btn btn-ghost" onClick={openHistory}>
-            History
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
+              <line x1="4" y1="21" x2="4" y2="14" />
+              <line x1="4" y1="10" x2="4" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="3" />
+              <line x1="20" y1="21" x2="20" y2="16" />
+              <line x1="20" y1="12" x2="20" y2="3" />
+              <line x1="1" y1="14" x2="7" y2="14" />
+              <line x1="9" y1="8" x2="15" y2="8" />
+              <line x1="17" y1="16" x2="23" y2="16" />
+            </svg>
+            <span>Machine Settings</span>
           </button>
-          <button type="button" className="btn btn-ghost" onClick={handleReset}>
-            New Report
+
+          {/* Excel & Data: Upload Excel */}
+          <button
+            type="button"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
+            onClick={() => setTab('uploader')}
+            title="Open Excel Production Log Uploader"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>Upload Excel</span>
+          </button>
+
+          {/* History */}
+          <button
+            type="button"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
+            onClick={openHistory}
+            title="Browse Saved Daily Reports History"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>History</span>
+          </button>
+
+          {/* New Report */}
+          <button
+            type="button"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
+            onClick={handleReset}
+            title="Clear and Create New Report"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>New Report</span>
           </button>
         </div>
       </header>
@@ -1835,40 +1890,6 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
       <div className={`sheet-stage ${tab === 'sheet' ? 'sheet-active' : 'no-print'}`} style={{ display: tab === 'sheet' ? undefined : 'none' }}>
         {derived ? (
           <>
-            {/* Dedicated Hero Card for Production Supervisor Daily Blank SOP */}
-            <div className="supervisor-hero-card no-print">
-              <div className="supervisor-hero-info">
-                <div className="supervisor-hero-badge">
-                  <span className="supervisor-hero-pulse" />
-                  Production Supervisor Daily SOP
-                </div>
-                <h2 className="supervisor-hero-title">
-                  Generate & Print Morning Blank SOP (DOC-Ext.-03)
-                </h2>
-                <p className="supervisor-hero-desc">
-                  Prepare empty daily shift log sheets with automated Product Code binding and machine nominal specs prior to shift operational start.
-                </p>
-              </div>
-              <div className="supervisor-hero-actions">
-                <button
-                  type="button"
-                  className="btn btn-supervisor-hero"
-                  onClick={() => setIsPrintChoiceModalOpen(true)}
-                  style={{ backgroundColor: '#2563eb', color: '#ffffff', border: '1.5px solid #1e40af' }}
-                  title="Open Morning Blank SOP Generator & Batch Print Module"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.3" style={{ marginInlineEnd: 8, stroke: '#ffffff', color: '#ffffff' }}>
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                    <polyline points="10 9 9 9 8 9" />
-                  </svg>
-                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Print Blank Morning SOP (DOC-Ext.-03)</span>
-                </button>
-              </div>
-            </div>
-
             <div className="sheet-toolbar no-print">
               <div className="sheet-toolbar-left">
                 <div className="sheet-selectors-row">
@@ -1994,18 +2015,6 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <path d="M12 20v-6M6 20V10M18 20V4" />
                   </svg>
                   <span style={{ color: '#ffffff', fontWeight: 600 }}>Auto-Reconcile Shift Run</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setTab('matrix')}
-                  title="Open Master Daily Production & Lost Hours Reconciliation Matrix for all lines"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 6 }}>
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
-                  </svg>
-                  Reconciliation Matrix
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={handleSave}>
                   Save to History

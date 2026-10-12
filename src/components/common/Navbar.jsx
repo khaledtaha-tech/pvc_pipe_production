@@ -81,7 +81,7 @@ export default function Navbar({
                     ? 'text-stone-900' 
                     : 'bg-gradient-to-r from-white via-slate-200 to-slate-100 bg-clip-text text-transparent'
                 }`}>
-                  {isAr ? 'منظومة إنتاج وتحليل مواسير البلاستيك' : 'PVC Pipe Production Suite'}
+                  {isAr ? '\u0645\u0646\u0638\u0648\u0645\u0629 \u0625\u0646\u062A\u0627\u062C \u0648\u062A\u062D\u0644\u064A\u0644 \u0645\u0648\u0627\u0633\u064A\u0631 \u0627\u0644\u0628\u0644\u0627\u0633\u062A\u064A\u0643' : 'PVC Pipe Production Suite'}
                 </h1>
                 <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
                   theme === 'light' 
@@ -93,7 +93,7 @@ export default function Navbar({
               </div>
               <p className={`text-[11px] hidden sm:block ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
                 {isAr 
-                  ? 'منصة موحدة لتنظيف البيانات، تخطيط الخطوط، ومتابعة الوردية وسجل OEE'
+                  ? '\u0645\u0646\u0635\u0629 \u0645\u0648\u062D\u062F\u0629 \u0644\u062A\u0646\u0638\u064A\u0641 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A\u060C \u062A\u062E\u0637\u064A\u0637 \u0627\u0644\u062E\u0637\u0648\u0637\u060C \u0648\u0645\u062A\u0627\u0628\u0639\u0629 \u0627\u0644\u0648\u0631\u062F\u064A\u0629 \u0648\u0633\u062C\u0644 OEE'
                   : 'Unified Intelligence, Planning, SOP-EXT-PVC-01 Compliance & OEE Logging'}
               </p>
             </div>
@@ -176,7 +176,7 @@ export default function Navbar({
                 title="Download Factory Excel Templates"
               >
                 <Download className="w-3.5 h-3.5 text-slate-400" />
-                <span>{isAr ? 'القوالب' : 'Templates'}</span>
+                <span>{isAr ? '\u0627\u0644\u0642\u0648\u0627\u0644\u0628' : 'Templates'}</span>
                 <ChevronDown className="w-3 h-3 opacity-60" />
               </button>
 
@@ -206,7 +206,7 @@ export default function Navbar({
             </div>
 
             {/* Machine Settings Action */}
-            {onOpenMachineSettings && (
+            {onOpenMachineSettings && currentModule !== 'daily-evaluation' && (
               <button
                 type="button"
                 onClick={onOpenMachineSettings}
@@ -230,10 +230,10 @@ export default function Navbar({
                   ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50' 
                   : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
               }`}
-              title={isAr ? 'Switch to English' : 'التحويل للعربية'}
+              title={isAr ? 'Switch to English' : '\u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0644\u0644\u0639\u0631\u0628\u064A\u0629'}
             >
               <Languages className="w-4 h-4 text-slate-400" />
-              <span className="hidden sm:inline">{isAr ? 'English' : 'عربي'}</span>
+              <span className="hidden sm:inline">{isAr ? 'English' : '\u0639\u0631\u0628\u064A'}</span>
             </button>
 
             {/* Theme Toggle */}
@@ -400,7 +400,7 @@ export default function Navbar({
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium cursor-pointer shadow-sm transition"
               >
                 <PlusCircle className="w-3.5 h-3.5 text-slate-400" />
-                <span>{isAr ? 'إضافة سطر' : 'Add Row'}</span>
+                <span>{isAr ? '\u0625\u0636\u0627\u0641\u0629 \u0633\u0637\u0631' : 'Add Row'}</span>
               </button>
             </div>
           </div>
@@ -417,32 +417,6 @@ export default function Navbar({
               <span className="text-slate-400 text-[11px] hidden sm:inline">
                 | 24h Extrusion Monitoring, Shift Run Reconciliation &amp; OEE Auditing
               </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {onOpenReconciliationMatrix && (
-                <button
-                  type="button"
-                  onClick={onOpenReconciliationMatrix}
-                  className="btn-primary flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer text-xs transition shadow-sm border border-transparent"
-                  style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
-                  title="Open Master Daily Production &amp; Lost Hours Reconciliation Matrix (All Lines Overview)"
-                >
-                  <Table className="w-3.5 h-3.5 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
-                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Reconciliation Matrix (All Lines)</span>
-                </button>
-              )}
-
-              {onOpenBlankSopPrint && (
-                <button
-                  type="button"
-                  onClick={onOpenBlankSopPrint}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-medium cursor-pointer text-xs transition shadow-sm"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Morning SOP (DOC-Ext.-03)</span>
-                </button>
-              )}
             </div>
           </div>
         )}

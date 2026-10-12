@@ -17,6 +17,26 @@ export function makeCatalogKey(lineId, productCode) {
 }
 
 /**
+ * Calculate hourly rate from 24h daily target.
+ * Always returns a positive whole integer, or 0.
+ */
+export function calculateHourlyFromDaily(dailyTargetPcs) {
+  const daily = Number(dailyTargetPcs);
+  if (isNaN(daily) || daily <= 0) return 0;
+  return Math.round(daily / 24);
+}
+
+/**
+ * Calculate 24h daily target from hourly rate.
+ * Always returns a positive whole integer, or 0.
+ */
+export function calculateDailyFromHourly(hourlyRatePcsH) {
+  const hourly = Number(hourlyRatePcsH);
+  if (isNaN(hourly) || hourly <= 0) return 0;
+  return Math.round(hourly * 24);
+}
+
+/**
  * Retrieve all persistent machine-mold baseline operating rates.
  * Returns an object keyed by `${lineId}__${productCode}`.
  */
@@ -26,7 +46,19 @@ export function getAllBaselines() {
   }
   try {
     const raw = window.localStorage.getItem(BASELINE_CATALOG_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (parsed && typeof parsed === 'object') {
+      Object.keys(parsed).forEach((k) => {
+        if (parsed[k] && Number(parsed[k].baselinePcsH) > 0) {
+          const rate = Math.round(Number(parsed[k].baselinePcsH));
+          parsed[k].baselinePcsH = rate;
+          parsed[k].dailyTargetPcs = parsed[k].dailyTargetPcs
+            ? Math.round(Number(parsed[k].dailyTargetPcs))
+            : Math.round(rate * 24);
+        }
+      });
+    }
+    return parsed;
   } catch (err) {
     console.warn('Failed to load baseline operating catalog:', err);
     return {};
@@ -36,16 +68,28 @@ export function getAllBaselines() {
 /**
  * Retrieve the explicit baseline entry for a given line and product code.
  * Checks normalized codes and leading zero variants.
- * Returns { lineId, productCode, baselinePcsH, approvedDate, notes } or null.
+ * Returns { lineId, productCode, baselinePcsH, dailyTargetPcs, approvedDate, notes } or null.
  */
 export function getBaselineEntry(lineId, productCode) {
   if (!lineId || !productCode) return null;
   const catalog = getAllBaselines();
   if (!catalog || typeof catalog !== 'object') return null;
 
+  const normalizeEntry = (raw) => {
+    if (!raw || Number(raw.baselinePcsH) <= 0) return null;
+    const rate = Math.round(Number(raw.baselinePcsH));
+    return {
+      ...raw,
+      baselinePcsH: rate,
+      dailyTargetPcs: raw.dailyTargetPcs
+        ? Math.round(Number(raw.dailyTargetPcs))
+        : Math.round(rate * 24)
+    };
+  };
+
   const primaryKey = makeCatalogKey(lineId, productCode);
   if (catalog[primaryKey] && Number(catalog[primaryKey].baselinePcsH) > 0) {
-    return { ...catalog[primaryKey] };
+    return normalizeEntry(catalog[primaryKey]);
   }
 
   // Fallback 1: check with leading zero stripped (e.g. '0255' -> '255')
@@ -54,7 +98,7 @@ export function getBaselineEntry(lineId, productCode) {
   if (strippedCode && strippedCode !== cleanCode) {
     const altKey = makeCatalogKey(lineId, strippedCode);
     if (catalog[altKey] && Number(catalog[altKey].baselinePcsH) > 0) {
-      return { ...catalog[altKey] };
+      return normalizeEntry(catalog[altKey]);
     }
   }
 
@@ -62,7 +106,7 @@ export function getBaselineEntry(lineId, productCode) {
   if (!cleanCode.startsWith('0')) {
     const altKey2 = makeCatalogKey(lineId, `0${cleanCode}`);
     if (catalog[altKey2] && Number(catalog[altKey2].baselinePcsH) > 0) {
-      return { ...catalog[altKey2] };
+      return normalizeEntry(catalog[altKey2]);
     }
   }
 
@@ -82,6 +126,7 @@ export function getBaselineRate(lineId, productCode, records = null, options = {
       return {
         ...entry,
         baselinePcsH: intRate,
+        dailyTargetPcs: entry.dailyTargetPcs ? Math.round(Number(entry.dailyTargetPcs)) : Math.round(intRate * 24),
         rate: intRate,
         source: 'baseline',
         isBaseline: true
@@ -99,6 +144,7 @@ export function getBaselineRate(lineId, productCode, records = null, options = {
         lineId: String(lineId).trim().toUpperCase(),
         productCode: String(productCode).trim().toUpperCase(),
         baselinePcsH: histRate,
+        dailyTargetPcs: Math.round(histRate * 24),
         rate: histRate,
         approvedDate: histDetails.date || null,
         notes: 'Derived from historical log record',
@@ -114,13 +160,28 @@ export function getBaselineRate(lineId, productCode, records = null, options = {
 
 /**
  * Save or update approved operational baseline rate for a specific machine-mold combination.
- * Key structure: { lineId, productCode } -> { baselinePcsH, approvedDate, notes }
+ * Key structure: { lineId, productCode } -> { baselinePcsH, dailyTargetPcs, approvedDate, notes }
  * Returns saved entry or null on invalid input.
  */
-export function saveBaselineRate(lineId, productCode, baselinePcsH, notes = '') {
+export function saveBaselineRate(lineId, productCode, baselinePcsH, notes = '', dailyTargetPcs = null) {
   if (!lineId || !productCode) return null;
-  const numRate = Math.round(Number(baselinePcsH));
+  
+  let numRate = Math.round(Number(baselinePcsH));
+  let numDaily = dailyTargetPcs != null && !isNaN(Number(dailyTargetPcs)) && Number(dailyTargetPcs) > 0
+    ? Math.round(Number(dailyTargetPcs))
+    : null;
+
+  // If rate is not valid or 0, but daily target was provided:
+  if ((isNaN(numRate) || numRate <= 0) && numDaily && numDaily > 0) {
+    numRate = Math.round(numDaily / 24);
+  }
+
   if (isNaN(numRate) || numRate <= 0) return null;
+
+  // If daily target was not provided, derive it from rate
+  if (!numDaily || numDaily <= 0) {
+    numDaily = Math.round(numRate * 24);
+  }
 
   const cleanLine = String(lineId).trim().toUpperCase();
   const m = matchMachine(cleanLine);
@@ -135,6 +196,7 @@ export function saveBaselineRate(lineId, productCode, baselinePcsH, notes = '') 
     lineId: canonicalLine,
     productCode: cleanProd,
     baselinePcsH: numRate,
+    dailyTargetPcs: numDaily,
     approvedDate: new Date().toISOString().slice(0, 10),
     notes: typeof notes === 'string' ? notes.trim() : ''
   };

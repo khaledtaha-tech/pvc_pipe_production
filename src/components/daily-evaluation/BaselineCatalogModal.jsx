@@ -17,6 +17,7 @@ export default function BaselineCatalogModal({
   const [newLineId, setNewLineId] = useState('L-01');
   const [newProductCode, setNewProductCode] = useState('');
   const [newRate, setNewRate] = useState('');
+  const [newDailyTarget, setNewDailyTarget] = useState('');
   const [feedback, setFeedback] = useState('');
 
   const lineOptions = useMemo(() => {
@@ -84,6 +85,36 @@ export default function BaselineCatalogModal({
     }));
   };
 
+  const handleHourlyRateChange = (e) => {
+    const val = e.target.value;
+    setNewRate(val);
+    if (val === '' || val === null) {
+      setNewDailyTarget('');
+      return;
+    }
+    const num = Math.round(Number(val));
+    if (!isNaN(num) && num > 0) {
+      setNewDailyTarget(String(Math.round(num * 24)));
+    } else {
+      setNewDailyTarget('');
+    }
+  };
+
+  const handleDailyTargetChange = (e) => {
+    const val = e.target.value;
+    setNewDailyTarget(val);
+    if (val === '' || val === null) {
+      setNewRate('');
+      return;
+    }
+    const num = Math.round(Number(val));
+    if (!isNaN(num) && num > 0) {
+      setNewRate(String(Math.round(num / 24)));
+    } else {
+      setNewRate('');
+    }
+  };
+
   const handleSaveRow = (entry) => {
     const currentVal = editingRates[entry.key];
     const num = Math.round(Number(currentVal));
@@ -91,9 +122,10 @@ export default function BaselineCatalogModal({
       alert('Please enter a valid positive integer rate.');
       return;
     }
-    saveBaselineRate(entry.lineId, entry.productCode, num);
+    const numDaily = Math.round(num * 24);
+    saveBaselineRate(entry.lineId, entry.productCode, num, '', numDaily);
     loadCatalogData();
-    setFeedback(`Saved ${entry.lineId} - ${entry.productCode} at ${num} pcs/h`);
+    setFeedback(`Saved ${entry.lineId} - ${entry.productCode} at ${num} pcs/h (${numDaily} pcs/day)`);
     setTimeout(() => setFeedback(''), 3000);
   };
 
@@ -109,22 +141,31 @@ export default function BaselineCatalogModal({
   const handleAddNew = (e) => {
     e.preventDefault();
     const cleanCode = String(newProductCode).trim().toUpperCase();
-    const numRate = Math.round(Number(newRate));
+    let numRate = Math.round(Number(newRate));
+    let numDaily = Math.round(Number(newDailyTarget));
+
+    if ((isNaN(numRate) || numRate <= 0) && (!isNaN(numDaily) && numDaily > 0)) {
+      numRate = Math.round(numDaily / 24);
+    }
+    if ((isNaN(numDaily) || numDaily <= 0) && (!isNaN(numRate) && numRate > 0)) {
+      numDaily = Math.round(numRate * 24);
+    }
 
     if (!newLineId || !cleanCode) {
       alert('Please select a machine line and enter a product code.');
       return;
     }
     if (isNaN(numRate) || numRate <= 0) {
-      alert('Please enter a valid positive integer rate.');
+      alert('Please enter a valid positive integer rate or daily target.');
       return;
     }
 
-    saveBaselineRate(newLineId, cleanCode, numRate);
+    saveBaselineRate(newLineId, cleanCode, numRate, '', numDaily);
     setNewProductCode('');
     setNewRate('');
+    setNewDailyTarget('');
     loadCatalogData();
-    setFeedback(`Added standard for ${newLineId} - ${cleanCode} (${numRate} pcs/h)`);
+    setFeedback(`Added standard for ${newLineId} - ${cleanCode} (${numRate} pcs/h | ${numDaily} pcs/day)`);
     setTimeout(() => setFeedback(''), 3000);
   };
 
@@ -136,7 +177,7 @@ export default function BaselineCatalogModal({
         aria-modal="true"
         aria-labelledby="baseline-catalog-modal-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 840 }}
+        style={{ maxWidth: 940 }}
       >
         {/* Modal Header */}
         <div className="export-modal-header">
@@ -207,6 +248,20 @@ export default function BaselineCatalogModal({
               </div>
 
               <div className="standards-catalog-field">
+                <label className="standards-catalog-label">Daily Target (24h):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="500000"
+                  step="1"
+                  className="standards-catalog-input"
+                  placeholder="e.g. 500"
+                  value={newDailyTarget}
+                  onChange={handleDailyTargetChange}
+                />
+              </div>
+
+              <div className="standards-catalog-field">
                 <label className="standards-catalog-label">Approved Rate (Pcs/h):</label>
                 <input
                   type="number"
@@ -214,9 +269,9 @@ export default function BaselineCatalogModal({
                   max="10000"
                   step="1"
                   className="standards-catalog-input"
-                  placeholder="e.g. 170"
+                  placeholder="e.g. 21"
                   value={newRate}
-                  onChange={(e) => setNewRate(e.target.value)}
+                  onChange={handleHourlyRateChange}
                 />
               </div>
 
@@ -240,17 +295,18 @@ export default function BaselineCatalogModal({
             <table className="standards-catalog-table">
               <thead>
                 <tr>
-                  <th style={{ width: '15%' }}>Line ID</th>
-                  <th style={{ width: '20%' }}>Product Code</th>
-                  <th style={{ width: '25%', textAlign: 'center' }}>Approved Real Rate (Pcs/h)</th>
-                  <th style={{ width: '22%', textAlign: 'center' }}>Printed SOP Target (85%)</th>
-                  <th style={{ width: '18%', textAlign: 'center' }}>Actions</th>
+                  <th style={{ width: '12%' }}>Line ID</th>
+                  <th style={{ width: '16%' }}>Product Code</th>
+                  <th style={{ width: '20%', textAlign: 'center' }}>Approved Real Rate (Pcs/h)</th>
+                  <th style={{ width: '18%', textAlign: 'center' }}>Daily Target (24h)</th>
+                  <th style={{ width: '18%', textAlign: 'center' }}>Printed SOP Target (85%)</th>
+                  <th style={{ width: '16%', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {catalogEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="standards-catalog-empty">
+                    <td colSpan={6} className="standards-catalog-empty">
                       No baseline standards saved yet. Add a standard using the form above or bookmark one from the Morning Blank SOP dialog.
                     </td>
                   </tr>
@@ -260,6 +316,7 @@ export default function BaselineCatalogModal({
                       ? editingRates[row.key]
                       : row.baselinePcsH;
                     const numVal = Number(currentEditingVal);
+                    const dailyTargetVal = numVal > 0 ? Math.round(numVal * 24) : '-';
                     const printedTarget = numVal > 0 ? Math.round(numVal / 0.85) : '-';
                     const isChanged = String(currentEditingVal) !== String(row.baselinePcsH);
 
@@ -283,6 +340,11 @@ export default function BaselineCatalogModal({
                             value={currentEditingVal}
                             onChange={(e) => handleRateInputChange(row.key, e.target.value)}
                           />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="standards-catalog-daily-pill">
+                            {dailyTargetVal !== '-' ? `${dailyTargetVal} pcs` : '-'}
+                          </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <span className="standards-catalog-target-pill">

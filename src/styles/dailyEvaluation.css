@@ -8248,6 +8248,395 @@ html:not(.light) .print-sop-switch-banner .btn-link-action:hover {
   color: #93c5fd;
 }
 
+/* ==========================================================================
+   Machine-Mold Standards Catalog Modal (DOC-Ext.-03)
+   ========================================================================== */
+.standards-catalog-body {
+  padding: 1.25rem 1.5rem;
+  max-height: calc(85vh - 140px);
+  overflow-y: auto;
+}
+
+.standards-catalog-feedback {
+  margin: 0.75rem 1.5rem 0;
+  padding: 0.6rem 0.85rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  color: #166534;
+  font-size: 0.825rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.standards-catalog-feedback-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.standards-catalog-add-form {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.standards-catalog-add-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.standards-catalog-add-grid {
+  display: grid;
+  grid-template-columns: 140px 160px 150px 140px auto;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+@media (max-width: 768px) {
+  .standards-catalog-add-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.standards-catalog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.standards-catalog-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.standards-catalog-select,
+.standards-catalog-input {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.standards-catalog-select:focus,
+.standards-catalog-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.standards-catalog-preview-field .standards-catalog-preview-val {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px dashed #bfdbfe;
+  border-radius: 6px;
+  min-height: 35px;
+  display: flex;
+  align-items: center;
+}
+
+.standards-catalog-add-action {
+  display: flex;
+  align-items: flex-end;
+}
+
+.standards-catalog-add-btn {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 6px;
+  padding: 0.48rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.standards-catalog-add-btn:hover {
+  background: #1d4ed8;
+}
+
+.standards-catalog-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.standards-catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: #ffffff;
+}
+
+.standards-catalog-table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 0.775rem;
+  letter-spacing: 0.02em;
+}
+
+.standards-catalog-table td {
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.standards-catalog-table tr:last-child td {
+  border-bottom: none;
+}
+
+.standards-catalog-table tr.row-modified {
+  background: #fffbeb;
+}
+
+.standards-catalog-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.standards-catalog-line-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e40af;
+  background: #dbeafe;
+  border-radius: 4px;
+}
+
+.standards-catalog-code {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.standards-catalog-rate-input {
+  width: 90px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+  text-align: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.standards-catalog-rate-input.input-modified {
+  border-color: #d97706;
+  background: #fef3c7;
+}
+
+.standards-catalog-target-pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #065f46;
+  background: #d1fae5;
+  border-radius: 9999px;
+}
+
+.standards-catalog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.standards-btn-save {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease;
+}
+
+.standards-btn-save:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+
+.standards-btn-save.highlight-save {
+  background: #d97706;
+  color: #ffffff;
+  border-color: #b45309;
+}
+
+.standards-btn-save.highlight-save:hover {
+  background: #b45309;
+}
+
+.standards-btn-delete {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+  transition: all 0.15s ease;
+}
+
+.standards-btn-delete:hover {
+  background: #e11d48;
+  color: #ffffff;
+  border-color: #be123c;
+}
+
+.standards-catalog-count-note {
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+/* Dark Mode Overrides */
+html:not(.light) .standards-catalog-feedback {
+  background: rgba(22, 101, 52, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+html:not(.light) .standards-catalog-add-form {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+html:not(.light) .standards-catalog-add-title {
+  color: #f1f5f9;
+}
+
+html:not(.light) .standards-catalog-label {
+  color: #94a3b8;
+}
+
+html:not(.light) .standards-catalog-select,
+html:not(.light) .standards-catalog-input {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+html:not(.light) .standards-catalog-preview-field .standards-catalog-preview-val {
+  color: #93c5fd;
+  background: rgba(30, 58, 138, 0.3);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+html:not(.light) .standards-catalog-table-wrap {
+  border-color: #334155;
+}
+
+html:not(.light) .standards-catalog-table {
+  background: #1e293b;
+}
+
+html:not(.light) .standards-catalog-table th {
+  background: #0f172a;
+  color: #cbd5e1;
+  border-bottom-color: #334155;
+}
+
+html:not(.light) .standards-catalog-table td {
+  border-bottom-color: #334155;
+  color: #e2e8f0;
+}
+
+html:not(.light) .standards-catalog-table tr.row-modified {
+  background: rgba(217, 119, 6, 0.15);
+}
+
+html:not(.light) .standards-catalog-empty {
+  color: #94a3b8;
+}
+
+html:not(.light) .standards-catalog-line-badge {
+  background: rgba(30, 58, 138, 0.5);
+  color: #93c5fd;
+}
+
+html:not(.light) .standards-catalog-code {
+  color: #f8fafc;
+}
+
+html:not(.light) .standards-catalog-rate-input {
+  background: #0f172a;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+html:not(.light) .standards-catalog-rate-input.input-modified {
+  background: rgba(217, 119, 6, 0.25);
+  border-color: #f59e0b;
+}
+
+html:not(.light) .standards-catalog-target-pill {
+  background: rgba(6, 95, 70, 0.4);
+  color: #6ee7b7;
+}
+
+html:not(.light) .standards-btn-save {
+  background: #334155;
+  color: #cbd5e1;
+  border-color: #475569;
+}
+
+html:not(.light) .standards-btn-save:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+html:not(.light) .standards-btn-delete {
+  background: rgba(190, 18, 60, 0.2);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.4);
+}
+
+html:not(.light) .standards-btn-delete:hover {
+  background: #e11d48;
+  color: #ffffff;
+  border-color: #be123c;
+}
+
+html:not(.light) .standards-catalog-count-note {
+  color: #94a3b8;
+}
+
+
 
 
 

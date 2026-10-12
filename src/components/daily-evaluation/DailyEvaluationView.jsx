@@ -50,6 +50,7 @@ import PrintSopModal from './PrintSopModal.jsx';
 import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
 import AutoReconcileModal from './AutoReconcileModal.jsx';
 import MachineSettingsModal from './MachineSettingsModal.jsx';
+import BaselineCatalogModal from './BaselineCatalogModal.jsx';
 import DailyReconciliationMatrixView from './DailyReconciliationMatrixView.jsx';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
@@ -184,6 +185,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const [isPrintSopModalOpen, setIsPrintSopModalOpen] = useState(false);
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [isMachineSettingsOpen, setIsMachineSettingsOpen] = useState(false);
+  const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
   const [showAllLines, setShowAllLines] = useState(false);
@@ -1703,6 +1705,19 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             </svg>
             Machine Settings
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setIsCatalogModalOpen(true)}
+            title="Machine-Mold Standards Catalog: Manage approved operational rates (pcs/h)"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginInlineEnd: 4 }}>
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+              <path d="M6 6h10" />
+              <path d="M6 10h10" />
+            </svg>
+            Standards Catalog
+          </button>
           <a
             href="./Master_Upload.xlsx"
             download="Master_Upload.xlsx"
@@ -2327,6 +2342,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         machineMaster={machineMaster}
         onNotify={notify}
         onSaved={handleMachineSettingsSaved}
+      />
+
+      {/* Baseline Operating Standards Catalog Modal */}
+      <BaselineCatalogModal
+        isOpen={isCatalogModalOpen}
+        onClose={() => setIsCatalogModalOpen(false)}
+        machineMaster={machineMaster}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

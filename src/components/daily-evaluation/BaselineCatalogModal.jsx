@@ -4,6 +4,7 @@ import {
   getAllBaselines,
   saveBaselineRate,
   removeBaselineRate,
+  syncBaselinesWithServer,
   BASELINE_CATALOG_UPDATED_EVENT
 } from '../../logic/standardCatalogHelper.js';
 
@@ -41,6 +42,9 @@ export default function BaselineCatalogModal({
   useEffect(() => {
     if (!isOpen) return;
     loadCatalogData();
+    // Fetch and merge fresh standards from central MySQL database
+    syncBaselinesWithServer().catch(() => {});
+
     const handleCatalogUpdate = () => loadCatalogData();
     if (typeof window !== 'undefined') {
       window.addEventListener(BASELINE_CATALOG_UPDATED_EVENT, handleCatalogUpdate);

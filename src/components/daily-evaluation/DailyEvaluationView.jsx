@@ -51,6 +51,7 @@ import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
 import AutoReconcileModal from './AutoReconcileModal.jsx';
 import MachineSettingsModal from './MachineSettingsModal.jsx';
 import BaselineCatalogModal from './BaselineCatalogModal.jsx';
+import { syncBaselinesWithServer } from '../../logic/standardCatalogHelper.js';
 import DailyReconciliationMatrixView from './DailyReconciliationMatrixView.jsx';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
@@ -247,6 +248,11 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   // Migrate legacy and stale line mappings in local storage upon mount
   useEffect(() => {
     migrateStoredLineMappings();
+  }, []);
+
+  // Synchronize baseline operating standards from central server on mount
+  useEffect(() => {
+    syncBaselinesWithServer().catch(() => {});
   }, []);
 
   // Persist active report and per-machine snapshot whenever report state changes

@@ -21,6 +21,7 @@ import {
   getBaselineRate,
   saveBaselineRate,
   getBaselineEntry,
+  syncBaselinesWithServer,
   BASELINE_CATALOG_UPDATED_EVENT
 } from '../../logic/standardCatalogHelper.js';
 import {
@@ -165,6 +166,7 @@ export default function PrintSopModal({
   }, [productCatalog]);
 
   const [settingsVersion, setSettingsVersion] = useState(0);
+  const [baselineVersion, setBaselineVersion] = useState(0);
 
   useEffect(() => {
     const handleSettingsChanged = () => setSettingsVersion((v) => v + 1);
@@ -173,6 +175,21 @@ export default function PrintSopModal({
       return () => window.removeEventListener(MACHINE_SETTINGS_CHANGED_EVENT, handleSettingsChanged);
     }
   }, []);
+
+  useEffect(() => {
+    const handleBaselineChanged = () => setBaselineVersion((v) => v + 1);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener(BASELINE_CATALOG_UPDATED_EVENT, handleBaselineChanged);
+      return () => window.removeEventListener(BASELINE_CATALOG_UPDATED_EVENT, handleBaselineChanged);
+    }
+  }, []);
+
+  // Fetch and merge fresh standards from central MySQL database when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      syncBaselinesWithServer().catch(() => {});
+    }
+  }, [isOpen]);
 
   // Synchronize target date when modal opens, selectedDate changes, or latestLoggedDate updates
   useEffect(() => {
@@ -352,7 +369,7 @@ export default function PrintSopModal({
     });
 
     setLinesState(list);
-  }, [isOpen, targetDate, activeMaster, records, scope, previousDate, settingsVersion, effectiveLatestRun]);
+  }, [isOpen, targetDate, activeMaster, records, scope, previousDate, settingsVersion, baselineVersion, effectiveLatestRun]);
 
   // Handle ESC key to dismiss modal
   useEffect(() => {

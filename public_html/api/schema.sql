@@ -152,3 +152,13 @@ CREATE TABLE IF NOT EXISTS `historical_erp_records` (
   INDEX `idx_erp_batch` (`upload_batch_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `pvc_baseline_standards` (
+  `line_id` VARCHAR(50) NOT NULL,
+  `product_code` VARCHAR(50) NOT NULL,
+  `baseline_pcs_h` INT NOT NULL,
+  `notes` TEXT NULL,
+  `approved_date` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`line_id`, `product_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+

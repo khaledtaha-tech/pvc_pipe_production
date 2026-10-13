@@ -8,7 +8,12 @@ import {
   removeBaselineRate,
   clearAllBaselines,
   makeCatalogKey,
-  BASELINE_CATALOG_STORAGE_KEY
+  BASELINE_CATALOG_STORAGE_KEY,
+  BASELINE_CATALOG_UPDATED_EVENT,
+  getBaselineApiUrl,
+  saveBaselineRateToServer,
+  removeBaselineRateFromServer,
+  syncBaselinesWithServer
 } from '../../src/logic/standardCatalogHelper.js';
 import {
   saveBaselineRate as saveBaselineRateUtil,
@@ -24,6 +29,15 @@ console.log('--- Starting Standard Baseline Catalog & Morning SOP Tests ---');
 
 // Mock in-memory localStorage for Node test runner
 const memoryStorage = {};
+const dispatchedEvents = [];
+if (typeof globalThis.CustomEvent === 'undefined') {
+  globalThis.CustomEvent = class CustomEvent {
+    constructor(type, eventInitDict) {
+      this.type = type;
+      this.detail = eventInitDict?.detail;
+    }
+  };
+}
 globalThis.window = {
   localStorage: {
     getItem: (key) => memoryStorage[key] || null,
@@ -31,7 +45,10 @@ globalThis.window = {
     removeItem: (key) => { delete memoryStorage[key]; },
     clear: () => { Object.keys(memoryStorage).forEach(k => delete memoryStorage[k]); }
   },
-  dispatchEvent: () => true
+  dispatchEvent: (event) => {
+    dispatchedEvents.push(event);
+    return true;
+  }
 };
 
 // 1. Key generation and normalization
@@ -190,4 +207,146 @@ oddRateSop.shift2Rows.forEach((slot) => {
 });
 console.log('Test 11 Passed: Whole integer preservation and zero decimal artifacts verified.');
 
-console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (11/11) ---');
+// 12. Asynchronous Server Persist (saveBaselineRateToServer)
+let mockPostPayload = null;
+const mockSaveFetch = async (url, options) => {
+  mockPostPayload = {
+    url,
+    method: options.method,
+    headers: options.headers,
+    body: JSON.parse(options.body)
+  };
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      success: true,
+      message: 'Baseline standard saved successfully'
+    })
+  };
+};
+
+const saveServerResult = await saveBaselineRateToServer(
+  'L-03',
+  '315',
+  60,
+  'KTS 350 Item 315 standard pace',
+  null,
+  { fetchFn: mockSaveFetch }
+);
+
+assert.equal(saveServerResult.success, true);
+assert.equal(saveServerResult.lineId, 'L-03');
+assert.equal(saveServerResult.productCode, '315');
+assert.equal(saveServerResult.baselinePcsH, 60);
+assert.ok(mockPostPayload);
+assert.equal(mockPostPayload.method, 'POST');
+assert.equal(mockPostPayload.body.lineId, 'L-03');
+assert.equal(mockPostPayload.body.productCode, '315');
+assert.equal(mockPostPayload.body.baselinePcsH, 60);
+assert.equal(mockPostPayload.body.dailyTargetPcs, 1440);
+assert.equal(mockPostPayload.body.notes, 'KTS 350 Item 315 standard pace');
+console.log('Test 12 Passed: saveBaselineRateToServer payload schema and success handling verified.');
+
+// 13. Server Persist Error & Offline Resilience
+const failingSaveFetch = async () => {
+  throw new Error('Connection refused / offline network');
+};
+
+const offlineSaveResult = await saveBaselineRateToServer(
+  'L-03',
+  '315',
+  60,
+  '',
+  null,
+  { fetchFn: failingSaveFetch }
+);
+
+assert.equal(offlineSaveResult.success, false);
+assert.equal(offlineSaveResult.offline, true);
+console.log('Test 13 Passed: saveBaselineRateToServer offline error resilience verified.');
+
+// 14. Server Delete (removeBaselineRateFromServer)
+let mockDeleteUrl = null;
+const mockDeleteFetch = async (url, options) => {
+  mockDeleteUrl = { url, method: options.method };
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({ success: true, deleted: true })
+  };
+};
+
+const removeServerResult = await removeBaselineRateFromServer('L-03', '315', { fetchFn: mockDeleteFetch });
+assert.equal(removeServerResult.success, true);
+assert.equal(removeServerResult.deleted, true);
+assert.ok(mockDeleteUrl);
+assert.equal(mockDeleteUrl.method, 'DELETE');
+assert.ok(mockDeleteUrl.url.includes('line_id=L-03'));
+assert.ok(mockDeleteUrl.url.includes('product_code=315'));
+console.log('Test 14 Passed: removeBaselineRateFromServer URL parameters and DELETE dispatch verified.');
+
+// 15. Server Synchronization (syncBaselinesWithServer)
+// Seed local storage with a pre-existing standard
+clearAllBaselines();
+saveBaselineRate('L-01', '110', 100, 'Local standard');
+
+const mockRemoteData = {
+  success: true,
+  data: [
+    {
+      line_id: 'L-04',
+      product_code: '200',
+      baseline_pcs_h: 120,
+      notes: 'Central Kabra 90 baseline'
+    },
+    {
+      line_id: 'L-06',
+      product_code: '259',
+      baseline_pcs_h: 180,
+      notes: 'Central KTS 700 baseline'
+    }
+  ]
+};
+
+const mockSyncFetch = async (url, options) => {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => mockRemoteData
+  };
+};
+
+dispatchedEvents.length = 0;
+const syncResult = await syncBaselinesWithServer({ fetchFn: mockSyncFetch });
+
+assert.equal(syncResult.success, true);
+assert.equal(syncResult.count, 2);
+
+// Check that pre-existing local entries are retained
+assert.equal(getBaselineRate('L-01', '110'), 100);
+
+// Check that remote entries were merged into local storage cache
+assert.equal(getBaselineRate('L-04', '200'), 120);
+assert.equal(getBaselineRate('L-06', '259'), 180);
+
+// Verify event dispatch
+assert.ok(dispatchedEvents.some((ev) => ev.type === BASELINE_CATALOG_UPDATED_EVENT));
+console.log('Test 15 Passed: syncBaselinesWithServer merges remote database records into local cache and dispatches update event.');
+
+// 16. Server Sync Offline & Error Resilience
+const failingSyncFetch = async () => {
+  throw new Error('Host unreachable');
+};
+
+const offlineSyncResult = await syncBaselinesWithServer({ fetchFn: failingSyncFetch });
+assert.equal(offlineSyncResult.success, false);
+assert.equal(offlineSyncResult.offline, true);
+
+// Verify local catalog remains intact and uncorrupted
+assert.equal(getBaselineRate('L-01', '110'), 100);
+assert.equal(getBaselineRate('L-04', '200'), 120);
+assert.equal(getBaselineRate('L-06', '259'), 180);
+console.log('Test 16 Passed: syncBaselinesWithServer protects local storage during offline/network failure.');
+
+console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (16/16) ---');

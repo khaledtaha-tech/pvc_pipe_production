@@ -206,15 +206,270 @@ export function saveBaselineRate(lineId, productCode, baselinePcsH, notes = '', 
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       window.localStorage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(catalog));
-      window.dispatchEvent(
-        new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: entry })
-      );
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: entry })
+        );
+      }
     } catch (err) {
-      console.warn('Failed to save baseline operating catalog entry:', err);
+      console.warn('Failed to save baseline operating catalog entry locally:', err);
     }
   }
 
+  // Asynchronously persist to central MySQL database
+  saveBaselineRateToServer(canonicalLine, cleanProd, numRate, entry.notes, numDaily).catch(() => {});
+
   return entry;
+}
+
+/**
+ * Get endpoint URL for baseline catalog API
+ */
+export function getBaselineApiUrl() {
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return './api/baseline_catalog.php';
+  }
+  return '/api/baseline_catalog.php';
+}
+
+/**
+ * Save baseline rate directly to central MySQL server via POST/PUT
+ * @returns {Promise<Object>}
+ */
+export async function saveBaselineRateToServer(lineId, productCode, baselinePcsH, notes = '', dailyTargetPcs = null, options = {}) {
+  const fetchFn = options.fetchFn || (typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : (typeof fetch === 'function' ? fetch : null));
+  if (!fetchFn) {
+    return { success: false, offline: true, message: 'Fetch API not available' };
+  }
+
+  const cleanLine = String(lineId).trim().toUpperCase();
+  const m = matchMachine(cleanLine);
+  const canonicalLine = m?.id ? m.id.toUpperCase() : cleanLine;
+  const cleanProd = String(productCode).trim().toUpperCase();
+  const numRate = Math.round(Number(baselinePcsH));
+
+  if (!canonicalLine || !cleanProd || isNaN(numRate) || numRate <= 0) {
+    return { success: false, message: 'Invalid machine, product code, or rate' };
+  }
+
+  const numDaily = dailyTargetPcs != null && !isNaN(Number(dailyTargetPcs)) && Number(dailyTargetPcs) > 0
+    ? Math.round(Number(dailyTargetPcs))
+    : Math.round(numRate * 24);
+
+  const url = options.endpoint || getBaselineApiUrl();
+
+  try {
+    const res = await fetchFn(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        lineId: canonicalLine,
+        productCode: cleanProd,
+        baselinePcsH: numRate,
+        dailyTargetPcs: numDaily,
+        notes: typeof notes === 'string' ? notes.trim() : ''
+      })
+    });
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || (json && json.success === false)) {
+      return {
+        success: false,
+        status: res.status,
+        message: json?.message || `HTTP ${res.status} saving baseline to server`
+      };
+    }
+
+    return {
+      success: true,
+      data: json,
+      lineId: canonicalLine,
+      productCode: cleanProd,
+      baselinePcsH: numRate
+    };
+  } catch (err) {
+    return {
+      success: false,
+      offline: true,
+      message: err?.message || 'Network error saving baseline to server'
+    };
+  }
+}
+
+/**
+ * Remove baseline rate directly from central MySQL server via DELETE
+ * @returns {Promise<Object>}
+ */
+export async function removeBaselineRateFromServer(lineId, productCode, options = {}) {
+  const fetchFn = options.fetchFn || (typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : (typeof fetch === 'function' ? fetch : null));
+  if (!fetchFn) {
+    return { success: false, offline: true, message: 'Fetch API not available' };
+  }
+
+  const cleanLine = String(lineId).trim().toUpperCase();
+  const m = matchMachine(cleanLine);
+  const canonicalLine = m?.id ? m.id.toUpperCase() : cleanLine;
+  const cleanProd = String(productCode).trim().toUpperCase();
+
+  const baseUrl = options.endpoint || getBaselineApiUrl();
+  const url = `${baseUrl}?line_id=${encodeURIComponent(canonicalLine)}&product_code=${encodeURIComponent(cleanProd)}`;
+
+  try {
+    const res = await fetchFn(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      }
+    });
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || (json && json.success === false)) {
+      return {
+        success: false,
+        status: res.status,
+        message: json?.message || `HTTP ${res.status} deleting baseline from server`
+      };
+    }
+
+    return {
+      success: true,
+      deleted: true,
+      lineId: canonicalLine,
+      productCode: cleanProd
+    };
+  } catch (err) {
+    return {
+      success: false,
+      offline: true,
+      message: err?.message || 'Network error deleting baseline from server'
+    };
+  }
+}
+
+/**
+ * Synchronize baseline standards from central MySQL server.
+ * Merges remote standards into local catalog cache and dispatches updated event.
+ * @param {Object} [options]
+ * @returns {Promise<{ success: boolean, count?: number, catalog?: Object, error?: string, offline?: boolean }>}
+ */
+export async function syncBaselinesWithServer(options = {}) {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { success: false, offline: true, message: 'No localStorage environment available' };
+  }
+
+  const fetchFn = options.fetchFn || (typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : (typeof fetch === 'function' ? fetch : null));
+  if (!fetchFn) {
+    return { success: false, offline: true, message: 'Fetch API not available' };
+  }
+
+  const url = options.endpoint || getBaselineApiUrl();
+
+  try {
+    const response = await fetchFn(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      }
+    });
+
+    if (!response || !response.ok) {
+      return {
+        success: false,
+        status: response?.status,
+        message: `HTTP ${response?.status || 'Error'} from baseline API`
+      };
+    }
+
+    const json = await response.json().catch(() => null);
+    if (!json || json.success === false) {
+      return {
+        success: false,
+        message: json?.message || 'Invalid API response format'
+      };
+    }
+
+    const remoteCatalog = json.catalog || {};
+    const remoteData = Array.isArray(json.data) ? json.data : (Array.isArray(json.items) ? json.items : []);
+
+    const localCatalog = getAllBaselines();
+    const merged = { ...localCatalog };
+    let mergedCount = 0;
+
+    // 1. Process array data if provided
+    if (remoteData.length > 0) {
+      remoteData.forEach((item) => {
+        const rawLine = String(item.line_id || item.lineId || '').trim().toUpperCase();
+        const m = matchMachine(rawLine);
+        const lineId = m?.id ? m.id.toUpperCase() : rawLine;
+        const productCode = String(item.product_code || item.productCode || '').trim().toUpperCase();
+        const rate = Math.round(Number(item.baseline_pcs_h || item.baselinePcsH || item.rate || 0));
+
+        if (lineId && productCode && rate > 0) {
+          const key = makeCatalogKey(lineId, productCode);
+          if (key) {
+            merged[key] = {
+              lineId,
+              productCode,
+              baselinePcsH: rate,
+              dailyTargetPcs: Math.round(rate * 24),
+              approvedDate: item.approved_date ? String(item.approved_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+              notes: item.notes ? String(item.notes).trim() : ''
+            };
+            mergedCount++;
+          }
+        }
+      });
+    }
+
+    // 2. Process dictionary items if provided
+    if (remoteCatalog && typeof remoteCatalog === 'object') {
+      Object.keys(remoteCatalog).forEach((k) => {
+        const item = remoteCatalog[k];
+        if (item && Number(item.baselinePcsH || item.baseline_pcs_h) > 0) {
+          const rawLine = String(item.lineId || item.line_id || '').trim().toUpperCase();
+          const m = matchMachine(rawLine);
+          const lineId = m?.id ? m.id.toUpperCase() : rawLine;
+          const productCode = String(item.productCode || item.product_code || '').trim().toUpperCase();
+          const rate = Math.round(Number(item.baselinePcsH || item.baseline_pcs_h));
+          const key = makeCatalogKey(lineId, productCode) || k;
+          merged[key] = {
+            lineId,
+            productCode,
+            baselinePcsH: rate,
+            dailyTargetPcs: Math.round(rate * 24),
+            approvedDate: item.approvedDate ? String(item.approvedDate).slice(0, 10) : (item.approved_date ? String(item.approved_date).slice(0, 10) : new Date().toISOString().slice(0, 10)),
+            notes: item.notes ? String(item.notes).trim() : ''
+          };
+          mergedCount++;
+        }
+      });
+    }
+
+    window.localStorage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(merged));
+    if (typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(
+        new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, {
+          detail: { synced: true, count: mergedCount, catalog: merged }
+        })
+      );
+    }
+
+    return {
+      success: true,
+      count: mergedCount,
+      catalog: merged
+    };
+  } catch (err) {
+    return {
+      success: false,
+      offline: true,
+      message: err?.message || 'Network error syncing baselines from server'
+    };
+  }
 }
 
 /**
@@ -229,11 +484,17 @@ export function removeBaselineRate(lineId, productCode) {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(catalog));
-        window.dispatchEvent(
-          new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: { lineId, productCode, deleted: true } })
-        );
+        if (typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(
+            new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: { lineId, productCode, deleted: true } })
+          );
+        }
       } catch (err) {}
     }
+
+    // Asynchronously remove from central MySQL database
+    removeBaselineRateFromServer(lineId, productCode).catch(() => {});
+
     return true;
   }
   return false;
@@ -242,14 +503,23 @@ export function removeBaselineRate(lineId, productCode) {
 /**
  * Clear all machine-mold baselines from localStorage.
  */
-export function clearAllBaselines() {
+export function clearAllBaselines(options = {}) {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       window.localStorage.removeItem(BASELINE_CATALOG_STORAGE_KEY);
-      window.dispatchEvent(
-        new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: { cleared: true } })
-      );
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: { cleared: true } })
+        );
+      }
     } catch (err) {}
+  }
+
+  if (options.syncServer) {
+    const fetchFn = typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : (typeof fetch === 'function' ? fetch : null);
+    if (fetchFn) {
+      fetchFn(`${getBaselineApiUrl()}?clear=all`, { method: 'DELETE' }).catch(() => {});
+    }
   }
 }
 
@@ -260,3 +530,4 @@ export function hasBaselineRate(lineId, productCode) {
   const entry = getBaselineEntry(lineId, productCode);
   return Boolean(entry && Number(entry.baselinePcsH) > 0);
 }
+

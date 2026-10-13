@@ -6388,6 +6388,79 @@ html:not(.light) .log-table th {
   background-color: #16a34a;
 }
 
+.print-sop-missing-baseline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 2px;
+  margin-bottom: 3px;
+}
+
+.print-sop-warning-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  width: fit-content;
+}
+
+.print-sop-warning-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.print-sop-suggested-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #ffedd5;
+  width: fit-content;
+}
+
+.print-sop-suggested-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ea580c;
+  flex-shrink: 0;
+}
+
+.print-sop-badge-rate-editable.unapproved {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #f59e0b;
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.15);
+}
+
+.print-sop-badge-rate-editable.unapproved:focus-within {
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+  background: #ffffff;
+}
+
+.print-sop-badge-rate-editable.unapproved .print-sop-inline-rate-input {
+  color: #92400e;
+}
+
+.print-sop-badge-rate-editable.unapproved .print-sop-inline-rate-unit {
+  color: #b45309;
+}
+
 .print-sop-hist-badge {
   display: inline-flex;
   align-items: center;
@@ -7666,6 +7739,45 @@ html:not(.light) .print-sop-baseline-badge {
 
 html:not(.light) .print-sop-baseline-badge-dot {
   background-color: #4ade80;
+}
+
+html:not(.light) .print-sop-warning-badge {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+html:not(.light) .print-sop-warning-badge-dot {
+  background-color: #f59e0b;
+}
+
+html:not(.light) .print-sop-suggested-badge {
+  background: rgba(234, 88, 12, 0.12);
+  color: #fdba74;
+  border-color: rgba(234, 88, 12, 0.3);
+}
+
+html:not(.light) .print-sop-suggested-badge-dot {
+  background-color: #ea580c;
+}
+
+html:not(.light) .print-sop-badge-rate-editable.unapproved {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+html:not(.light) .print-sop-badge-rate-editable.unapproved:focus-within {
+  background: #1e293b;
+  border-color: #f59e0b;
+}
+
+html:not(.light) .print-sop-badge-rate-editable.unapproved .print-sop-inline-rate-input {
+  color: #fde68a;
+}
+
+html:not(.light) .print-sop-badge-rate-editable.unapproved .print-sop-inline-rate-unit {
+  color: #fbbf24;
 }
 
 html:not(.light) .print-sop-hist-found {

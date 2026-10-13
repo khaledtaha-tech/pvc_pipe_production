@@ -1,8 +1,24 @@
-import { matchMachine, MACHINES } from '../config/machines.js';
+import { matchMachine, machineLabel, MACHINES } from '../config/machines.js';
 import { getLatestHistoricalRunDetails, getLatestHistoricalRealRate } from './historicalLogHelper.js';
 
 export const BASELINE_CATALOG_STORAGE_KEY = 'pvc_baseline_operating_catalog';
 export const BASELINE_CATALOG_UPDATED_EVENT = 'pvc_baseline_operating_catalog_updated';
+
+/**
+ * Lookup human-readable full machine name (e.g. "L-06 - KTS 700") from line ID or machine name
+ * @param {string} lineId
+ * @param {Array} [masterList=MACHINES]
+ * @returns {string}
+ */
+export function getFullMachineName(lineId, masterList = MACHINES) {
+  if (!lineId) return '';
+  const clean = String(lineId).trim().toUpperCase();
+  const matched = matchMachine(clean, masterList);
+  if (matched && matched.name) {
+    return `${matched.id} - ${matched.name}`;
+  }
+  return machineLabel(clean, masterList) || clean;
+}
 
 /**
  * Generate a standardized composite catalog key: {lineId}__{productCode}

@@ -13,12 +13,14 @@ import {
   getBaselineApiUrl,
   saveBaselineRateToServer,
   removeBaselineRateFromServer,
-  syncBaselinesWithServer
+  syncBaselinesWithServer,
+  getFullMachineName
 } from '../../src/logic/standardCatalogHelper.js';
 import {
   saveBaselineRate as saveBaselineRateUtil,
   getBaselineRate as getBaselineRateUtil,
-  getBaselineEntry as getBaselineEntryUtil
+  getBaselineEntry as getBaselineEntryUtil,
+  getFullMachineName as getFullMachineNameUtil
 } from '../../src/utils/standardCatalogHelper.js';
 import {
   buildMorningSopModel,
@@ -349,4 +351,17 @@ assert.equal(getBaselineRate('L-04', '200'), 120);
 assert.equal(getBaselineRate('L-06', '259'), 180);
 console.log('Test 16 Passed: syncBaselinesWithServer protects local storage during offline/network failure.');
 
-console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (16/16) ---');
+// 17. Full Machine Name Resolution (getFullMachineName)
+assert.equal(getFullMachineName('L-01'), 'L-01 - KTS 350 TDH');
+assert.equal(getFullMachineName('L-02'), 'L-02 - KTS 170');
+assert.equal(getFullMachineName('L-03'), 'L-03 - Kabra 90');
+assert.equal(getFullMachineName('L-04'), 'L-04 - KTS 350');
+assert.equal(getFullMachineName('L-05'), 'L-05 - KTS 200');
+assert.equal(getFullMachineName('L-06'), 'L-06 - KTS 700');
+assert.equal(getFullMachineName('L-07'), 'L-07 - KTS 250 TDH');
+assert.equal(getFullMachineName('L-08'), 'L-08 - KTS 550');
+assert.equal(getFullMachineName('L-06 - KTS 700'), 'L-06 - KTS 700');
+assert.equal(getFullMachineNameUtil('L-05'), 'L-05 - KTS 200');
+console.log('Test 17 Passed: getFullMachineName canonical registry lookup verified.');
+
+console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (17/17) ---');

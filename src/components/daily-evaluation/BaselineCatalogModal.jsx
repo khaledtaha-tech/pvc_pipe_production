@@ -5,6 +5,9 @@ import {
   saveBaselineRate,
   removeBaselineRate,
   syncBaselinesWithServer,
+  saveBaselineRateToServer,
+  removeBaselineRateFromServer,
+  getFullMachineName,
   BASELINE_CATALOG_UPDATED_EVENT
 } from '../../logic/standardCatalogHelper.js';
 
@@ -14,7 +17,9 @@ export default function BaselineCatalogModal({
   machineMaster = []
 }) {
   const [catalog, setCatalog] = useState({});
-  const [editingRates, setEditingRates] = useState({});
+  const [editingHourly, setEditingHourly] = useState({});
+  const [editingDaily, setEditingDaily] = useState({});
+  const [savedRowKeys, setSavedRowKeys] = useState({});
   const [newLineId, setNewLineId] = useState('L-01');
   const [newProductCode, setNewProductCode] = useState('');
   const [newRate, setNewRate] = useState('');
@@ -30,13 +35,21 @@ export default function BaselineCatalogModal({
   const loadCatalogData = () => {
     const data = getAllBaselines();
     setCatalog(data || {});
-    const initialEdits = {};
+    const initialHourly = {};
+    const initialDaily = {};
     Object.keys(data || {}).forEach((key) => {
-      if (data[key]) {
-        initialEdits[key] = data[key].baselinePcsH;
+      const entry = data[key];
+      if (entry) {
+        const hRate = Math.round(Number(entry.baselinePcsH) || 0);
+        const dTarget = entry.dailyTargetPcs != null && Number(entry.dailyTargetPcs) > 0
+          ? Math.round(Number(entry.dailyTargetPcs))
+          : Math.round(hRate * 24);
+        initialHourly[key] = hRate > 0 ? String(hRate) : '';
+        initialDaily[key] = dTarget > 0 ? String(dTarget) : '';
       }
     });
-    setEditingRates(initialEdits);
+    setEditingHourly(initialHourly);
+    setEditingDaily(initialDaily);
   };
 
   useEffect(() => {
@@ -82,11 +95,32 @@ export default function BaselineCatalogModal({
     return String(a.productCode || '').localeCompare(String(b.productCode || ''));
   });
 
-  const handleRateInputChange = (key, value) => {
-    setEditingRates((prev) => ({
-      ...prev,
-      [key]: value
-    }));
+  const handleRowHourlyChange = (key, value) => {
+    setEditingHourly((prev) => ({ ...prev, [key]: value }));
+    if (value === '' || value === null) {
+      setEditingDaily((prev) => ({ ...prev, [key]: '' }));
+      return;
+    }
+    const num = Math.round(Number(value));
+    if (!isNaN(num) && num > 0) {
+      setEditingDaily((prev) => ({ ...prev, [key]: String(Math.round(num * 24)) }));
+    } else {
+      setEditingDaily((prev) => ({ ...prev, [key]: '' }));
+    }
+  };
+
+  const handleRowDailyChange = (key, value) => {
+    setEditingDaily((prev) => ({ ...prev, [key]: value }));
+    if (value === '' || value === null) {
+      setEditingHourly((prev) => ({ ...prev, [key]: '' }));
+      return;
+    }
+    const num = Math.round(Number(value));
+    if (!isNaN(num) && num > 0) {
+      setEditingHourly((prev) => ({ ...prev, [key]: String(Math.round(num / 24)) }));
+    } else {
+      setEditingHourly((prev) => ({ ...prev, [key]: '' }));
+    }
   };
 
   const handleHourlyRateChange = (e) => {
@@ -119,25 +153,51 @@ export default function BaselineCatalogModal({
     }
   };
 
-  const handleSaveRow = (entry) => {
-    const currentVal = editingRates[entry.key];
-    const num = Math.round(Number(currentVal));
-    if (isNaN(num) || num <= 0) {
+  const handleSaveRow = async (entry) => {
+    const currentHourlyVal = editingHourly[entry.key];
+    const currentDailyVal = editingDaily[entry.key];
+    let numHourly = Math.round(Number(currentHourlyVal));
+    let numDaily = Math.round(Number(currentDailyVal));
+
+    if ((isNaN(numHourly) || numHourly <= 0) && (!isNaN(numDaily) && numDaily > 0)) {
+      numHourly = Math.round(numDaily / 24);
+    }
+    if ((isNaN(numDaily) || numDaily <= 0) && (!isNaN(numHourly) && numHourly > 0)) {
+      numDaily = Math.round(numHourly * 24);
+    }
+
+    if (isNaN(numHourly) || numHourly <= 0) {
       alert('Please enter a valid positive integer rate.');
       return;
     }
-    const numDaily = Math.round(num * 24);
-    saveBaselineRate(entry.lineId, entry.productCode, num, '', numDaily);
+
+    // Persist synchronously to localStorage and asynchronously to MySQL API
+    saveBaselineRate(entry.lineId, entry.productCode, numHourly, entry.notes || '', numDaily);
+    saveBaselineRateToServer(entry.lineId, entry.productCode, numHourly, entry.notes || '', numDaily).catch(() => {});
     loadCatalogData();
-    setFeedback(`Saved ${entry.lineId} - ${entry.productCode} at ${num} pcs/h (${numDaily} pcs/day)`);
-    setTimeout(() => setFeedback(''), 3000);
+
+    // Trigger brief visual feedback on row
+    setSavedRowKeys((prev) => ({ ...prev, [entry.key]: true }));
+    setTimeout(() => {
+      setSavedRowKeys((prev) => {
+        const next = { ...prev };
+        delete next[entry.key];
+        return next;
+      });
+    }, 2500);
+
+    const fullMachine = getFullMachineName(entry.lineId, lineOptions);
+    setFeedback(`Saved ${fullMachine} - ${entry.productCode} at ${numHourly} pcs/h (${numDaily} pcs/day)`);
+    setTimeout(() => setFeedback(''), 3500);
   };
 
   const handleDeleteRow = (entry) => {
-    if (window.confirm(`Delete baseline standard for ${entry.lineId} - ${entry.productCode}?`)) {
+    const fullMachine = getFullMachineName(entry.lineId, lineOptions);
+    if (window.confirm(`Delete baseline standard for ${fullMachine} - ${entry.productCode}?`)) {
       removeBaselineRate(entry.lineId, entry.productCode);
+      removeBaselineRateFromServer(entry.lineId, entry.productCode).catch(() => {});
       loadCatalogData();
-      setFeedback(`Removed standard for ${entry.lineId} - ${entry.productCode}`);
+      setFeedback(`Removed standard for ${fullMachine} - ${entry.productCode}`);
       setTimeout(() => setFeedback(''), 3000);
     }
   };
@@ -165,12 +225,13 @@ export default function BaselineCatalogModal({
     }
 
     saveBaselineRate(newLineId, cleanCode, numRate, '', numDaily);
+    saveBaselineRateToServer(newLineId, cleanCode, numRate, '', numDaily).catch(() => {});
     setNewProductCode('');
     setNewRate('');
     setNewDailyTarget('');
     loadCatalogData();
-    setFeedback(`Added standard for ${newLineId} - ${cleanCode} (${numRate} pcs/h | ${numDaily} pcs/day)`);
-    setTimeout(() => setFeedback(''), 3000);
+    const fullMachine = getFullMachineName(newLineId, lineOptions);
+    setFeedback(`Added standard for ${fullMachine} - ${cleanCode} (${numRate} pcs/h | ${numDaily} pcs/day)`);
   };
 
   return (
@@ -299,12 +360,12 @@ export default function BaselineCatalogModal({
             <table className="standards-catalog-table">
               <thead>
                 <tr>
-                  <th style={{ width: '12%' }}>Line ID</th>
-                  <th style={{ width: '16%' }}>Product Code</th>
-                  <th style={{ width: '20%', textAlign: 'center' }}>Approved Real Rate (Pcs/h)</th>
-                  <th style={{ width: '18%', textAlign: 'center' }}>Daily Target (24h)</th>
-                  <th style={{ width: '18%', textAlign: 'center' }}>Printed SOP Target (85%)</th>
-                  <th style={{ width: '16%', textAlign: 'center' }}>Actions</th>
+                  <th style={{ width: '22%' }}>Machine Line</th>
+                  <th style={{ width: '13%' }}>Product Code</th>
+                  <th style={{ width: '19%', textAlign: 'center' }}>Approved Real Rate (Pcs/h)</th>
+                  <th style={{ width: '19%', textAlign: 'center' }}>Daily Target (24h)</th>
+                  <th style={{ width: '14%', textAlign: 'center' }}>Printed SOP Target (85%)</th>
+                  <th style={{ width: '13%', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -316,60 +377,105 @@ export default function BaselineCatalogModal({
                   </tr>
                 ) : (
                   catalogEntries.map((row) => {
-                    const currentEditingVal = editingRates[row.key] !== undefined
-                      ? editingRates[row.key]
-                      : row.baselinePcsH;
-                    const numVal = Number(currentEditingVal);
-                    const dailyTargetVal = numVal > 0 ? Math.round(numVal * 24) : '-';
-                    const printedTarget = numVal > 0 ? Math.round(numVal / 0.85) : '-';
-                    const isChanged = String(currentEditingVal) !== String(row.baselinePcsH);
+                    const fullMachineName = getFullMachineName(row.lineId, lineOptions);
+
+                    const origHourly = String(row.baselinePcsH || '');
+                    const origDaily = String(
+                      row.dailyTargetPcs != null && Number(row.dailyTargetPcs) > 0
+                        ? row.dailyTargetPcs
+                        : (row.baselinePcsH ? Math.round(Number(row.baselinePcsH) * 24) : '')
+                    );
+
+                    const currentHourlyVal = editingHourly[row.key] !== undefined
+                      ? editingHourly[row.key]
+                      : origHourly;
+                    const currentDailyVal = editingDaily[row.key] !== undefined
+                      ? editingDaily[row.key]
+                      : origDaily;
+
+                    const numHourly = Number(currentHourlyVal);
+                    const printedTargetVal = numHourly > 0 ? `${Math.round(numHourly / 0.85)} pcs/h` : '-';
+
+                    const isChanged = (currentHourlyVal !== '' && currentHourlyVal !== origHourly) ||
+                                      (currentDailyVal !== '' && currentDailyVal !== origDaily);
+                    const isRowSaved = Boolean(savedRowKeys[row.key]);
 
                     return (
                       <tr key={row.key} className={isChanged ? 'row-modified' : ''}>
                         <td>
-                          <span className="standards-catalog-line-badge">
-                            {row.lineId}
+                          <span
+                            className="standards-catalog-line-badge font-medium text-xs text-slate-800 dark:text-slate-200 inline-block whitespace-nowrap shadow-xs"
+                            title={`Machine Line: ${fullMachineName}`}
+                          >
+                            {fullMachineName}
                           </span>
                         </td>
                         <td>
                           <strong className="standards-catalog-code">{row.productCode}</strong>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="number"
-                            min="1"
-                            max="10000"
-                            step="1"
-                            className={`standards-catalog-rate-input ${isChanged ? 'input-modified' : ''}`}
-                            value={currentEditingVal}
-                            onChange={(e) => handleRateInputChange(row.key, e.target.value)}
-                          />
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max="10000"
+                              step="1"
+                              className={`standards-catalog-rate-input ${isChanged ? 'input-modified' : ''}`}
+                              style={{ width: '80px' }}
+                              value={currentHourlyVal}
+                              onChange={(e) => handleRowHourlyChange(row.key, e.target.value)}
+                              title="Approved real hourly rate (pieces per hour)"
+                            />
+                            <span className="text-xs text-slate-400 font-medium">pcs/h</span>
+                          </div>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className="standards-catalog-daily-pill">
-                            {dailyTargetVal !== '-' ? `${dailyTargetVal} pcs` : '-'}
-                          </span>
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max="500000"
+                              step="1"
+                              className={`standards-catalog-rate-input ${isChanged ? 'input-modified' : ''}`}
+                              style={{ width: '85px' }}
+                              value={currentDailyVal}
+                              onChange={(e) => handleRowDailyChange(row.key, e.target.value)}
+                              title="Daily 24-hour target (pieces)"
+                            />
+                            <span className="text-xs text-slate-400 font-medium">pcs</span>
+                          </div>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <span className="standards-catalog-target-pill">
-                            {printedTarget !== '-' ? `${printedTarget} pcs/h` : '-'}
+                            {printedTargetVal}
                           </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div className="standards-catalog-actions">
                             <button
                               type="button"
-                              className={`standards-btn-save ${isChanged ? 'highlight-save' : ''}`}
+                              className={`standards-btn-save ${isChanged ? 'highlight-save' : ''} ${isRowSaved ? 'saved-feedback' : ''}`}
                               onClick={() => handleSaveRow(row)}
-                              title="Save updated rate to standards catalog"
+                              title={isChanged ? 'Save unsaved changes to catalog' : 'Save standard rate'}
                             >
-                              Save
+                              {isRowSaved ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                  Saved
+                                </span>
+                              ) : isChanged ? (
+                                <span>Save *</span>
+                              ) : (
+                                <span>Save</span>
+                              )}
                             </button>
                             <button
                               type="button"
                               className="standards-btn-delete"
                               onClick={() => handleDeleteRow(row)}
-                              title="Delete standard rate"
+                              title={`Delete standard for ${fullMachineName} - ${row.productCode}`}
                             >
                               Delete
                             </button>

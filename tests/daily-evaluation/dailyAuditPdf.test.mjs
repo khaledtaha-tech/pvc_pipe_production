@@ -165,4 +165,52 @@ console.log('--- Starting Daily Audit PDF Helper Unit Tests ---');
   console.log('Test 4 Passed: buildDailyAuditReportData outputs correct executive KPIs and rows.');
 }
 
+// Test 5: Filter mode (All Lines vs Operating Lines Only) accurately partitions rows
+{
+  const mockRecords = [
+    {
+      date: '2026-10-16',
+      machineId: 'L-01',
+      itemCode: 'P-110-3.2',
+      productionQty: 1000,
+      totalWeight: 3200,
+      operatingHours: 20.0
+    },
+    {
+      date: '2026-10-16',
+      machineId: 'L-06',
+      itemCode: 'P-200-4.9',
+      productionQty: 480,
+      totalWeight: 4800,
+      operatingHours: 24.0
+    }
+  ];
+
+  const auditData = buildDailyAuditReportData({
+    date: '2026-10-16',
+    records: mockRecords,
+    machineMaster: MACHINES
+  });
+
+  const allRows = auditData.rows;
+  assert.strictEqual(allRows.length, MACHINES.length);
+
+  const operatingRows = allRows.filter(
+    (r) => r.isOperating || Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0
+  );
+  assert.strictEqual(operatingRows.length, 2);
+  assert.strictEqual(auditData.kpis.activeLineCount, 2);
+  assert.deepStrictEqual(operatingRows.map(r => r.lineId).sort(), ['L-01', 'L-06']);
+
+  // Verify idle lines are completely filtered out in operating mode
+  const idleRows = allRows.filter(
+    (r) => !(r.isOperating || Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0)
+  );
+  assert.strictEqual(idleRows.length, MACHINES.length - 2);
+  assert.ok(idleRows.every(r => r.actualPcs === 0 && r.operatingHours === 0));
+
+  console.log('Test 5 Passed: All Lines vs Operating Only filtering accurately isolates active lines.');
+}
+
 console.log('--- ALL DAILY AUDIT PDF HELPER UNIT TESTS PASSED SUCCESSFULLY! ---');
+

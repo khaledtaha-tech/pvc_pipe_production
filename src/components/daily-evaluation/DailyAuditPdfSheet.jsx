@@ -1,16 +1,31 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useMemo } from 'react';
 
 /**
  * Sleek Single-Page A4 Landscape Daily Production & Operational Audit Report Sheet
  * Fits strictly onto exactly 1 single A4 Landscape page (297mm x 210mm) without multi-page spilling.
  */
 const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
-  { data, className = '' },
+  { data, filterMode = 'all', className = '' },
   ref
 ) {
   if (!data) return null;
 
   const { meta, kpis, downtime, rows } = data;
+
+  const displayedRows = useMemo(() => {
+    if (!rows) return [];
+    if (filterMode === 'operating') {
+      return rows.filter((r) => r.isOperating || Number(r.actualPcs) > 0 || Number(r.operatingHours) > 0);
+    }
+    return rows;
+  }, [rows, filterMode]);
+
+  // Dynamic vertical padding for table rows to maintain visual balance when fewer lines are active
+  const cellPaddingClass = displayedRows.length <= 4
+    ? 'py-2 px-2'
+    : displayedRows.length <= 6
+    ? 'py-1 px-2'
+    : 'py-0.5 px-2';
 
   return (
     <div
@@ -145,9 +160,16 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
       {/* 3. Central Production Reconciliation Table */}
       <section className="audit-table-section mb-2">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-800">
-            Machine-by-Machine Production Reconciliation &amp; Operational Standards
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-800">
+              Machine-by-Machine Production Reconciliation &amp; Operational Standards
+            </h3>
+            {filterMode === 'operating' && (
+              <span className="text-[8px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                Displaying {displayedRows.length} Active Operating {displayedRows.length === 1 ? 'Line' : 'Lines'}
+              </span>
+            )}
+          </div>
           <span className="text-[8.5px] font-mono text-slate-500">
             24h Theoretical Standard vs Actual Reported Telemetry
           </span>
@@ -166,158 +188,166 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => {
-              const isEven = idx % 2 === 0;
-              const hasRun = row.isOperating;
+            {displayedRows.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-4 text-center text-slate-500 italic font-mono text-[9.5px]">
+                  No active operating lines reported on this date.
+                </td>
+              </tr>
+            ) : (
+              displayedRows.map((row, idx) => {
+                const isEven = idx % 2 === 0;
+                const hasRun = row.isOperating;
 
-              return (
-                <tr
-                  key={row.lineId}
-                  className={`border-b border-slate-200 ${
-                    !hasRun
-                      ? 'bg-slate-50/60 text-slate-400'
-                      : isEven
-                      ? 'bg-white'
-                      : 'bg-slate-50/80'
-                  }`}
-                >
-                  {/* Line & Machine (12%) */}
-                  <td className="py-0.5 px-2 border-r border-slate-200 font-semibold text-slate-900">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-bold">
-                        {row.lineId}
-                      </span>
-                      <span className="truncate max-w-[120px] font-bold text-[9.5px]" title={row.fullMachineName}>
-                        {row.fullMachineName.replace(/^L-\d+\s*-\s*/, '')}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Product Code & Mold Specs (22%) */}
-                  <td className="py-0.5 px-2 border-r border-slate-200 text-slate-800">
-                    <div className="font-bold text-slate-900 truncate max-w-[240px]" title={row.pipeSize}>
-                      {row.pipeSize}
-                    </div>
-                    {row.productCode && row.productCode !== row.pipeSize && row.productCode !== '-' && (
-                      <div className="text-[8px] font-mono text-slate-500 truncate max-w-[240px]">
-                        Code: {row.productCode}
+                return (
+                  <tr
+                    key={row.lineId}
+                    className={`border-b border-slate-200 ${
+                      !hasRun
+                        ? 'bg-slate-50/60 text-slate-400'
+                        : isEven
+                        ? 'bg-white'
+                        : 'bg-slate-50/80'
+                    }`}
+                  >
+                    {/* Line & Machine (12%) */}
+                    <td className={`${cellPaddingClass} border-r border-slate-200 font-semibold text-slate-900`}>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-bold">
+                          {row.lineId}
+                        </span>
+                        <span className="truncate max-w-[120px] font-bold text-[9.5px]" title={row.fullMachineName}>
+                          {row.fullMachineName.replace(/^L-\d+\s*-\s*/, '')}
+                        </span>
                       </div>
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Std Pace (24h / Rate) (12%) */}
-                  <td className="py-0.5 px-2 border-r border-slate-200 text-center font-mono">
-                    {hasRun ? (
-                      <div>
-                        <div className="font-bold text-slate-800">
-                          {row.expectedPcs.toLocaleString()} <span className="text-[7.5px] text-slate-500 font-sans">pcs</span>
-                        </div>
-                        <div className="text-[8px] text-slate-500">
-                          {row.stdRate} pcs/h
-                        </div>
+                    {/* Product Code & Mold Specs (22%) */}
+                    <td className={`${cellPaddingClass} border-r border-slate-200 text-slate-800`}>
+                      <div className="font-bold text-slate-900 truncate max-w-[240px]" title={row.pipeSize}>
+                        {row.pipeSize}
                       </div>
-                    ) : (
-                      <span className="text-slate-400 italic text-[8.5px]">Idle / No Order</span>
-                    )}
-                  </td>
+                      {row.productCode && row.productCode !== row.pipeSize && row.productCode !== '-' && (
+                        <div className="text-[8px] font-mono text-slate-500 truncate max-w-[240px]">
+                          Code: {row.productCode}
+                        </div>
+                      )}
+                    </td>
 
-                  {/* Actual FG Output (12%) */}
-                  <td className="py-0.5 px-2 border-r border-slate-200 text-right font-mono">
-                    {hasRun ? (
-                      <div>
-                        <div className="font-bold text-emerald-900">
-                          {row.actualPcs.toLocaleString()} <span className="text-[7.5px] text-emerald-700 font-sans">pcs</span>
-                        </div>
-                        <div className="text-[8px] text-slate-600">
-                          {row.actualKg.toLocaleString()} kg
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">0 pcs</span>
-                    )}
-                  </td>
-
-                  {/* Variance / Deficit (12%) */}
-                  <td className="py-0.5 px-2 border-r border-slate-200 text-right font-mono">
-                    {hasRun ? (
-                      <div>
-                        <div
-                          className={`font-extrabold ${
-                            row.variancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'
-                          }`}
-                        >
-                          {row.variancePcs >= 0 ? '+' : ''}
-                          {row.variancePcs.toLocaleString()} <span className="text-[7.5px] font-sans">pcs</span>
-                        </div>
-                        <div
-                          className={`text-[8px] ${
-                            row.varianceKg >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                          }`}
-                        >
-                          {row.varianceKg >= 0 ? '+' : ''}
-                          {row.varianceKg.toLocaleString()} kg
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </td>
-
-                  {/* Realized Pace & Efficiency (15%) */}
-                  <td className="py-0.5 px-2 border-r border-slate-200 text-center font-mono">
-                    {hasRun && row.operatingHours > 0 ? (
-                      <div className="flex items-center justify-center gap-1.5">
+                    {/* Std Pace (24h / Rate) (12%) */}
+                    <td className={`${cellPaddingClass} border-r border-slate-200 text-center font-mono`}>
+                      {hasRun ? (
                         <div>
-                          <span className="font-bold text-cyan-950 text-[9.5px]">
-                            {row.actualRatePcsH}
-                          </span>
-                          <span className="text-[7.5px] text-slate-500 font-sans ml-0.5">pcs/h</span>
+                          <div className="font-bold text-slate-800">
+                            {row.expectedPcs.toLocaleString()} <span className="text-[7.5px] text-slate-500 font-sans">pcs</span>
+                          </div>
+                          <div className="text-[8px] text-slate-500">
+                            {row.stdRate} pcs/h
+                          </div>
                         </div>
-                        <span
-                          className={`inline-block px-1.5 py-0.2 rounded text-[8px] font-bold border ${
-                            row.speedEffPct >= 85
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : row.speedEffPct >= 70
-                              ? 'bg-amber-50 text-amber-800 border-amber-300'
-                              : 'bg-rose-50 text-rose-800 border-rose-300'
-                          }`}
-                        >
-                          {row.speedEffPct.toFixed(1)}% Eff
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">0.0h Run</span>
-                    )}
-                  </td>
+                      ) : (
+                        <span className="text-slate-400 italic text-[8.5px]">Idle / No Order</span>
+                      )}
+                    </td>
 
-                  {/* Line OEE & Status (15%) */}
-                  <td className="py-0.5 px-2 text-center font-mono">
-                    {hasRun ? (
-                      <div className="flex items-center justify-center gap-1.5">
-                        <span
-                          className={`inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold border ${
-                            row.oeePct >= 75
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : row.oeePct >= 60
-                              ? 'bg-amber-50 text-amber-800 border-amber-300'
-                              : 'bg-rose-50 text-rose-800 border-rose-300'
-                          }`}
-                        >
-                          {row.oeePct.toFixed(1)}%
+                    {/* Actual FG Output (12%) */}
+                    <td className={`${cellPaddingClass} border-r border-slate-200 text-right font-mono`}>
+                      {hasRun ? (
+                        <div>
+                          <div className="font-bold text-emerald-900">
+                            {row.actualPcs.toLocaleString()} <span className="text-[7.5px] text-emerald-700 font-sans">pcs</span>
+                          </div>
+                          <div className="text-[8px] text-slate-600">
+                            {row.actualKg.toLocaleString()} kg
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">0 pcs</span>
+                      )}
+                    </td>
+
+                    {/* Variance / Deficit (12%) */}
+                    <td className={`${cellPaddingClass} border-r border-slate-200 text-right font-mono`}>
+                      {hasRun ? (
+                        <div>
+                          <div
+                            className={`font-extrabold ${
+                              row.variancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                            }`}
+                          >
+                            {row.variancePcs >= 0 ? '+' : ''}
+                            {row.variancePcs.toLocaleString()} <span className="text-[7.5px] font-sans">pcs</span>
+                          </div>
+                          <div
+                            className={`text-[8px] ${
+                              row.varianceKg >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {row.varianceKg >= 0 ? '+' : ''}
+                            {row.varianceKg.toLocaleString()} kg
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+
+                    {/* Realized Pace & Efficiency (15%) */}
+                    <td className={`${cellPaddingClass} border-r border-slate-200 text-center font-mono`}>
+                      {hasRun && row.operatingHours > 0 ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div>
+                            <span className="font-bold text-cyan-950 text-[9.5px]">
+                              {row.actualRatePcsH}
+                            </span>
+                            <span className="text-[7.5px] text-slate-500 font-sans ml-0.5">pcs/h</span>
+                          </div>
+                          <span
+                            className={`inline-block px-1.5 py-0.2 rounded text-[8px] font-bold border ${
+                              row.speedEffPct >= 85
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : row.speedEffPct >= 70
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+                            }`}
+                          >
+                            {row.speedEffPct.toFixed(1)}% Eff
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">0.0h Run</span>
+                      )}
+                    </td>
+
+                    {/* Line OEE & Status (15%) */}
+                    <td className={`${cellPaddingClass} text-center font-mono`}>
+                      {hasRun ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold border ${
+                              row.oeePct >= 75
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : row.oeePct >= 60
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+                            }`}
+                          >
+                            {row.oeePct.toFixed(1)}%
+                          </span>
+                          <span className="text-[8px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-sans">
+                            Running ({row.operatingHours.toFixed(1)}h)
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[8px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-sans">
+                          Stopped / Idle
                         </span>
-                        <span className="text-[8px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-sans">
-                          Running ({row.operatingHours.toFixed(1)}h)
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-[8px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-sans">
-                        Stopped / Idle
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
 
             {/* Total Summary Row */}
             <tr className="bg-slate-100 border-t-2 border-slate-800 font-bold text-[9px]">

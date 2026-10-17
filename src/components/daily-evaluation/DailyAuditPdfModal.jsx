@@ -19,6 +19,7 @@ export default function DailyAuditPdfModal({
   // 1. Automatic Yesterday Binding (relative to selectedDate or current system date)
   const [auditDate, setAuditDate] = useState(() => getYesterdayDate(selectedDate));
   const [isDownloading, setIsDownloading] = useState(false);
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'operating'
   const sheetRef = useRef(null);
 
   // Sync when selectedDate changes and modal opens
@@ -53,6 +54,14 @@ export default function DailyAuditPdfModal({
       machineMaster
     });
   }, [auditDate, records, machineMaster]);
+
+  const totalLinesCount = useMemo(() => {
+    return auditData?.rows?.length ?? auditData?.kpis?.totalLineCount ?? (Array.isArray(machineMaster) ? machineMaster.length : 7);
+  }, [auditData, machineMaster]);
+
+  const operatingLinesCount = useMemo(() => {
+    return auditData?.kpis?.activeLineCount ?? 0;
+  }, [auditData]);
 
   if (!isOpen) return null;
 
@@ -115,7 +124,8 @@ export default function DailyAuditPdfModal({
       onNotify('Generating Daily Audit PDF...');
     }
 
-    const filename = `Daily_Operational_Audit_Report_${auditDate}.pdf`;
+    const filterSuffix = filterMode === 'operating' ? '_Operating_Only' : '';
+    const filename = `Daily_Operational_Audit_Report_${auditDate}${filterSuffix}.pdf`;
     const opt = {
       margin: [8, 10, 8, 10],
       filename,
@@ -217,6 +227,34 @@ export default function DailyAuditPdfModal({
             )}
           </div>
 
+          {/* Line Filter Toggle Pills */}
+          <div className="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterMode('all')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                filterMode === 'all'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Display all extrusion lines (including idle lines)"
+            >
+              All Lines ({totalLinesCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('operating')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                filterMode === 'operating'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Filter to lines with active production or operating hours"
+            >
+              Operating Only ({operatingLinesCount})
+            </button>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             <button
@@ -267,7 +305,7 @@ export default function DailyAuditPdfModal({
         {/* Modal Sheet Preview Container */}
         <div className="daily-audit-preview-body p-4 overflow-auto bg-slate-950/60 flex justify-center">
           <div className="daily-audit-preview-wrapper shadow-2xl rounded-sm border border-slate-300">
-            <DailyAuditPdfSheet ref={sheetRef} data={auditData} />
+            <DailyAuditPdfSheet ref={sheetRef} data={auditData} filterMode={filterMode} />
           </div>
         </div>
       </div>

@@ -91,7 +91,7 @@ export default function DailyAuditPdfModal({
       pageStyle.id = 'daily-audit-page-style';
       document.head.appendChild(pageStyle);
     }
-    pageStyle.innerHTML = '@page { size: A4 portrait; margin: 8mm 6mm; }';
+    pageStyle.innerHTML = '@page { size: A4 landscape; margin: 8mm 10mm; }';
 
     if (onNotify) {
       onNotify(`Opening print dialog for Daily Audit Report (${auditDate})...`);
@@ -117,7 +117,7 @@ export default function DailyAuditPdfModal({
 
     const filename = `Daily_Operational_Audit_Report_${auditDate}.pdf`;
     const opt = {
-      margin: [8, 6, 8, 6],
+      margin: [8, 10, 8, 10],
       filename,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
@@ -126,11 +126,11 @@ export default function DailyAuditPdfModal({
         letterRendering: true,
         logging: false,
         backgroundColor: '#FFFFFF',
-        windowWidth: 1080,
+        windowWidth: 1400,
         scrollY: 0,
         scrollX: 0
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
@@ -153,7 +153,7 @@ export default function DailyAuditPdfModal({
   return (
     <div className="daily-audit-modal-backdrop no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-3 overflow-y-auto">
       <div
-        className="daily-audit-modal-dialog bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl flex flex-col w-full max-w-4xl max-h-[95vh] overflow-hidden"
+        className="daily-audit-modal-dialog bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl flex flex-col w-full max-w-6xl max-h-[95vh] overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="daily-audit-modal-title"
@@ -167,7 +167,7 @@ export default function DailyAuditPdfModal({
             <h2 id="daily-audit-modal-title" className="text-sm font-bold text-slate-100">
               Daily Operational Audit Report
             </h2>
-            <span className="text-xs text-slate-400 hidden sm:inline">&bull; Single-Page A4 Portrait</span>
+            <span className="text-xs text-slate-400 hidden sm:inline">&bull; Single-Page A4 Landscape</span>
           </div>
 
           {/* Quick Date Controls */}
@@ -265,7 +265,7 @@ export default function DailyAuditPdfModal({
         </div>
 
         {/* Modal Sheet Preview Container */}
-        <div className="daily-audit-preview-body p-4 overflow-y-auto bg-slate-950/60 flex justify-center">
+        <div className="daily-audit-preview-body p-4 overflow-auto bg-slate-950/60 flex justify-center">
           <div className="daily-audit-preview-wrapper shadow-2xl rounded-sm border border-slate-300">
             <DailyAuditPdfSheet ref={sheetRef} data={auditData} />
           </div>

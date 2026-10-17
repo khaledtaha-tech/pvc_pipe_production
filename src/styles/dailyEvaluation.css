@@ -8879,13 +8879,14 @@ html:not(.light) .standards-catalog-count-note {
   color: #94a3b8;
 }
 
-/* ============ DAILY AUDIT EXECUTIVE PDF REPORT (A4 PORTRAIT) ============ */
+/* ============ DAILY AUDIT EXECUTIVE PDF REPORT (A4 LANDSCAPE) ============ */
 .daily-audit-pdf-sheet {
-  width: 210mm;
-  max-width: 210mm;
-  min-height: 297mm;
+  width: 297mm;
+  max-width: 297mm;
+  min-height: 210mm;
+  max-height: 210mm;
   margin: 0 auto;
-  padding: 8mm 6mm;
+  padding: 8mm 10mm;
   background-color: #ffffff !important;
   color: #0f172a !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -8895,6 +8896,7 @@ html:not(.light) .standards-catalog-count-note {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
 }
 
 .daily-audit-pdf-sheet * {
@@ -8917,13 +8919,17 @@ html:not(.light) .standards-catalog-count-note {
 
 .daily-audit-preview-wrapper {
   background: #ffffff;
+  width: 297mm;
+  max-width: 100%;
+  aspect-ratio: 297 / 210;
+  margin: 0 auto;
 }
 
-/* Dedicated Single-Page A4 Print Styles */
+/* Dedicated Single-Page A4 Landscape Print Styles */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 8mm 6mm;
+    size: A4 landscape;
+    margin: 8mm 10mm;
   }
 
   body.print-daily-audit-active {
@@ -8976,12 +8982,17 @@ html:not(.light) .standards-catalog-count-note {
     border: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: auto !important;
   }
 
   body.print-daily-audit-active .daily-audit-pdf-sheet {
     width: 100% !important;
     max-width: 100% !important;
-    min-height: auto !important;
+    height: auto !important;
+    max-height: 194mm !important;
+    min-height: 194mm !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;

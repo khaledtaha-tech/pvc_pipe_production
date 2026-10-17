@@ -387,7 +387,7 @@ function AppContent() {
         />
 
         {/* Main Content Stage */}
-        <main className="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 lg:p-6 overflow-x-hidden">
+        <main className="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 lg:p-6 min-w-0">
           {currentModule === 'data-analysis' && (
             <ErrorBoundary>
               <DataAnalysisView

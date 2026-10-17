@@ -20,6 +20,7 @@ export default function DailyAuditPdfModal({
   const [auditDate, setAuditDate] = useState(() => getYesterdayDate(selectedDate));
   const [isDownloading, setIsDownloading] = useState(false);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'operating'
+  const [densityMode, setDensityMode] = useState('clean'); // 'clean' | 'detailed'
   const sheetRef = useRef(null);
 
   // Sync when selectedDate changes and modal opens
@@ -100,7 +101,7 @@ export default function DailyAuditPdfModal({
       pageStyle.id = 'daily-audit-page-style';
       document.head.appendChild(pageStyle);
     }
-    pageStyle.innerHTML = '@page { size: A4 landscape; margin: 8mm 10mm; }';
+    pageStyle.innerHTML = '@page { size: A4 landscape; margin: 5mm; }';
 
     if (onNotify) {
       onNotify(`Opening print dialog for Daily Audit Report (${auditDate})...`);
@@ -125,9 +126,10 @@ export default function DailyAuditPdfModal({
     }
 
     const filterSuffix = filterMode === 'operating' ? '_Operating_Only' : '';
-    const filename = `Daily_Operational_Audit_Report_${auditDate}${filterSuffix}.pdf`;
+    const densitySuffix = densityMode === 'detailed' ? '_Detailed' : '_Executive';
+    const filename = `Daily_Operational_Audit_Report_${auditDate}${filterSuffix}${densitySuffix}.pdf`;
     const opt = {
-      margin: [8, 10, 8, 10],
+      margin: 0,
       filename,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
@@ -255,6 +257,34 @@ export default function DailyAuditPdfModal({
             </button>
           </div>
 
+          {/* View Density Mode Toggle Pills */}
+          <div className="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 text-xs">
+            <button
+              type="button"
+              onClick={() => setDensityMode('clean')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                densityMode === 'clean'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Clean Executive view: Essential primary figures and clean metrics"
+            >
+              Executive Clean
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensityMode('detailed')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                densityMode === 'detailed'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Detailed Audit view: Full dual-metric breakdown with kg, pace, and speed efficiency"
+            >
+              Detailed Audit
+            </button>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             <button
@@ -305,7 +335,7 @@ export default function DailyAuditPdfModal({
         {/* Modal Sheet Preview Container */}
         <div className="daily-audit-preview-body p-4 overflow-auto bg-slate-950/60 flex justify-center">
           <div className="daily-audit-preview-wrapper shadow-2xl rounded-sm border border-slate-300">
-            <DailyAuditPdfSheet ref={sheetRef} data={auditData} filterMode={filterMode} />
+            <DailyAuditPdfSheet ref={sheetRef} data={auditData} filterMode={filterMode} densityMode={densityMode} />
           </div>
         </div>
       </div>

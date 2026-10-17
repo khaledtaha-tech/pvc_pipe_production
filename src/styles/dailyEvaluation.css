@@ -8883,10 +8883,11 @@ html:not(.light) .standards-catalog-count-note {
 .daily-audit-pdf-sheet {
   width: 297mm;
   max-width: 297mm;
-  min-height: 210mm;
-  max-height: 210mm;
+  height: 198mm;
+  max-height: 200mm;
+  min-height: 198mm;
   margin: 0 auto;
-  padding: 8mm 10mm;
+  padding: 5mm 8mm;
   background-color: #ffffff !important;
   color: #0f172a !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -8897,6 +8898,10 @@ html:not(.light) .standards-catalog-count-note {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
+  page-break-after: avoid !important;
+  page-break-inside: avoid !important;
+  break-after: avoid !important;
+  break-inside: avoid !important;
 }
 
 .daily-audit-pdf-sheet * {
@@ -8929,7 +8934,7 @@ html:not(.light) .standards-catalog-count-note {
 @media print {
   @page {
     size: A4 landscape;
-    margin: 8mm 10mm;
+    margin: 5mm;
   }
 
   body.print-daily-audit-active {
@@ -8990,11 +8995,11 @@ html:not(.light) .standards-catalog-count-note {
   body.print-daily-audit-active .daily-audit-pdf-sheet {
     width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
-    max-height: 194mm !important;
-    min-height: 194mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    height: 198mm !important;
+    max-height: 200mm !important;
+    min-height: 198mm !important;
+    margin: 0 auto !important;
+    padding: 5mm 8mm !important;
     box-shadow: none !important;
     page-break-after: avoid !important;
     break-after: avoid !important;

@@ -5,7 +5,7 @@ import React, { forwardRef, useMemo } from 'react';
  * Fits strictly onto exactly 1 single A4 Landscape page (297mm x 210mm) without multi-page spilling.
  */
 const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
-  { data, filterMode = 'all', className = '' },
+  { data, filterMode = 'all', densityMode = 'clean', className = '' },
   ref
 ) {
   if (!data) return null;
@@ -22,9 +22,9 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
 
   // Dynamic vertical padding for table rows to maintain visual balance when fewer lines are active
   const cellPaddingClass = displayedRows.length <= 4
-    ? 'py-2 px-2'
+    ? (densityMode === 'clean' ? 'py-1 px-2' : 'py-1.5 px-2')
     : displayedRows.length <= 6
-    ? 'py-1 px-2'
+    ? (densityMode === 'clean' ? 'py-0.5 px-2' : 'py-1 px-2')
     : 'py-0.5 px-2';
 
   return (
@@ -32,16 +32,24 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
       ref={ref}
       className={`daily-audit-pdf-sheet bg-white text-slate-900 ${className}`}
       id="daily-audit-printable-sheet"
+      style={{
+        maxHeight: '200mm',
+        height: '198mm',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        pageBreakAfter: 'avoid',
+        pageBreakInside: 'avoid'
+      }}
     >
       {/* 1. Header Section */}
-      <header className="audit-sheet-header border-b-2 border-slate-900 pb-2 mb-2">
+      <header className="audit-sheet-header border-b-2 border-slate-900 pb-1 mb-1.5">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-lg tracking-wider shadow-sm flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-base tracking-wider shadow-sm flex-shrink-0">
               AMP
             </div>
             <div>
-              <h1 className="text-[12.5px] font-black tracking-wider uppercase text-slate-800 leading-tight">
+              <h1 className="text-[11px] font-black tracking-wider uppercase text-slate-800 leading-tight">
                 {meta.plantName}
               </h1>
               <h2 className="text-[16px] font-extrabold tracking-tight text-blue-900 leading-tight">
@@ -68,23 +76,23 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
       </header>
 
       {/* 2. Executive Summary Cards (Top Row - 4 KPI Badges spread across wide canvas) */}
-      <section className="audit-kpi-grid grid grid-cols-4 gap-2.5 mb-2">
+      <section className="audit-kpi-grid grid grid-cols-4 gap-2 mb-1.5">
         {/* KPI 1: Total FG Output */}
-        <div className="audit-kpi-card bg-emerald-50/70 border border-emerald-300 rounded-md p-2 px-2.5">
-          <div className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider">
+        <div className="audit-kpi-card bg-emerald-50/70 border border-emerald-300 rounded-md p-1.5 px-2">
+          <div className="text-[8.5px] font-bold text-emerald-800 uppercase tracking-wider">
             Total Finished Goods Output
           </div>
           <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-[17px] font-black text-emerald-950 font-mono">
+            <span className="text-[16px] font-black text-emerald-950 font-mono">
               {kpis.totalActualPcs.toLocaleString()}
             </span>
-            <span className="text-[10px] font-bold text-emerald-700">pcs</span>
+            <span className="text-[9.5px] font-bold text-emerald-700">pcs</span>
             <span className="text-slate-400 text-xs mx-1">&bull;</span>
-            <span className="text-[13px] font-bold text-emerald-900 font-mono">
+            <span className="text-[12px] font-bold text-emerald-900 font-mono">
               {kpis.totalActualMT} MT
             </span>
           </div>
-          <div className="text-[8.5px] text-emerald-700 font-medium flex items-center justify-between mt-0.5">
+          <div className="text-[8px] text-emerald-700 font-medium flex items-center justify-between mt-0.5">
             <span>Target: {kpis.totalExpectedPcs.toLocaleString()} pcs</span>
             <span className={`font-bold ${kpis.totalVariancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
               {kpis.totalVariancePcs >= 0 ? '+' : ''}{kpis.totalVariancePct}%
@@ -93,21 +101,21 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         </div>
 
         {/* KPI 2: Lost Time & Downtime */}
-        <div className="audit-kpi-card bg-amber-50/70 border border-amber-300 rounded-md p-2 px-2.5">
-          <div className="text-[9px] font-bold text-amber-800 uppercase tracking-wider">
+        <div className="audit-kpi-card bg-amber-50/70 border border-amber-300 rounded-md p-1.5 px-2">
+          <div className="text-[8.5px] font-bold text-amber-800 uppercase tracking-wider">
             Time Accounting &amp; Lost Hours
           </div>
           <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-[17px] font-black text-amber-950 font-mono">
+            <span className="text-[16px] font-black text-amber-950 font-mono">
               {kpis.totalLostHours.toFixed(1)}
             </span>
-            <span className="text-[10px] font-bold text-amber-700">h lost</span>
+            <span className="text-[9.5px] font-bold text-amber-700">h lost</span>
             <span className="text-slate-400 text-xs mx-1">&bull;</span>
-            <span className="text-[13px] font-bold text-amber-900 font-mono">
+            <span className="text-[12px] font-bold text-amber-900 font-mono">
               {kpis.totalOperatingHours.toFixed(1)}h run
             </span>
           </div>
-          <div className="text-[8.5px] text-amber-800 font-medium flex items-center justify-between mt-0.5">
+          <div className="text-[8px] text-amber-800 font-medium flex items-center justify-between mt-0.5">
             <span>Downtime: {downtime.totalDowntimeHours.toFixed(1)}h</span>
             <span className="font-bold text-rose-700">
               Unjustified: {kpis.totalUnjustifiedHours.toFixed(1)}h
@@ -116,19 +124,19 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         </div>
 
         {/* KPI 3: Overall Plant OEE */}
-        <div className="audit-kpi-card bg-indigo-50/70 border border-indigo-300 rounded-md p-2 px-2.5">
-          <div className="text-[9px] font-bold text-indigo-800 uppercase tracking-wider">
+        <div className="audit-kpi-card bg-indigo-50/70 border border-indigo-300 rounded-md p-1.5 px-2">
+          <div className="text-[8.5px] font-bold text-indigo-800 uppercase tracking-wider">
             Overall Plant OEE
           </div>
           <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-[17px] font-black text-indigo-950 font-mono">
+            <span className="text-[16px] font-black text-indigo-950 font-mono">
               {kpis.plantOeePct.toFixed(1)}%
             </span>
-            <span className="text-[9.5px] font-semibold text-indigo-700">
+            <span className="text-[9px] font-semibold text-indigo-700">
               ({kpis.activeLineCount}/{kpis.totalLineCount} lines active)
             </span>
           </div>
-          <div className="text-[8.5px] text-indigo-800 font-mono flex items-center justify-between mt-0.5">
+          <div className="text-[8px] text-indigo-800 font-mono flex items-center justify-between mt-0.5">
             <span>A: {kpis.plantAvailabilityPct.toFixed(1)}%</span>
             <span>P: {kpis.plantPerformancePct.toFixed(1)}%</span>
             <span>Q: {kpis.plantQualityPct.toFixed(1)}%</span>
@@ -136,21 +144,21 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         </div>
 
         {/* KPI 4: Scrap Output & Scrap Ratio */}
-        <div className="audit-kpi-card bg-rose-50/70 border border-rose-300 rounded-md p-2 px-2.5">
-          <div className="text-[9px] font-bold text-rose-800 uppercase tracking-wider">
+        <div className="audit-kpi-card bg-rose-50/70 border border-rose-300 rounded-md p-1.5 px-2">
+          <div className="text-[8.5px] font-bold text-rose-800 uppercase tracking-wider">
             Scrap Output &amp; Quality Ratio
           </div>
           <div className="flex items-baseline gap-1 mt-0.5">
-            <span className="text-[17px] font-black text-rose-950 font-mono">
+            <span className="text-[16px] font-black text-rose-950 font-mono">
               {kpis.totalScrapKg.toLocaleString()}
             </span>
-            <span className="text-[10px] font-bold text-rose-700">kg scrap</span>
+            <span className="text-[9.5px] font-bold text-rose-700">kg scrap</span>
             <span className="text-slate-400 text-xs mx-1">&bull;</span>
-            <span className="text-[13px] font-black text-rose-900 font-mono">
+            <span className="text-[12px] font-black text-rose-900 font-mono">
               {kpis.scrapRatioPct.toFixed(1)}%
             </span>
           </div>
-          <div className="text-[8.5px] text-rose-800 font-medium flex items-center justify-between mt-0.5">
+          <div className="text-[8px] text-rose-800 font-medium flex items-center justify-between mt-0.5">
             <span>Total Melt: {kpis.totalMeltKg.toLocaleString()} kg</span>
             <span className="font-bold text-emerald-700">Good: {kpis.totalActualKg.toLocaleString()} kg</span>
           </div>
@@ -158,7 +166,7 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
       </section>
 
       {/* 3. Central Production Reconciliation Table */}
-      <section className="audit-table-section mb-2">
+      <section className="audit-table-section mb-1.5">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-800">
@@ -169,6 +177,9 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                 Displaying {displayedRows.length} Active Operating {displayedRows.length === 1 ? 'Line' : 'Lines'}
               </span>
             )}
+            <span className="text-[8px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
+              {densityMode === 'clean' ? 'Executive Clean View' : 'Detailed Audit View'}
+            </span>
           </div>
           <span className="text-[8.5px] font-mono text-slate-500">
             24h Theoretical Standard vs Actual Reported Telemetry
@@ -178,13 +189,23 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         <table className="audit-table w-full border-collapse text-left text-[9.5px]">
           <thead>
             <tr className="bg-slate-800 text-white font-bold text-[8.5px] uppercase tracking-wider">
-              <th className="py-1 px-2 border border-slate-700 w-[12%]">Line &amp; Machine</th>
-              <th className="py-1 px-2 border border-slate-700 w-[22%]">Product Code &amp; Mold Specs</th>
-              <th className="py-1 px-2 border border-slate-700 text-center w-[12%]">Std Pace (24h / Rate)</th>
-              <th className="py-1 px-2 border border-slate-700 text-right w-[12%]">Actual FG Output</th>
-              <th className="py-1 px-2 border border-slate-700 text-right w-[12%]">Variance (&Delta; Deficit)</th>
-              <th className="py-1 px-2 border border-slate-700 text-center w-[15%]">Realized Pace &amp; Eff</th>
-              <th className="py-1 px-2 border border-slate-700 text-center w-[15%]">Line OEE &amp; Status</th>
+              <th className="py-1 px-2 border border-slate-700 w-[18%]">Line &amp; Machine</th>
+              <th className="py-1 px-2 border border-slate-700 w-[20%]">Product Code &amp; Mold Specs</th>
+              <th className="py-1 px-2 border border-slate-700 text-center w-[11%]">
+                {densityMode === 'clean' ? 'Std Target (24h)' : 'Std Pace (24h / Rate)'}
+              </th>
+              <th className="py-1 px-2 border border-slate-700 text-right w-[11%]">
+                {densityMode === 'clean' ? 'Actual FG Output' : 'Actual FG Output (pcs / kg)'}
+              </th>
+              <th className="py-1 px-2 border border-slate-700 text-right w-[11%]">
+                {densityMode === 'clean' ? 'Variance (Pcs)' : 'Variance (&Delta; Deficit)'}
+              </th>
+              <th className="py-1 px-2 border border-slate-700 text-center w-[14%]">
+                {densityMode === 'clean' ? 'Realized Pace' : 'Realized Pace &amp; Eff'}
+              </th>
+              <th className="py-1 px-2 border border-slate-700 text-center w-[15%]">
+                {densityMode === 'clean' ? 'Line OEE' : 'Line OEE &amp; Status'}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -210,109 +231,112 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                         : 'bg-slate-50/80'
                     }`}
                   >
-                    {/* Line & Machine (12%) */}
+                    {/* Line & Machine (18% - prominent display without truncation) */}
                     <td className={`${cellPaddingClass} border-r border-slate-200 font-semibold text-slate-900`}>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-bold">
-                          {row.lineId}
-                        </span>
-                        <span className="truncate max-w-[120px] font-bold text-[9.5px]" title={row.fullMachineName}>
-                          {row.fullMachineName.replace(/^L-\d+\s*-\s*/, '')}
-                        </span>
-                      </div>
+                      <span className="font-bold text-[10px] text-slate-900 whitespace-nowrap font-mono" title={row.fullMachineName}>
+                        {row.fullMachineName || row.lineId}
+                      </span>
                     </td>
 
-                    {/* Product Code & Mold Specs (22%) */}
+                    {/* Product Code & Mold Specs (20%) */}
                     <td className={`${cellPaddingClass} border-r border-slate-200 text-slate-800`}>
-                      <div className="font-bold text-slate-900 truncate max-w-[240px]" title={row.pipeSize}>
+                      <div className="font-bold text-slate-900 truncate max-w-[210px]" title={row.pipeSize}>
                         {row.pipeSize}
                       </div>
-                      {row.productCode && row.productCode !== row.pipeSize && row.productCode !== '-' && (
-                        <div className="text-[8px] font-mono text-slate-500 truncate max-w-[240px]">
+                      {densityMode === 'detailed' && row.productCode && row.productCode !== row.pipeSize && row.productCode !== '-' && (
+                        <div className="text-[8px] font-mono text-slate-500 truncate max-w-[210px]">
                           Code: {row.productCode}
                         </div>
                       )}
                     </td>
 
-                    {/* Std Pace (24h / Rate) (12%) */}
+                    {/* Std Pace (24h / Rate) (11%) */}
                     <td className={`${cellPaddingClass} border-r border-slate-200 text-center font-mono`}>
                       {hasRun ? (
                         <div>
-                          <div className="font-bold text-slate-800">
+                          <div className="font-bold text-slate-800 text-[10px]">
                             {row.expectedPcs.toLocaleString()} <span className="text-[7.5px] text-slate-500 font-sans">pcs</span>
                           </div>
-                          <div className="text-[8px] text-slate-500">
-                            {row.stdRate} pcs/h
-                          </div>
+                          {densityMode === 'detailed' && (
+                            <div className="text-[8px] text-slate-500">
+                              {row.stdRate} pcs/h
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic text-[8.5px]">Idle / No Order</span>
+                        <span className="text-slate-400 italic text-[8.5px]">Idle</span>
                       )}
                     </td>
 
-                    {/* Actual FG Output (12%) */}
+                    {/* Actual FG Output (11%) */}
                     <td className={`${cellPaddingClass} border-r border-slate-200 text-right font-mono`}>
                       {hasRun ? (
                         <div>
-                          <div className="font-bold text-emerald-900">
+                          <div className="font-bold text-emerald-900 text-[10px]">
                             {row.actualPcs.toLocaleString()} <span className="text-[7.5px] text-emerald-700 font-sans">pcs</span>
                           </div>
-                          <div className="text-[8px] text-slate-600">
-                            {row.actualKg.toLocaleString()} kg
-                          </div>
+                          {densityMode === 'detailed' && (
+                            <div className="text-[8px] text-slate-600">
+                              {row.actualKg.toLocaleString()} kg
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-400">0 pcs</span>
                       )}
                     </td>
 
-                    {/* Variance / Deficit (12%) */}
+                    {/* Variance / Deficit (11%) */}
                     <td className={`${cellPaddingClass} border-r border-slate-200 text-right font-mono`}>
                       {hasRun ? (
                         <div>
                           <div
-                            className={`font-extrabold ${
+                            className={`font-extrabold text-[10px] ${
                               row.variancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'
                             }`}
                           >
                             {row.variancePcs >= 0 ? '+' : ''}
                             {row.variancePcs.toLocaleString()} <span className="text-[7.5px] font-sans">pcs</span>
                           </div>
-                          <div
-                            className={`text-[8px] ${
-                              row.varianceKg >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                            }`}
-                          >
-                            {row.varianceKg >= 0 ? '+' : ''}
-                            {row.varianceKg.toLocaleString()} kg
-                          </div>
+                          {densityMode === 'detailed' && (
+                            <div
+                              className={`text-[8px] ${
+                                row.varianceKg >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
+                              {row.varianceKg >= 0 ? '+' : ''}
+                              {row.varianceKg.toLocaleString()} kg
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-400">-</span>
                       )}
                     </td>
 
-                    {/* Realized Pace & Efficiency (15%) */}
+                    {/* Realized Pace & Efficiency (14%) */}
                     <td className={`${cellPaddingClass} border-r border-slate-200 text-center font-mono`}>
                       {hasRun && row.operatingHours > 0 ? (
                         <div className="flex items-center justify-center gap-1.5">
                           <div>
-                            <span className="font-bold text-cyan-950 text-[9.5px]">
+                            <span className="font-bold text-cyan-950 text-[10px]">
                               {row.actualRatePcsH}
                             </span>
                             <span className="text-[7.5px] text-slate-500 font-sans ml-0.5">pcs/h</span>
                           </div>
-                          <span
-                            className={`inline-block px-1.5 py-0.2 rounded text-[8px] font-bold border ${
-                              row.speedEffPct >= 85
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                : row.speedEffPct >= 70
-                                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                : 'bg-rose-50 text-rose-800 border-rose-300'
-                            }`}
-                          >
-                            {row.speedEffPct.toFixed(1)}% Eff
-                          </span>
+                          {densityMode === 'detailed' && (
+                            <span
+                              className={`inline-block px-1.5 py-0.2 rounded text-[8px] font-bold border ${
+                                row.speedEffPct >= 85
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : row.speedEffPct >= 70
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                  : 'bg-rose-50 text-rose-800 border-rose-300'
+                              }`}
+                            >
+                              {row.speedEffPct.toFixed(1)}% Eff
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-400">0.0h Run</span>
@@ -334,13 +358,15 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                           >
                             {row.oeePct.toFixed(1)}%
                           </span>
-                          <span className="text-[8px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-sans">
-                            Running ({row.operatingHours.toFixed(1)}h)
-                          </span>
+                          {densityMode === 'detailed' ? (
+                            <span className="text-[8px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-sans">
+                              Running ({row.operatingHours.toFixed(1)}h)
+                            </span>
+                          ) : null}
                         </div>
                       ) : (
                         <span className="text-[8px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-sans">
-                          Stopped / Idle
+                          {densityMode === 'clean' ? 'Idle' : 'Stopped / Idle'}
                         </span>
                       )}
                     </td>
@@ -355,7 +381,7 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                 Plant Totals
               </td>
               <td className="py-1 px-2 text-slate-600 font-mono">
-                {kpis.activeLineCount} Active Lines &bull; {kpis.totalPlantCapacityHours.toFixed(0)}h Cap &bull; {kpis.totalOperatingHours.toFixed(1)}h Run
+                {kpis.activeLineCount} Active Lines &bull; {kpis.totalOperatingHours.toFixed(1)}h Run
               </td>
               <td className="py-1 px-2 text-center font-mono text-slate-900">
                 {kpis.totalExpectedPcs.toLocaleString()} pcs
@@ -382,7 +408,7 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
       </section>
 
       {/* 4. Downtime Allocation & Time Accounting Bar */}
-      <section className="audit-downtime-section mb-2">
+      <section className="audit-downtime-section mb-1.5">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <h3 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-800">
@@ -411,7 +437,7 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
             return (
               <div
                 key={cat.key}
-                className="bg-slate-50/80 border border-slate-200 rounded p-1.5 flex flex-col justify-between"
+                className="bg-slate-50/80 border border-slate-200 rounded p-1 px-1.5 flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[8px] font-bold text-slate-600 uppercase tracking-tight truncate max-w-[110px]" title={cat.label}>
@@ -422,7 +448,7 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between mt-0.5">
-                  <span className="text-[13px] font-black text-slate-900 font-mono">
+                  <span className="text-[12px] font-black text-slate-900 font-mono">
                     {cat.hours.toFixed(1)}h
                   </span>
                   <div className="w-12 h-1 bg-slate-200 rounded-full overflow-hidden ml-1">
@@ -439,46 +465,14 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
       </section>
 
       {/* 5. Executive Sign-Off Footer */}
-      <footer className="audit-signoff-footer border-t border-slate-300 pt-1.5 mt-auto">
-        <div className="grid grid-cols-3 gap-4">
-          {/* Signoff 1: Shift Production Engineer */}
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50/50">
-            <div className="text-[8.5px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Shift Production Engineer
-            </div>
-            <div className="text-[8px] text-slate-500 space-y-0.5 font-mono">
-              <div>Name: <span className="border-b border-dotted border-slate-400 inline-block w-36">&nbsp;</span></div>
-              <div>Signature: <span className="border-b border-dotted border-slate-400 inline-block w-32">&nbsp;</span></div>
-              <div>Date: <span className="border-b border-dotted border-slate-400 inline-block w-36">&nbsp;</span></div>
-            </div>
-          </div>
-
-          {/* Signoff 2: Quality Control Auditor */}
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50/50">
-            <div className="text-[8.5px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Quality Assurance Auditor
-            </div>
-            <div className="text-[8px] text-slate-500 space-y-0.5 font-mono">
-              <div>Name: <span className="border-b border-dotted border-slate-400 inline-block w-36">&nbsp;</span></div>
-              <div>Signature: <span className="border-b border-dotted border-slate-400 inline-block w-32">&nbsp;</span></div>
-              <div>Date: <span className="border-b border-dotted border-slate-400 inline-block w-36">&nbsp;</span></div>
-            </div>
-          </div>
-
-          {/* Signoff 3: Operations & Plant Manager */}
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50/50">
-            <div className="text-[8.5px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Operations &amp; Plant Manager
-            </div>
-            <div className="text-[8px] text-slate-500 space-y-0.5 font-mono">
-              <div>Name: <span className="border-b border-dotted border-slate-400 inline-block w-36">&nbsp;</span></div>
-              <div>Signature: <span className="border-b border-dotted border-slate-400 inline-block w-32">&nbsp;</span></div>
-              <div>Date: <span className="border-b border-dotted border-slate-400 inline-block w-36">&nbsp;</span></div>
-            </div>
-          </div>
+      <footer className="audit-signoff-footer border-t border-slate-300 pt-2 mt-auto">
+        <div className="flex justify-between items-center text-xs text-slate-600 font-mono px-1">
+          <span>Shift Production Eng: __________________</span>
+          <span>Quality Assurance: __________________</span>
+          <span>Operations &amp; Plant Mgr: __________________</span>
         </div>
 
-        <div className="flex items-center justify-between text-[7.5px] text-slate-400 font-mono mt-1">
+        <div className="flex items-center justify-between text-[7.5px] text-slate-400 font-mono mt-1 pt-0.5 border-t border-slate-100">
           <span>DOC-Ext.-03 &bull; Daily Production &amp; Operational Audit Form &bull; Confidential Internal Report</span>
           <span>Single-Page Executive Landscape Audit Record &bull; Page 1 of 1</span>
         </div>

@@ -212,5 +212,30 @@ console.log('--- Starting Daily Audit PDF Helper Unit Tests ---');
   console.log('Test 5 Passed: All Lines vs Operating Only filtering accurately isolates active lines.');
 }
 
+// Test 6: Full machine names are resolved prominently across all canonical lines
+{
+  const auditData = buildDailyAuditReportData({
+    date: '2026-10-16',
+    records: [],
+    machineMaster: MACHINES
+  });
+
+  MACHINES.forEach((machine) => {
+    const row = auditData.rows.find((r) => r.lineId === machine.id);
+    assert.ok(row, `Row for ${machine.id} must exist`);
+    assert.ok(
+      row.fullMachineName.includes(machine.id),
+      `Row fullMachineName must include line ID ${machine.id}`
+    );
+    assert.ok(
+      row.fullMachineName.includes(machine.name),
+      `Row fullMachineName must include machine name ${machine.name}`
+    );
+  });
+
+  console.log('Test 6 Passed: Full machine names (e.g. L-06 - KTS 700) verified for prominent rendering.');
+}
+
 console.log('--- ALL DAILY AUDIT PDF HELPER UNIT TESTS PASSED SUCCESSFULLY! ---');
+
 

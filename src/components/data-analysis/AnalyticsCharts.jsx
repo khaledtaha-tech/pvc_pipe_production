@@ -23,13 +23,13 @@ import {
 
 const MACHINE_PALETTE = [
   '#06b6d4', // cyan
-  '#3b82f6', // blue
+  '#059669', // emerald
   '#8b5cf6', // purple
   '#10b981', // emerald
   '#f59e0b', // amber
   '#ec4899', // pink
   '#14b8a6', // teal
-  '#6366f1'  // indigo
+  '#0d9488'  // teal
 ];
 
 export default function AnalyticsCharts({ analytics = {} }) {

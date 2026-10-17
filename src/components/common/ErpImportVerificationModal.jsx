@@ -125,38 +125,30 @@ export default function ErpImportVerificationModal({
       <div
         className={`w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh] ${
           isLight
-            ? 'bg-white border-[#dfd7ca] text-stone-900 shadow-stone-400/30'
+            ? 'bg-white border-slate-200 text-slate-900 shadow-xl'
             : 'bg-slate-900 border-slate-700 text-slate-100 shadow-cyan-950/50'
         }`}
       >
         {/* Modal Header */}
         <div
           className={`px-5 py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            isLight ? 'bg-stone-50 border-[#dfd7ca]' : 'bg-slate-900/90 border-slate-800'
+            isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/90 border-slate-800'
           }`}
         >
           <div className="flex items-center gap-3">
-            <div
-              className={`p-2.5 rounded-xl flex items-center justify-center ${
-                isLight
-                  ? 'bg-teal-700 text-white shadow-sm'
-                  : 'bg-gradient-to-tr from-cyan-600 to-indigo-600 text-white shadow-md shadow-cyan-900/40'
-              }`}
-            >
-              <FileSpreadsheet className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl brand-gradient flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold tracking-tight">ERP Ingestion Verification & Mapping Inspector</h3>
+                <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">ERP Ingestion Verification & Mapping Inspector</h3>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wide uppercase ${
-                    isLight ? 'bg-teal-100 text-teal-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
-                  }`}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wide uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-cyan-950 dark:text-cyan-300 dark:border-cyan-800"
                 >
                   Pre-Ingestion
                 </span>
               </div>
-              <p className={`text-xs ${isLight ? 'text-stone-500' : 'text-slate-400'}`}>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Verify automated column bindings, health checks, and extrusion allocations before loading.
               </p>
             </div>
@@ -166,17 +158,13 @@ export default function ErpImportVerificationModal({
           <div className="flex items-center gap-3">
             {sheetNames.length > 1 && (
               <div className="flex items-center gap-1.5">
-                <span className={`text-[11px] font-semibold ${isLight ? 'text-stone-600' : 'text-slate-400'}`}>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                   Sheet:
                 </span>
                 <select
                   value={selectedSheet}
                   onChange={(e) => setSelectedSheet(e.target.value)}
-                  className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border outline-none cursor-pointer ${
-                    isLight
-                      ? 'bg-white border-stone-300 text-stone-800 hover:border-teal-600'
-                      : 'bg-slate-800 border-slate-700 text-slate-100 hover:border-cyan-500'
-                  }`}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border outline-none cursor-pointer bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-emerald-500 shadow-xs"
                 >
                   {sheetNames.map((s) => (
                     <option key={s} value={s}>
@@ -190,11 +178,7 @@ export default function ErpImportVerificationModal({
             <button
               type="button"
               onClick={onClose}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                isLight
-                  ? 'text-stone-400 hover:text-stone-700 hover:bg-stone-200/60'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+              className="p-1.5 rounded-lg transition cursor-pointer text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <X className="w-5 h-5" />
             </button>
@@ -206,7 +190,7 @@ export default function ErpImportVerificationModal({
           {/* File Meta Summary */}
           <div
             className={`p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs ${
-              isLight ? 'bg-stone-50 border-stone-200 text-stone-700' : 'bg-slate-950/60 border-slate-800 text-slate-300'
+              isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-950/60 border-slate-800 text-slate-300'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -239,14 +223,14 @@ export default function ErpImportVerificationModal({
               {/* Total Rows */}
               <div
                 className={`p-3 rounded-xl border flex items-center justify-between ${
-                  isLight ? 'bg-white border-stone-200' : 'bg-slate-950/80 border-slate-800'
+                  isLight ? 'bg-white border-slate-200' : 'bg-slate-950/80 border-slate-800'
                 }`}
               >
                 <div>
-                  <p className="text-[11px] text-slate-400">Total Rows Found</p>
-                  <p className="text-lg font-black font-mono text-white mt-0.5">{healthCheck.totalRows}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Total Rows Found</p>
+                  <p className="text-lg font-black font-mono text-slate-900 dark:text-white mt-0.5">{healthCheck.totalRows}</p>
                 </div>
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
                   <Layers className="w-5 h-5" />
                 </div>
               </div>
@@ -279,7 +263,7 @@ export default function ErpImportVerificationModal({
                       ? 'bg-amber-50/50 border-amber-200'
                       : 'bg-amber-950/20 border-amber-800/60'
                     : isLight
-                    ? 'bg-stone-50 border-stone-200'
+                    ? 'bg-slate-50 border-slate-200'
                     : 'bg-slate-950/40 border-slate-800'
                 }`}
               >
@@ -347,13 +331,13 @@ export default function ErpImportVerificationModal({
 
             <div
               className={`rounded-xl border overflow-hidden ${
-                isLight ? 'bg-white border-stone-200' : 'bg-slate-950/80 border-slate-800'
+                isLight ? 'bg-white border-slate-200' : 'bg-slate-950/80 border-slate-800'
               }`}
             >
               <div className="overflow-x-auto max-h-48">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className={`border-b text-[11px] uppercase font-bold ${isLight ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
+                    <tr className={`border-b text-[11px] uppercase font-bold ${isLight ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
                       <th className="py-2 px-3">Excel Header Found</th>
                       <th className="py-2 px-3 text-center">Direction</th>
                       <th className="py-2 px-3">Mapped System Field</th>
@@ -363,7 +347,7 @@ export default function ErpImportVerificationModal({
                   <tbody className="divide-y divide-inherit">
                     {columnMappings.map((col, idx) => (
                       <tr key={idx} className="hover:bg-cyan-500/5 transition">
-                        <td className="py-2 px-3 font-mono font-bold text-white/90">
+                        <td className="py-2 px-3 font-mono font-bold text-slate-800 dark:text-white/90">
                           {col.excelHeader}
                         </td>
                         <td className="py-2 px-3 text-center text-slate-500">
@@ -373,8 +357,8 @@ export default function ErpImportVerificationModal({
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold ${
                               col.isMapped
-                                ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                             }`}
                           >
                             {col.systemField}
@@ -382,7 +366,7 @@ export default function ErpImportVerificationModal({
                         </td>
                         <td className="py-2 px-3 text-right">
                           {col.isMapped ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                               <Check className="w-3.5 h-3.5" /> Mapped
                             </span>
                           ) : (
@@ -415,13 +399,13 @@ export default function ErpImportVerificationModal({
 
             <div
               className={`rounded-xl border overflow-hidden ${
-                isLight ? 'bg-white border-stone-200' : 'bg-slate-950/80 border-slate-800'
+                isLight ? 'bg-white border-slate-200' : 'bg-slate-950/80 border-slate-800'
               }`}
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className={`border-b text-[11px] uppercase font-bold ${isLight ? 'bg-stone-100 text-stone-600 border-stone-200' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
+                    <tr className={`border-b text-[11px] uppercase font-bold ${isLight ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>
                       <th className="py-2.5 px-3">#</th>
                       <th className="py-2.5 px-3">Doc No</th>
                       <th className="py-2.5 px-3">Date</th>
@@ -438,30 +422,30 @@ export default function ErpImportVerificationModal({
                   <tbody className="divide-y divide-inherit">
                     {previewRows.map((row) => (
                       <tr key={row.rowNumber} className="hover:bg-cyan-500/5 transition">
-                        <td className="py-2.5 px-3 font-mono text-slate-500">{row.rowNumber}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-400">{row.docNo}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-300">{row.date}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-amber-400">{row.itemCode}</td>
-                        <td className="py-2.5 px-3 font-semibold text-white/95 max-w-xs truncate" title={row.product}>
+                        <td className="py-2.5 px-3 font-mono text-slate-400 dark:text-slate-500">{row.rowNumber}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">{row.docNo}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">{row.date}</td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-amber-600 dark:text-amber-400">{row.itemCode}</td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white/95 max-w-xs truncate" title={row.product}>
                           {row.product}
                         </td>
                         <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 font-mono font-bold border border-blue-500/30">
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 font-mono font-bold border border-emerald-200 dark:border-emerald-500/30">
                             {row.diameterMm}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-300">{row.thickness}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-300">{row.unitWeight}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-200">{row.totalWeight}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">{row.thickness}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-300">{row.unitWeight}</td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-200">{row.totalWeight}</td>
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 text-[11px]">
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-500/40 text-[11px]">
                               {row.primaryMachine}
                             </span>
-                            <span className="text-[10px] text-emerald-400 font-mono">({row.primaryLoading})</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">({row.primaryLoading})</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                           {row.alt1Machine !== '-' ? `${row.alt1Machine}, ${row.alt2Machine}` : '-'}
                         </td>
                       </tr>
@@ -476,7 +460,7 @@ export default function ErpImportVerificationModal({
         {/* Modal Footer Actions */}
         <div
           className={`px-5 py-4 border-t flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 ${
-            isLight ? 'bg-stone-50 border-stone-200' : 'bg-slate-900/90 border-slate-800'
+            isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/90 border-slate-800'
           }`}
         >
           <button
@@ -484,7 +468,7 @@ export default function ErpImportVerificationModal({
             onClick={onClose}
             className={`w-full sm:w-auto px-4 py-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
               isLight
-                ? 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100 hover:text-stone-900'
+                ? 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
             }`}
           >
@@ -499,13 +483,11 @@ export default function ErpImportVerificationModal({
             disabled={!rawRows || rawRows.length === 0}
             className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-[0.98] ${
               rawRows && rawRows.length > 0
-                ? isLight
-                  ? 'bg-teal-700 hover:bg-teal-600 text-white shadow-teal-900/20'
-                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/50'
-                : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed shadow-none'
+                ? 'brand-gradient hover:brightness-110 text-white shadow-emerald-500/25'
+                : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed shadow-none'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4 text-white" />
             <span>Confirm & Ingest Data into Intelligence Engine</span>
           </button>
         </div>

@@ -478,35 +478,29 @@ export default function DataExchangeCenter({
       <div
         className={`p-6 rounded-2xl border transition-all ${
           isLight
-            ? 'bg-gradient-to-r from-teal-50 via-white to-cyan-50 border-teal-200/80 text-stone-900 shadow-sm'
-            : 'bg-gradient-to-r from-slate-900 via-slate-900 to-cyan-950/40 border-slate-800 text-white shadow-xl'
+            ? 'bg-white border-slate-200/90 text-slate-900 shadow-sm'
+            : 'bg-slate-900/90 border-slate-800/80 text-white shadow-xl'
         }`}
       >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div
-              className={`p-3.5 rounded-2xl flex items-center justify-center ${
-                isLight
-                  ? 'bg-teal-600 text-white shadow-md shadow-teal-700/20'
-                  : 'bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-900/40'
-              }`}
-            >
+            <div className="p-3.5 rounded-2xl flex items-center justify-center brand-gradient text-white shadow-md shadow-emerald-500/25 ring-1 ring-white/20 shrink-0">
               <Database className="w-7 h-7" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold tracking-tight">Import / Export Hub</h1>
+                <h1 className="text-xl font-black tracking-tight brand-gradient-text">Import / Export Hub</h1>
                 <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                     isLight
-                      ? 'bg-teal-100 text-teal-800 border border-teal-300'
-                      : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-emerald-950/80 text-cyan-300 border-emerald-800/60'
                   }`}
                 >
                   Central Operations
                 </span>
               </div>
-              <p className={`text-xs mt-1 ${isLight ? 'text-stone-600' : 'text-slate-400'}`}>
+              <p className={`text-xs mt-1 font-medium ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
                 Unified control center for Excel ingestion, standardized template downloads, shift SOP printing, and multi-format data backups.
               </p>
             </div>
@@ -516,7 +510,7 @@ export default function DataExchangeCenter({
           <div className="flex flex-wrap items-center gap-3">
             <div
               className={`px-3 py-2 rounded-xl border text-center ${
-                isLight ? 'bg-white border-stone-200 text-stone-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
+                isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
               }`}
             >
               <div className="text-[10px] font-semibold text-slate-400 uppercase">Active Runs</div>
@@ -524,7 +518,7 @@ export default function DataExchangeCenter({
             </div>
             <div
               className={`px-3 py-2 rounded-xl border text-center ${
-                isLight ? 'bg-white border-stone-200 text-stone-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
+                isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
               }`}
             >
               <div className="text-[10px] font-semibold text-slate-400 uppercase">ERP History</div>
@@ -532,7 +526,7 @@ export default function DataExchangeCenter({
             </div>
             <div
               className={`px-3 py-2 rounded-xl border text-center ${
-                isLight ? 'bg-white border-stone-200 text-stone-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
+                isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-950/80 border-slate-800 text-slate-200'
               }`}
             >
               <div className="text-[10px] font-semibold text-slate-400 uppercase">Master Plans</div>
@@ -559,9 +553,7 @@ export default function DataExchangeCenter({
             SECTION 1: INGESTION & UPLOADS (INPUT DATA)
             ========================================================= */}
         <div
-          className={`p-6 rounded-2xl border transition-all flex flex-col justify-between ${
-            isLight ? 'bg-white border-[#dfd7ca] shadow-sm' : 'bg-slate-900 border-slate-800 shadow-lg'
-          }`}
+          className="p-6 rounded-2xl app-card shadow-lg transition-all flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-inherit mb-4">
@@ -755,9 +747,7 @@ export default function DataExchangeCenter({
             SECTION 2: TEMPLATES & BLANK FORMS (DOWNLOADS)
             ========================================================= */}
         <div
-          className={`p-6 rounded-2xl border transition-all flex flex-col justify-between ${
-            isLight ? 'bg-white border-[#dfd7ca] shadow-sm' : 'bg-slate-900 border-slate-800 shadow-lg'
-          }`}
+          className="p-6 rounded-2xl app-card shadow-lg transition-all flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-inherit mb-4">
@@ -860,14 +850,12 @@ export default function DataExchangeCenter({
             SECTION 3: SHIFT SOP & INSPECTION PRINTING
             ========================================================= */}
         <div
-          className={`p-6 rounded-2xl border transition-all flex flex-col justify-between ${
-            isLight ? 'bg-white border-[#dfd7ca] shadow-sm' : 'bg-slate-900 border-slate-800 shadow-lg'
-          }`}
+          className="p-6 rounded-2xl app-card shadow-lg transition-all flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-inherit mb-4">
               <div className="flex items-center gap-2.5">
-                <div className={`p-2 rounded-lg ${isLight ? 'bg-blue-50 text-blue-700' : 'bg-blue-500/10 text-blue-400'}`}>
+                <div className={`p-2 rounded-lg ${isLight ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-400'}`}>
                   <Printer className="w-5 h-5" />
                 </div>
                 <div>
@@ -875,7 +863,7 @@ export default function DataExchangeCenter({
                   <span className="text-[11px] text-slate-400">Physical shop-floor documentation & follow-up</span>
                 </div>
               </div>
-              <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border border-blue-800/40">
+              <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
                 A4 Portrait
               </span>
             </div>
@@ -883,13 +871,13 @@ export default function DataExchangeCenter({
             {/* Morning SOP Print Button Card */}
             <div
               className={`p-4 rounded-xl border mb-4 ${
-                isLight ? 'bg-blue-50/50 border-blue-200' : 'bg-blue-950/20 border-blue-900/40'
+                isLight ? 'bg-emerald-50/50 border-emerald-200' : 'bg-emerald-950/20 border-emerald-900/40'
               }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-600 text-white font-mono">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-600 text-white font-mono">
                       DOC-Ext.-03
                     </span>
                     <h3 className="text-xs font-bold text-stone-900 dark:text-slate-100">
@@ -904,7 +892,7 @@ export default function DataExchangeCenter({
                   <button
                     type="button"
                     onClick={handleTriggerBlankSopPrint}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-950/30 transition cursor-pointer shrink-0"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-950/30 transition cursor-pointer shrink-0"
                   >
                     <Printer className="w-4 h-4" />
                     <span>Open Print Dialog</span>
@@ -919,20 +907,20 @@ export default function DataExchangeCenter({
                     }`}
                     title="Configure Machine Capacities (kg/h)"
                   >
-                    <Sliders className="w-4 h-4 text-blue-400" />
+                    <Sliders className="w-4 h-4 text-emerald-400" />
                     <span>Machine Settings</span>
                   </button>
                 </div>
               </div>
 
               {/* Inline Options & Hints */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-3 border-t border-blue-200/40 dark:border-blue-900/40 text-[11px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-3 border-t border-emerald-200/40 dark:border-emerald-900/40 text-[11px]">
                 <div className="flex items-center gap-1.5 text-slate-400">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Option A: Universal Blank (1 Clean Page)</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-slate-400">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Option B: Configured Multi-Line Batch</span>
                 </div>
               </div>
@@ -985,7 +973,7 @@ export default function DataExchangeCenter({
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
                   }`}
                 >
-                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  <Printer className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Quick Print / PDF Export</span>
                 </button>
                 <span className="text-[11px] text-slate-400">
@@ -1005,9 +993,7 @@ export default function DataExchangeCenter({
             SECTION 4: DATA EXPORTS & BACKUPS
             ========================================================= */}
         <div
-          className={`p-6 rounded-2xl border transition-all flex flex-col justify-between ${
-            isLight ? 'bg-white border-[#dfd7ca] shadow-sm' : 'bg-slate-900 border-slate-800 shadow-lg'
-          }`}
+          className="p-6 rounded-2xl app-card shadow-lg transition-all flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-inherit mb-4">
@@ -1162,9 +1148,7 @@ export default function DataExchangeCenter({
           SECTION 5: CODE ANALYSIS & CALCULATION INSPECTOR
           ========================================================= */}
       <div
-        className={`p-6 rounded-2xl border transition-all ${
-          isLight ? 'bg-white border-[#dfd7ca] shadow-sm' : 'bg-slate-900 border-slate-800 shadow-xl'
-        }`}
+        className="p-6 rounded-2xl app-card shadow-xl transition-all"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-inherit mb-5">
           <div className="flex items-center gap-3">

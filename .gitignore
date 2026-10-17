@@ -39,3 +39,7 @@ __pycache__/
 *$py.class
 venv/
 .venv/
+
+# Local runner helpers
+powershell.cmd
+powershell.exe

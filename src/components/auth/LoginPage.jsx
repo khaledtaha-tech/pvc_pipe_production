@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggleTheme }) {
   const isAr = lang === 'ar';
+  const isLight = theme === 'light';
   const { login, authError, setAuthError } = useAuth();
 
   const [username, setUsername] = useState('');
@@ -39,8 +40,8 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
 
   return (
     <div
-      className={`min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 transition-colors ${
-        theme === 'light' ? 'bg-[#f2eee7] text-stone-900' : 'bg-slate-950 text-slate-100'
+      className={`min-h-screen ambient-glow flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 transition-colors duration-200 ${
+        isLight ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0a0f1d] text-slate-100'
       }`}
     >
       {/* Top Controls Bar */}
@@ -49,14 +50,14 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
           <button
             type="button"
             onClick={() => setLang(isAr ? 'en' : 'ar')}
-            className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer ${
-              theme === 'light'
-                ? 'bg-white text-stone-700 border border-stone-300 shadow-xs hover:bg-stone-50'
-                : 'bg-slate-900 text-slate-300 border border-slate-800 shadow-md hover:bg-slate-800'
+            className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs ${
+              isLight
+                ? 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                : 'bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800'
             }`}
             title="Toggle Language"
           >
-            <Languages className="w-4 h-4 text-cyan-400" />
+            <Languages className="w-4 h-4 text-cyan-500" />
             <span className="font-mono text-xs">{isAr ? 'English' : 'AR'}</span>
           </button>
         )}
@@ -65,15 +66,15 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
           <button
             type="button"
             onClick={toggleTheme}
-            className={`p-2 rounded-xl transition cursor-pointer ${
-              theme === 'light'
-                ? 'bg-white text-stone-700 border border-stone-300 shadow-xs hover:bg-stone-50'
-                : 'bg-slate-900 text-slate-300 border border-slate-800 shadow-md hover:bg-slate-800'
+            className={`p-2 rounded-xl transition cursor-pointer shadow-xs ${
+              isLight
+                ? 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                : 'bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800'
             }`}
             title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           >
             {theme === 'light' ? (
-              <Moon className="w-4 h-4 text-indigo-500" />
+              <Moon className="w-4 h-4 text-teal-500" />
             ) : (
               <Sun className="w-4 h-4 text-amber-400" />
             )}
@@ -84,35 +85,23 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div
-            className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-xl ${
-              theme === 'light'
-                ? 'bg-[#0f766e] text-white shadow-teal-900/10 ring-4 ring-teal-500/20'
-                : 'bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-cyan-500/20 ring-4 ring-cyan-500/20'
-            }`}
-          >
-            <Factory className="w-9 h-9" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 brand-gradient text-white shadow-lg shadow-emerald-500/25 ring-4 ring-white/10">
+            <Factory className="w-8 h-8 text-white" />
           </div>
 
-          <h1
-            className={`text-2xl font-black tracking-tight ${
-              theme === 'light'
-                ? 'text-stone-900'
-                : 'bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent'
-            }`}
-          >
+          <h1 className="text-2xl font-black tracking-tight brand-gradient-text">
             PVC Pipe Production Suite
           </h1>
-          <p className={`text-xs mt-1 font-medium ${theme === 'light' ? 'text-stone-500' : 'text-slate-400'}`}>
+          <p className={`text-xs mt-1 font-medium ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
             Extrusion Intelligence & Shift Management System
           </p>
         </div>
 
         {/* Login Card */}
         <div
-          className={`p-6 sm:p-8 rounded-2xl border shadow-2xl transition-all ${
-            theme === 'light'
-              ? 'bg-white/95 border-stone-200 text-stone-900 shadow-stone-300/40 backdrop-blur-md'
+          className={`p-6 sm:p-8 rounded-2xl border shadow-2xl transition-all duration-200 ${
+            isLight
+              ? 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-200/50 backdrop-blur-md'
               : 'bg-slate-900/90 border-slate-800 text-slate-100 shadow-black/60 backdrop-blur-md'
           }`}
         >
@@ -120,7 +109,7 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
             <h2 className="text-lg font-bold">
               Sign in to your account
             </h2>
-            <p className={`text-xs mt-0.5 ${theme === 'light' ? 'text-stone-500' : 'text-slate-400'}`}>
+            <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               Enter your operational credentials to proceed
             </p>
           </div>
@@ -141,7 +130,7 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
               <label
                 htmlFor="login-username"
                 className={`block text-xs font-semibold mb-1.5 ${
-                  theme === 'light' ? 'text-stone-700' : 'text-slate-300'
+                  isLight ? 'text-slate-700' : 'text-slate-300'
                 }`}
               >
                 Username
@@ -159,9 +148,9 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
                   disabled={isSubmitting}
                   placeholder="e.g. admin or shift_supervisor"
                   className={`w-full text-xs font-medium pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 rounded-xl border outline-none transition ${
-                    theme === 'light'
-                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20'
-                      : 'bg-slate-950/80 border-slate-700 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
+                    isLight
+                      ? 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20'
+                      : 'bg-slate-950/80 border-slate-700 text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                   }`}
                   required
                 />
@@ -173,7 +162,7 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
               <label
                 htmlFor="login-password"
                 className={`block text-xs font-semibold mb-1.5 ${
-                  theme === 'light' ? 'text-stone-700' : 'text-slate-300'
+                  isLight ? 'text-slate-700' : 'text-slate-300'
                 }`}
               >
                 Password
@@ -191,28 +180,24 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
                   disabled={isSubmitting}
                   placeholder="••••••••"
                   className={`w-full text-xs font-medium pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 rounded-xl border outline-none transition ${
-                    theme === 'light'
-                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20'
-                      : 'bg-slate-950/80 border-slate-700 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20'
+                    isLight
+                      ? 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20'
+                      : 'bg-slate-950/80 border-slate-700 text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                   }`}
                   required
                 />
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Button with Unified Brand Gradient */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
-                theme === 'light'
-                  ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-800/20'
-                  : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-cyan-600/30'
-              }`}
+              className="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 brand-gradient brand-gradient-hover text-white shadow-md shadow-emerald-500/25 ring-1 ring-white/20 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transform active:scale-98"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>Authenticating...</span>
                 </>
               ) : (
@@ -225,8 +210,8 @@ export default function LoginPage({ lang = 'en', setLang, theme = 'dark', toggle
           </form>
 
           {/* Setup note */}
-          <div className="mt-6 pt-4 border-t border-slate-700/40 text-center">
-            <p className={`text-[11px] ${theme === 'light' ? 'text-stone-400' : 'text-slate-500'}`}>
+          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
+            <p className={`text-[11px] ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>
               Hostinger MySQL Central Authentication &middot; v2.0
             </p>
           </div>

@@ -193,11 +193,7 @@ export default function DataHub({
   };
 
   return (
-    <section className={`rounded-2xl border transition-all ${
-      isLight 
-        ? 'bg-white border-[#dfd7ca] shadow-sm text-stone-800' 
-        : 'bg-slate-900/90 border-slate-800 shadow-xl text-slate-100'
-    } p-5 sm:p-6 space-y-6 relative overflow-hidden`}>
+    <section className="app-card rounded-2xl p-5 sm:p-6 space-y-6 relative overflow-hidden transition-all">
       
       {/* Subtle Background Glow */}
       <div className={`absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl pointer-events-none ${
@@ -214,7 +210,7 @@ export default function DataHub({
           <div className={`p-3 rounded-xl flex items-center justify-center ${
             isLight 
               ? 'bg-[#0f766e] text-white shadow-sm ring-1 ring-teal-600/30' 
-              : 'bg-gradient-to-tr from-cyan-600 to-indigo-600 text-white shadow-lg shadow-cyan-900/30'
+              : 'bg-gradient-to-tr from-cyan-600 to-teal-600 text-white shadow-lg shadow-cyan-900/30'
           }`}>
             <Database className="w-6 h-6" />
           </div>
@@ -274,7 +270,7 @@ export default function DataHub({
                 ? 'opacity-50 cursor-not-allowed bg-stone-300 text-stone-600'
                 : isLight
                   ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-2 border-purple-600'
-                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-950/40 border border-purple-500/40'
+                  : 'bg-gradient-to-r from-purple-600 to-teal-600 hover:from-purple-500 hover:to-teal-500 text-white shadow-md shadow-purple-950/40 border border-purple-500/40'
             }`}
             title="Download clean 12-column engineering catalog with 1 row per unique pipe item"
           >
@@ -299,8 +295,8 @@ export default function DataHub({
         {/* Dropzone 1: Daily Production Log (With Recorded Machines) */}
         <div className={`flex flex-col justify-between rounded-xl border-2 border-dashed p-5 transition-all ${
           activeDragging 
-            ? (isLight ? 'border-[#0f766e] bg-[#e6f4f2]' : 'border-cyan-400 bg-cyan-950/30') 
-            : (isLight ? 'border-[#dfd7ca] hover:border-[#0f766e] bg-[#fbf9f6]' : 'border-slate-800 hover:border-slate-700 bg-slate-950/50')
+            ? 'border-emerald-500 bg-emerald-50/50 dark:border-cyan-400 dark:bg-cyan-950/30' 
+            : 'border-slate-200 hover:border-emerald-500 bg-slate-50/60 dark:border-slate-800 dark:hover:border-slate-700 dark:bg-slate-950/50'
         }`}>
           <div>
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -415,8 +411,8 @@ export default function DataHub({
         {/* Dropzone 2: Historical ERP Data (Without Machines - Inference Engine) */}
         <div className={`flex flex-col justify-between rounded-xl border-2 border-dashed p-5 transition-all ${
           erpDragging 
-            ? (isLight ? 'border-purple-600 bg-purple-50/50' : 'border-purple-500 bg-purple-950/30') 
-            : (isLight ? 'border-[#dfd7ca] hover:border-purple-500 bg-[#fbf9f6]' : 'border-slate-800 hover:border-slate-700 bg-slate-950/50')
+            ? 'border-purple-600 bg-purple-50/50 dark:border-purple-500 dark:bg-purple-950/30' 
+            : 'border-slate-200 hover:border-purple-500 bg-slate-50/60 dark:border-slate-800 dark:hover:border-slate-700 dark:bg-slate-950/50'
         }`}>
           <div>
             <div className="flex items-center justify-between gap-2 mb-3">

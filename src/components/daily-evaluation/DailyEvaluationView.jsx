@@ -1682,7 +1682,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
                 PVC Pipe Daily Monitoring Report
               </h1>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                 v{DOC_VERSION}
               </span>
             </div>
@@ -1705,7 +1705,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-primary h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3.5 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsPrintChoiceModalOpen(true)}
-            style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
+            style={{ backgroundColor: '#059669', color: '#ffffff' }}
             title="Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" className="flex-shrink-0" style={{ stroke: '#ffffff', color: '#ffffff' }}>
@@ -1801,7 +1801,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           type="button"
           className={'tab' + (tab === 'uploader' ? ' active' : '')}
           onClick={() => setTab('uploader')}
-          style={tab === 'uploader' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
+          style={tab === 'uploader' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
           <span style={tab === 'uploader' ? { color: '#ffffff' } : {}}>Excel Production Log Uploader</span>
         </button>
@@ -1809,7 +1809,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           type="button"
           className={'tab' + (tab === 'analytics' ? ' active' : '')}
           onClick={() => setTab('analytics')}
-          style={tab === 'analytics' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
+          style={tab === 'analytics' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
           <span style={tab === 'analytics' ? { color: '#ffffff' } : {}}>Plant Analytics</span>
         </button>
@@ -1817,7 +1817,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           type="button"
           className={'tab' + (tab === 'matrix' ? ' active' : '')}
           onClick={() => setTab('matrix')}
-          style={tab === 'matrix' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
+          style={tab === 'matrix' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
           <span style={tab === 'matrix' ? { color: '#ffffff' } : {}}>Daily Reconciliation Matrix</span>
         </button>
@@ -1826,7 +1826,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           className={'tab' + (tab === 'sheet' ? ' active' : '')}
           onClick={() => setTab('sheet')}
           disabled={!derived}
-          style={tab === 'sheet' ? { backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' } : {}}
+          style={tab === 'sheet' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
           <span style={tab === 'sheet' ? { color: '#ffffff' } : {}}>24-Hour Production Sheet</span> {derived ? <span className="tab-badge" /> : null}
         </button>
@@ -2014,7 +2014,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   className="btn btn-reconcile"
                   onClick={() => setIsReconcileModalOpen(true)}
                   disabled={activeLinesForDate.length === 0 || !report?.slots || report.slots.length === 0}
-                  style={{ backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#2563eb' }}
+                  style={{ backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' }}
                   title="Auto-reconcile 24h run and reverse estimate slot production across operating hours"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" style={{ marginRight: 6, stroke: '#ffffff', color: '#ffffff' }}>

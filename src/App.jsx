@@ -320,7 +320,7 @@ function AppContent() {
   }
 
   return (
-    <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f2eee7] text-stone-900' : 'bg-slate-950 text-slate-100'}`}>
+    <div className={`min-h-screen ambient-glow transition-colors duration-200 ${theme === 'light' ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0a0f1d] text-slate-100'}`}>
       {/* Unified Suite Navbar */}
       <Navbar
         user={user}
@@ -436,7 +436,7 @@ function AppContent() {
           </ErrorBoundary>
         )}
 
-        <div className={`daily-eval-root w-full rounded-xl overflow-hidden shadow-2xl border border-slate-800 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
+        <div className={`daily-eval-root w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800/80 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
           <ErrorBoundary>
             <DailyEvaluationView
               ref={dailyEvalRef}

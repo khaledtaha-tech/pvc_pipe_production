@@ -105,35 +105,37 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
     switch (status) {
       case 'Optimal Sizing & Loading':
       case 'Optimal Sizing':
-        return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30';
       case 'Suboptimal / Derated':
       case 'Suboptimal Rate':
-        return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+        return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30';
       case 'Range Violation':
-        return 'bg-rose-500/25 text-rose-300 border-rose-500/50 animate-pulse';
+        return 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-500/50 animate-pulse';
       case 'Pelletizing Line (Exempt)':
-        return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+        return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/40';
       default:
-        return 'bg-slate-800 text-slate-400 border-slate-700';
+        return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
     }
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+    <div className="app-card rounded-2xl overflow-hidden">
       
       {/* Header Banner */}
-      <div className="p-6 bg-slate-900/60 border-b border-slate-800">
+      <div className="p-6 bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Gauge className="w-5 h-5 text-cyan-400" />
-              <h3 className="font-bold text-base text-white">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl brand-gradient flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
+              <Gauge className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
                 Extrusion Line Sizing & Throughput Rate Capability Table
               </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Evaluated against Master Machine Envelopes (allowable diameter ranges and nominal extrusion capacities)
+              </p>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Evaluated against Master Machine Envelopes (allowable diameter ranges and nominal extrusion capacities)
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -143,31 +145,31 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
             </div>
 
             {statusCounts.violation > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-800/80 text-rose-300 text-xs font-semibold">
-                <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 text-rose-700 dark:text-rose-300 text-xs font-bold">
+                <AlertOctagon className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                 <span>{statusCounts.violation} Range Violations</span>
               </div>
             )}
 
             {statusCounts.pelletizing > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/80 text-purple-700 dark:text-purple-300 text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
                 <span>{statusCounts.pelletizing} Pelletizing (Exempt)</span>
               </div>
             )}
 
             <button
               onClick={onExportClean}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md shadow-emerald-900/30 transition transform active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition transform active:scale-95"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 text-white" />
               <span>Export Sizing Analysis (Excel)</span>
             </button>
           </div>
         </div>
 
         {/* Search and Filters Toolbar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-800/80">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-200/80 dark:border-slate-800/80">
           
           {/* Search Box */}
           <div className="relative w-full md:w-80">
@@ -177,20 +179,20 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
               placeholder="Search product, machine, diameter, code..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-xs"
             />
           </div>
 
           {/* Machine, Diameter, Sizing Status Filter Dropdowns */}
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
             
             {/* Machine Filter */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <Cpu className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Cpu className="w-3.5 h-3.5 text-emerald-500" />
               <select
                 value={selectedMachine}
                 onChange={(e) => setSelectedMachine(e.target.value)}
-                className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-xs"
               >
                 {machines.map(m => (
                   <option key={m} value={m}>{m === 'ALL' ? 'All Extruders' : m}</option>
@@ -199,12 +201,12 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
             </div>
 
             {/* Diameter Filter */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <Layers className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Layers className="w-3.5 h-3.5 text-teal-500" />
               <select
                 value={selectedDiameter}
                 onChange={(e) => setSelectedDiameter(e.target.value)}
-                className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-xs"
               >
                 {diameters.map(d => (
                   <option key={d} value={d}>{d === 'ALL' ? 'All Diameters' : d}</option>
@@ -213,12 +215,12 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
             </div>
 
             {/* Sizing Status Filter */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <Filter className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Filter className="w-3.5 h-3.5 text-teal-500" />
               <select
                 value={selectedSizingStatus}
                 onChange={(e) => setSelectedSizingStatus(e.target.value)}
-                className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-xs"
               >
                 <option value="ALL">All Compatibility Statuses</option>
                 <option value="Optimal Sizing & Loading">Optimal Sizing & Loading</option>
@@ -229,12 +231,12 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
             </div>
 
             {/* Data Source Filter */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
               <select
                 value={selectedDataSource}
                 onChange={(e) => setSelectedDataSource(e.target.value)}
-                className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-xs"
               >
                 <option value="ALL">{isAr ? 'جميع مصادر البيانات (All Sources)' : 'All Data Sources'}</option>
                 <option value="ACTUAL">{isAr ? 'إنتاج حقيقي (Actual Production)' : 'Actual Production'}</option>
@@ -249,8 +251,8 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
 
       {/* Focused Engineering Data Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-xs text-slate-200 text-left">
-          <thead className="bg-slate-950/90 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[11px]">
+        <table className="w-full text-xs text-slate-800 dark:text-slate-200 text-left">
+          <thead className="bg-slate-100/90 dark:bg-slate-950/90 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider text-[11px]">
             <tr>
               <th className="py-3 px-3 cursor-pointer hover:text-white" onClick={() => handleSort('rowNumber')}>
                 <div className="flex items-center gap-1">
@@ -282,7 +284,7 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
                   <ArrowUpDown className="w-3 h-3" />
                 </div>
               </th>
-              <th className="py-3 px-3 cursor-pointer hover:text-white text-blue-300 bg-blue-950/40 border-b-2 border-blue-500" onClick={() => handleSort('thickness')}>
+              <th className="py-3 px-3 cursor-pointer hover:text-white text-emerald-300 bg-emerald-950/40 border-b-2 border-emerald-500" onClick={() => handleSort('thickness')}>
                 <div className="flex items-center gap-1">
                   <span>Thickness</span>
                   <ArrowUpDown className="w-3 h-3" />
@@ -395,8 +397,8 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
                   </td>
 
                   {/* Extracted Thickness */}
-                  <td className="py-3 px-3 whitespace-nowrap bg-blue-950/20">
-                    <span className="inline-flex items-center font-mono font-bold text-blue-300 px-2 py-0.5 rounded-lg bg-blue-950/80 border border-blue-800/80 text-xs">
+                  <td className="py-3 px-3 whitespace-nowrap bg-emerald-950/20">
+                    <span className="inline-flex items-center font-mono font-bold text-emerald-300 px-2 py-0.5 rounded-lg bg-emerald-950/80 border border-emerald-800/80 text-xs">
                       {row.thickness}
                     </span>
                   </td>
@@ -470,9 +472,9 @@ export default function CleaningAuditTable({ cleanedRows = [], auditReport = {},
       </div>
 
       {/* Table Footer Summary */}
-      <div className="p-4 bg-slate-950/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+      <div className="p-4 bg-slate-50/80 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
         <span>Showing {filteredRows.length} of {cleanedRows.length} calibrated sizing records</span>
-        <span className="font-mono text-cyan-400">Master Sizing Protocol Active</span>
+        <span className="font-mono text-emerald-600 dark:text-cyan-400 font-bold">Master Sizing Protocol Active</span>
       </div>
 
     </div>

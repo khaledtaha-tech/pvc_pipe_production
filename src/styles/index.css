@@ -3,63 +3,133 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-canvas: #0a0f1d;
+    --bg-surface: #0f172a;
+    --bg-surface-elevated: #1e293b;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-highlight: rgba(5, 150, 105, 0.3);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --brand-gradient: linear-gradient(135deg, #059669 0%, #0d9488 50%, #14b8a6 100%);
+  }
+
+  html.light {
+    --bg-canvas: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-elevated: #f1f5f9;
+    --border-color: #e2e8f0;
+    --border-highlight: rgba(5, 150, 105, 0.2);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --brand-gradient: linear-gradient(135deg, #059669 0%, #10b981 50%, #14b8a6 100%);
+  }
+
   body {
-    font-family: 'Cairo', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Cairo', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
     transition: background-color 0.25s ease, color 0.25s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 /* ========================================================
-   2026 THEME 1: OBSIDIAN PRECISION (ULTRA-CLEAN DARK)
-   Deep midnight obsidian (#090d16) + Deep Slate surfaces (#0f172a)
-   + Translucent fine borders (rgba(255,255,255,0.08))
-   + High-vibrancy Electric Cyan (#06b6d4) & Vivid Emerald (#10b981)
+   UNIFIED SIGNATURE GRADIENTS & DESIGN SYSTEM
+   Deep Emerald & Teal — Industrial, Professional, Fresh
    ======================================================== */
 
-html:not(.light) {
-  color-scheme: dark;
+.brand-gradient {
+  background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #14b8a6 100%);
 }
 
-html:not(.light) body {
-  background-color: #090d16;
-  color: #f1f5f9;
+.brand-gradient-hover:hover {
+  background: linear-gradient(135deg, #047857 0%, #0f766e 50%, #0d9488 100%);
 }
 
-/* Modern Dark Scrollbars */
+.brand-gradient-text {
+  background: linear-gradient(135deg, #34d399 0%, #2dd4bf 50%, #5eead4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+html.light .brand-gradient-text {
+  background: linear-gradient(135deg, #047857 0%, #059669 50%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Smooth ambient background mesh glow */
+.ambient-glow {
+  position: relative;
+}
+.ambient-glow::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 350px;
+  background: radial-gradient(ellipse at center, rgba(5, 150, 105, 0.12), rgba(13, 148, 136, 0.04) 50%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+html.light .ambient-glow::before {
+  background: radial-gradient(ellipse at center, rgba(5, 150, 105, 0.08), rgba(13, 148, 136, 0.03) 50%, transparent 75%);
+}
+
+/* Universal Card System */
+.app-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 1px 1px var(--border-color);
+  transition: all 0.2s ease;
+}
+
+html.light .app-card {
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 0 1px 1px rgba(15, 23, 42, 0.05);
+}
+
+.app-card:hover {
+  border-color: var(--border-highlight);
+}
+
+/* Modern Industrial Scrollbars */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #0a0f1d;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #1e293b;
-  border-radius: 4px;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
 
-/* Dark mode card glows and micro-elevations */
-html:not(.light) .shadow-2xl {
-  box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.05) !important;
+html.light ::-webkit-scrollbar-track {
+  background: #f8fafc;
 }
-
-html:not(.light) .shadow-xl {
-  box-shadow: 0 12px 20px -6px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.04) !important;
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
 }
-
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
 
 /* ========================================================
-   2026 THEME 2: SWISS PRECISE FROST (ULTRA-CLEAN LIGHT)
-   Pure Frost canvas (#f8fafc) + Brilliant White cards (#ffffff)
-   + Razor-sharp Slate borders (#e2e8f0) + Obsidian typography (#0f172a)
-   + Precision Sapphire Blue (#2563eb) & Fresh Emerald (#059669)
-   Zero muddy beige sand! High-legibility WCAG AAA contrast.
+   LIGHT THEME: PURE SWISS FROST & HIGH-LEGIBILITY STYLING
+   Neutralizes any legacy brown/beige styles to clean slate
    ======================================================== */
 
 html.light {
@@ -71,14 +141,40 @@ html.light body {
   color: #0f172a !important;
 }
 
-/* Canvas / Background wrappers */
+/* Clean slate replacements for legacy beige elements */
+html.light .bg-\[\#f2eee7\],
+html.light .bg-\[\#ece6db\],
+html.light .bg-\[\#ece6db\]\/95,
+html.light [class*="bg-[#f2eee7]"],
+html.light [class*="bg-[#ece6db]"],
 html.light .bg-slate-950,
 html.light main {
   background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light .border-\[\#d8d0c2\],
+html.light .border-\[\#dfd7ca\],
+html.light .border-\[\#e2dad0\],
+html.light [class*="border-[#d8d0c2]"],
+html.light [class*="border-[#dfd7ca]"],
+html.light [class*="border-[#e2dad0]"] {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .text-stone-900,
+html.light .text-stone-800 {
+  color: #0f172a !important;
+}
+
+html.light .text-stone-700,
+html.light .text-stone-600 {
+  color: #475569 !important;
 }
 
 /* Primary Card containers, tables, modals, dropdowns */
 html.light .bg-slate-900,
+html.light .bg-slate-900\/95,
 html.light .bg-slate-900\/90,
 html.light .bg-slate-900\/80,
 html.light .bg-slate-900\/70,
@@ -86,17 +182,6 @@ html.light .bg-slate-900\/60,
 html.light .bg-slate-900\/50 {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
-}
-
-/* Neutralize all dark gradients in light mode for a clean look */
-html.light [class*="bg-gradient-to-r from-slate-"],
-html.light [class*="bg-gradient-to-r from-zinc-"],
-html.light [class*="from-slate-900"],
-html.light [class*="via-slate-900"],
-html.light [class*="to-slate-950"],
-html.light [class*="to-indigo-950"] {
-  background-image: none !important;
-  background-color: #ffffff !important;
 }
 
 /* Secondary toolbars, sub-views, inner chips, input wrappers */
@@ -142,30 +227,22 @@ html.light .divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]) {
   border-color: #e2e8f0 !important;
 }
 
-/* Ultra-Clean Sticky Header in Light Mode */
+/* Ultra-Clean Sticky Header */
 html.light header {
-  background-color: rgba(255, 255, 255, 0.94) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(16px) !important;
   border-bottom: 1px solid #e2e8f0 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02) !important;
 }
 
-/* Header Gradient Text in Light Mode */
-html.light h1.bg-clip-text,
-html.light .bg-clip-text {
-  background-image: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0284c7 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-}
-
-/* High-Contrast Typography Overrides (excluding buttons, tabs, links, and colored surfaces) */
-html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="bg-emerald-6"]):not([class*="bg-emerald-6"] *):not([class*="tab"]).text-white,
-html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="tab"]).text-slate-100 {
+/* High-Contrast Typography in Light Mode */
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-emerald-"]):not([class*="bg-emerald-"] *):not([class*="bg-emerald-6"]):not([class*="bg-emerald-6"] *):not([class*="tab"]).text-white,
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-emerald-"]):not([class*="bg-emerald-"] *):not([class*="tab"]).text-slate-100 {
   color: #0f172a !important;
 }
 
-html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="tab"]).text-slate-200,
-html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-blue-"]):not([class*="bg-blue-"] *):not([class*="tab"]).text-slate-300 {
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-emerald-"]):not([class*="bg-emerald-"] *):not([class*="tab"]).text-slate-200,
+html.light :not(button):not(button *):not(a):not(a *):not(.btn):not(.btn *):not([class*="bg-emerald-"]):not([class*="bg-emerald-"] *):not([class*="tab"]).text-slate-300 {
   color: #1e293b !important;
 }
 
@@ -179,13 +256,11 @@ html.light .text-slate-500 {
 
 /* ========================================================
    GLOBAL ENFORCED BUTTON TEXT & ICON CONTRAST (WCAG AAA)
-   Every button with a colored/dark background MUST enforce
-   pure white text and pure white icon stroke in ALL themes.
    ======================================================== */
 .btn-primary,
-button[class*="bg-blue-"],
-a[class*="bg-blue-"],
-.active-tab-blue,
+button[class*="bg-emerald-"],
+a[class*="bg-emerald-"],
+.active-tab-emerald,
 .btn-reconcile,
 .btn-supervisor-hero,
 .btn-supervisor-header-quick,
@@ -194,9 +269,9 @@ a[class*="bg-blue-"],
 .top-nav-tab-active,
 button.btn-primary,
 html.light .btn-primary,
-html.light button[class*="bg-blue-"],
-html.light a[class*="bg-blue-"],
-html.light .active-tab-blue,
+html.light button[class*="bg-emerald-"],
+html.light a[class*="bg-emerald-"],
+html.light .active-tab-emerald,
 html.light .btn-reconcile,
 html.light .btn-supervisor-hero,
 html.light .btn-supervisor-header-quick,
@@ -207,9 +282,9 @@ html.light .top-nav-tab-active {
 }
 
 .btn-primary *,
-button[class*="bg-blue-"] *,
-a[class*="bg-blue-"] *,
-.active-tab-blue *,
+button[class*="bg-emerald-"] *,
+a[class*="bg-emerald-"] *,
+.active-tab-emerald *,
 .btn-reconcile *,
 .btn-supervisor-hero *,
 .btn-supervisor-header-quick *,
@@ -217,9 +292,9 @@ a[class*="bg-blue-"] *,
 .sub-tab-active *,
 .top-nav-tab-active *,
 html.light .btn-primary *,
-html.light button[class*="bg-blue-"] *,
-html.light a[class*="bg-blue-"] *,
-html.light .active-tab-blue *,
+html.light button[class*="bg-emerald-"] *,
+html.light a[class*="bg-emerald-"] *,
+html.light .active-tab-emerald *,
 html.light .btn-reconcile *,
 html.light .btn-supervisor-hero *,
 html.light .btn-supervisor-header-quick *,
@@ -230,9 +305,9 @@ html.light .top-nav-tab-active * {
 }
 
 .btn-primary svg,
-button[class*="bg-blue-"] svg,
-a[class*="bg-blue-"] svg,
-.active-tab-blue svg,
+button[class*="bg-emerald-"] svg,
+a[class*="bg-emerald-"] svg,
+.active-tab-emerald svg,
 .btn-reconcile svg,
 .btn-supervisor-hero svg,
 .btn-supervisor-header-quick svg,
@@ -240,9 +315,9 @@ a[class*="bg-blue-"] svg,
 .sub-tab-active svg,
 .top-nav-tab-active svg,
 html.light .btn-primary svg,
-html.light button[class*="bg-blue-"] svg,
-html.light a[class*="bg-blue-"] svg,
-html.light .active-tab-blue svg,
+html.light button[class*="bg-emerald-"] svg,
+html.light a[class*="bg-emerald-"] svg,
+html.light .active-tab-emerald svg,
 html.light .btn-reconcile svg,
 html.light .btn-supervisor-hero svg,
 html.light .btn-supervisor-header-quick svg,
@@ -255,8 +330,8 @@ html.light .top-nav-tab-active svg {
 }
 
 .btn-primary svg path,
-button[class*="bg-blue-"] svg path,
-a[class*="bg-blue-"] svg path,
+button[class*="bg-emerald-"] svg path,
+a[class*="bg-emerald-"] svg path,
 .btn-reconcile svg path,
 .btn-supervisor-hero svg path,
 .btn-supervisor-header-quick svg path,
@@ -266,8 +341,8 @@ a[class*="bg-blue-"] svg path,
 .btn-supervisor-hero svg line,
 .btn-supervisor-hero svg polyline,
 html.light .btn-primary svg path,
-html.light button[class*="bg-blue-"] svg path,
-html.light a[class*="bg-blue-"] svg path,
+html.light button[class*="bg-emerald-"] svg path,
+html.light a[class*="bg-emerald-"] svg path,
 html.light .btn-reconcile svg path,
 html.light .btn-supervisor-hero svg path,
 html.light .btn-supervisor-header-quick svg path,
@@ -279,10 +354,16 @@ html.light .btn-supervisor-hero svg polyline {
   stroke: #ffffff !important;
 }
 
+/* Inactive navigation tab styling */
 .top-nav-tab-inactive {
-  background-color: #ffffff !important;
+  background-color: transparent !important;
   color: #475569 !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1px solid transparent !important;
+}
+
+.top-nav-tab-inactive:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 .top-nav-tab-inactive * {
@@ -295,13 +376,18 @@ html.light .btn-supervisor-hero svg polyline {
 }
 
 html:not(.light) .top-nav-tab-inactive {
-  background-color: #1e293b !important;
-  color: #cbd5e1 !important;
-  border: 1px solid #334155 !important;
+  background-color: transparent !important;
+  color: #94a3b8 !important;
+  border: 1px solid transparent !important;
+}
+
+html:not(.light) .top-nav-tab-inactive:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #f8fafc !important;
 }
 
 html:not(.light) .top-nav-tab-inactive * {
-  color: #cbd5e1 !important;
+  color: #94a3b8 !important;
 }
 
 html:not(.light) .top-nav-tab-inactive svg {
@@ -309,29 +395,31 @@ html:not(.light) .top-nav-tab-inactive svg {
   stroke: #94a3b8 !important;
 }
 
-/* Table container, headers, and rows in 2026 Light Mode */
-html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-blue-"]):not([class*="bg-navy"]) {
+/* ========================================================
+   TABLES: STRUCTURED, CLEAN & MODERN INDUSTRIAL
+   ======================================================== */
+
+html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-emerald-"]):not([class*="bg-navy"]) {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   border-bottom: 2px solid #e2e8f0 !important;
 }
 
-html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-blue-"]):not([class*="bg-navy"]) th:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-blue-"]):not([class*="text-white"]) {
+html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-emerald-"]):not([class*="bg-navy"]) th:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([class*="bg-emerald-"]):not([class*="text-white"]) {
   color: #0f172a !important;
   font-weight: 700 !important;
 }
 
-/* Enforce crisp white text on all dark table headers in ALL themes (excluding matrix sub-headers) */
 thead[class*="bg-slate-9"] th:not(.matrix-sub-th),
 thead[class*="bg-slate-8"] th:not(.matrix-sub-th),
-thead[class*="bg-blue-9"] th:not(.matrix-sub-th),
-thead[class*="bg-blue-8"] th:not(.matrix-sub-th),
+thead[class*="bg-emerald-9"] th:not(.matrix-sub-th),
+thead[class*="bg-emerald-8"] th:not(.matrix-sub-th),
 tr[class*="bg-slate-9"] th:not(.matrix-sub-th),
 tr[class*="bg-slate-8"] th:not(.matrix-sub-th),
 th[class*="bg-slate-9"]:not(.matrix-sub-th),
 th[class*="bg-slate-8"]:not(.matrix-sub-th),
-th[class*="bg-blue-9"]:not(.matrix-sub-th),
-th[class*="bg-blue-8"]:not(.matrix-sub-th),
+th[class*="bg-emerald-9"]:not(.matrix-sub-th),
+th[class*="bg-emerald-8"]:not(.matrix-sub-th),
 th[class*="text-white"]:not(.matrix-sub-th) {
   color: #ffffff !important;
 }
@@ -371,10 +459,10 @@ html.light thead th[class*="bg-teal-950"] {
   border-bottom: 2px solid #99f6e4 !important;
 }
 
-html.light thead th[class*="bg-blue-950"] {
-  background-color: #eff6ff !important;
-  color: #1d4ed8 !important;
-  border-bottom: 2px solid #bfdbfe !important;
+html.light thead th[class*="bg-emerald-950"] {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-bottom: 2px solid #a7f3d0 !important;
 }
 
 html.light thead th[class*="bg-slate-800"] {
@@ -395,7 +483,10 @@ html.light td {
   border-color: #f1f5f9 !important;
 }
 
-/* Form Inputs, Selects, and Dropdowns in 2026 Light Mode */
+/* ========================================================
+   FORM CONTROLS: UNIFIED FOCUS RINGS & CLEAN BORDERS
+   ======================================================== */
+
 html.light input,
 html.light select,
 html.light textarea {
@@ -408,8 +499,8 @@ html.light textarea {
 html.light input:focus,
 html.light select:focus,
 html.light textarea:focus {
-  border-color: #2563eb !important;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15) !important;
 }
 
 html.light select option {
@@ -423,7 +514,7 @@ html.light textarea::placeholder {
 }
 
 /* ========================================================
-   2026 HIGH-VIBRANCY PASTEL PILLS & CHIPS IN LIGHT MODE
+   STATUS BADGES & PILLS: UNIFIED VIBRANCY & CONTRAST
    ======================================================== */
 
 /* Actual Log & Emerald Badges */
@@ -479,31 +570,27 @@ html.light [class*="border-cyan-800"] {
   border-color: #bae6fd !important;
 }
 
-/* Alt Proposal 1 & Indigo Badges */
-html.light [class*="bg-indigo-950"] {
-  background-color: #eef2ff !important;
-  border-color: #c7d2fe !important;
+/* Alt Proposal 1 & Teal Badges */
+html.light [class*="bg-teal-950"] {
+  background-color: #f0fdfa !important;
+  border-color: #99f6e4 !important;
 }
-html.light [class*="text-indigo-200"],
-html.light [class*="text-indigo-300"],
-html.light [class*="text-indigo-400"] {
-  color: #4338ca !important;
+html.light [class*="text-teal-200"],
+html.light [class*="text-teal-300"],
+html.light [class*="text-teal-400"] {
+  color: #0f766e !important;
 }
-html.light [class*="border-indigo-800"] {
-  border-color: #c7d2fe !important;
+html.light [class*="border-teal-800"] {
+  border-color: #99f6e4 !important;
 }
 
-/* Wall Thickness / SDR & Blue Badges */
-html.light [class*="bg-blue-950"] {
-  background-color: #eff6ff !important;
-  border-color: #bfdbfe !important;
+/* Wall Thickness / SDR Badges */
+html.light [class*="bg-emerald-950/80"] {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
 }
-html.light [class*="text-blue-300"],
-html.light [class*="text-blue-400"] {
-  color: #1d4ed8 !important;
-}
-html.light [class*="border-blue-800"] {
-  border-color: #bfdbfe !important;
+html.light [class*="text-emerald-300"] {
+  color: #047857 !important;
 }
 
 /* Scrap, Tonnage & Amber Warnings */
@@ -544,28 +631,9 @@ html.light td span[class*="bg-slate-800"] {
   border-color: #e2e8f0 !important;
 }
 
-/* Pagination Footer in Light Mode */
-html.light .p-4.bg-slate-950\/90 {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  color: #475569 !important;
-}
-
 /* Clean Light Drop Shadows */
 html.light .shadow-2xl,
 html.light .shadow-xl,
 html.light .shadow-lg {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02) !important;
-}
-
-/* Light Mode Scrollbars */
-html.light ::-webkit-scrollbar-track {
-  background: #f8fafc;
-}
-html.light ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-html.light ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
 }

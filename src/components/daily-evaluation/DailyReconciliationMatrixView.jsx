@@ -341,52 +341,52 @@ export default function DailyReconciliationMatrixView({
   return (
     <div className="w-full flex flex-col gap-4 py-2">
       {/* Top Banner & Control Strip */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+      <div className="app-card rounded-2xl p-4 shadow-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
         {/* Left: Title & Purpose */}
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0">
-            <Layers className="w-5 h-5 text-blue-400" />
+          <div className="h-10 w-10 rounded-xl brand-gradient flex items-center justify-center shrink-0 text-white shadow-md shadow-emerald-500/20">
+            <Layers className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-white tracking-wide">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-wide">
                 Daily Production &amp; Lost Hours Reconciliation Matrix
               </h2>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-800">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
                 All Lines 24h
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Consolidated operational view: Lost output calculation, lost hours conversion, and inline 24h downtime allocation.
             </p>
           </div>
         </div>
 
         {/* Center: Date Selector Strip */}
-        <div className="flex items-center gap-1.5 bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950/80 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={handlePrevDay}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
             title="Previous Day"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
           <div className="flex items-center gap-1.5 px-2">
-            <Calendar className="w-4 h-4 text-slate-400" />
+            <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => handleDateChangeInternal(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer border-none"
+              className="bg-transparent text-sm font-semibold text-slate-800 dark:text-white focus:outline-none cursor-pointer border-none"
             />
           </div>
 
           <button
             type="button"
             onClick={handleNextDay}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
             title="Next Day"
           >
             <ChevronRight className="w-4 h-4" />
@@ -395,7 +395,7 @@ export default function DailyReconciliationMatrixView({
           <button
             type="button"
             onClick={handleToday}
-            className="px-2.5 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer shadow-sm ml-1"
+            className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg transition cursor-pointer shadow-xs ml-1"
           >
             Today
           </button>
@@ -406,10 +406,10 @@ export default function DailyReconciliationMatrixView({
           <button
             type="button"
             onClick={handleAutoBalanceAll}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition cursor-pointer shadow-xs"
             title="Automatically balance all lines with remaining unaccounted hours to 24.0h"
           >
-            <Sparkles className="w-3.5 h-3.5 text-slate-400" />
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
             <span>Auto-Balance All to 24h</span>
           </button>
 
@@ -417,21 +417,20 @@ export default function DailyReconciliationMatrixView({
             type="button"
             onClick={handleReconcileAndSaveAll}
             disabled={isSavingAll}
-            className="btn-primary flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium tracking-wide bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm border border-transparent cursor-pointer disabled:opacity-50"
-            style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
+            className="btn-primary brand-gradient hover:brightness-110 flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold tracking-wide text-white rounded-xl transition shadow-md shadow-emerald-500/25 cursor-pointer disabled:opacity-50"
             title="Calculate distribution, apply 24h slots, and save reports for all lines"
           >
-            <Save className="w-3.5 h-3.5 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />
-            <span style={{ color: '#ffffff', fontWeight: 600 }}>{isSavingAll ? 'Saving All...' : 'Reconcile & Save All Lines'}</span>
+            <Save className="w-3.5 h-3.5 text-white" />
+            <span className="text-white font-bold">{isSavingAll ? 'Saving All...' : 'Reconcile & Save All Lines'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition cursor-pointer shadow-xs"
             title="Download Matrix as formatted Excel spreadsheet"
           >
-            <Download className="w-3.5 h-3.5 text-slate-400" />
+            <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span>Export Matrix</span>
           </button>
         </div>
@@ -439,82 +438,82 @@ export default function DailyReconciliationMatrixView({
 
       {/* Summary KPI Cards Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">Theoretical Expected</span>
-          <div className="text-sm font-bold text-slate-100 mt-1">
+        <div className="app-card rounded-xl p-3 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Theoretical Expected</span>
+          <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1">
             {plantSummary.totalExpectedKg.toLocaleString()} <span className="text-xs font-normal text-slate-400">kg</span>
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {plantSummary.totalExpectedPcs.toLocaleString()} pcs (24h)
           </div>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">Reported Actual (FG)</span>
-          <div className="text-sm font-bold text-emerald-400 mt-1">
+        <div className="app-card rounded-xl p-3 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Reported Actual (FG)</span>
+          <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-1">
             {plantSummary.totalActualKg.toLocaleString()} <span className="text-xs font-normal text-slate-400">kg</span>
           </div>
-          <div className="text-[11px] text-slate-400 flex items-center justify-between">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
             <span>{plantSummary.totalActualPcs.toLocaleString()} pcs</span>
             {plantSummary.totalScrapKg > 0 && (
-              <span className="text-amber-400 font-semibold">{plantSummary.totalScrapKg.toLocaleString()} kg scrap</span>
+              <span className="text-amber-600 dark:text-amber-400 font-semibold">{plantSummary.totalScrapKg.toLocaleString()} kg scrap</span>
             )}
           </div>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">Lost Production Time</span>
-          <div className="text-sm font-bold text-rose-400 mt-1">
+        <div className="app-card rounded-xl p-3 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Lost Production Time</span>
+          <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-1">
             {plantSummary.totalLostHours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {plantSummary.totalUnjustifiedLostHours > 0
               ? `${plantSummary.totalUnjustifiedLostHours.toFixed(1)}h unjustified`
               : 'All lost time justified'}
           </div>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">24h Balanced Lines</span>
-          <div className="text-sm font-bold text-slate-100 mt-1">
-            <span className={plantSummary.balancedCount === rows.length ? 'text-emerald-400' : 'text-amber-400'}>
+        <div className="app-card rounded-xl p-3 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">24h Balanced Lines</span>
+          <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1">
+            <span className={plantSummary.balancedCount === rows.length ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
               {plantSummary.balancedCount}
             </span>
             <span className="text-slate-400"> / {rows.length}</span>
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {rows.length - plantSummary.balancedCount > 0
               ? `${rows.length - plantSummary.balancedCount} line(s) need balancing`
               : '100% 24h Accounted'}
           </div>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">Plant Availability</span>
-          <div className="text-sm font-bold text-cyan-400 mt-1">
+        <div className="app-card rounded-xl p-3 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Plant Availability</span>
+          <div className="text-sm font-bold text-emerald-600 dark:text-cyan-400 mt-1">
             {plantSummary.avgAvailability.toFixed(1)}%
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {plantSummary.operatingCount} active / {rows.length} lines
           </div>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">Average Line OEE</span>
-          <div className="text-sm font-bold text-indigo-400 mt-1">
+        <div className="app-card rounded-xl p-3 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Average Line OEE</span>
+          <div className="text-sm font-bold text-teal-600 dark:text-teal-400 mt-1">
             {plantSummary.avgOee.toFixed(1)}%
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             Perf: {plantSummary.avgPerformance.toFixed(1)}% | Qual: {plantSummary.avgQuality.toFixed(1)}%
           </div>
         </div>
       </div>
 
       {/* Filter and Search Sub-bar */}
-      <div className="flex items-center justify-between gap-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+      <div className="app-card p-2.5 rounded-xl flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <Filter className="w-3.5 h-3.5 text-emerald-500" />
             <span>Show:</span>
           </div>
           <button
@@ -522,8 +521,8 @@ export default function DailyReconciliationMatrixView({
             onClick={() => setShowOperatingOnly((prev) => !prev)}
             className={`px-3 py-1 text-xs rounded-lg transition cursor-pointer shadow-xs ${
               showOperatingOnly
-                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/50 font-medium'
-                : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60 font-medium'
+                ? 'brand-gradient text-white font-semibold'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700/60 font-medium'
             }`}
           >
             {showOperatingOnly ? 'Operating Only' : 'All Plant Machines (Including Idle)'}
@@ -536,22 +535,22 @@ export default function DailyReconciliationMatrixView({
             placeholder="Search line or product..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-2.5 py-1 text-xs bg-slate-950 border border-slate-800 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 w-48 sm:w-64"
+            className="px-2.5 py-1 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-48 sm:w-64 shadow-xs"
           />
         </div>
       </div>
 
       {/* Wide Horizontal Scrollable Table with Sticky Headers & Viewport Scroll */}
-      <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+      <div className="w-full app-card rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto overflow-y-auto max-h-[72vh] relative">
-          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[2000px] reconciliation-matrix-table">
+          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[2000px]">
             {/* Top Multi-Header Row */}
-            <thead className="sticky top-0 z-20 shadow-md border-b border-slate-300 dark:border-slate-800">
+            <thead className="sticky top-0 z-20 shadow-md bg-slate-900 border-b border-slate-800">
               <tr className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
                 <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-slate-300 bg-slate-950">
                   Machine &amp; Running Job Info
                 </th>
-                <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-blue-300 bg-blue-950/30">
+                <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-emerald-300 bg-emerald-950/30">
                   Job Engineering Specs
                 </th>
                 <th colSpan={5} className="px-3 py-2 border-r border-slate-800 text-emerald-300 bg-emerald-950/20">
@@ -560,10 +559,10 @@ export default function DailyReconciliationMatrixView({
                 <th colSpan={8} className="px-3 py-2 border-r border-slate-800 text-amber-300 bg-amber-950/20">
                   24-Hour Time Allocation &amp; Realized Pace
                 </th>
-                <th colSpan={6} className="px-3 py-2 border-r border-slate-800 text-indigo-300 bg-indigo-950/20">
+                <th colSpan={6} className="px-3 py-2 border-r border-slate-800 text-teal-300 bg-teal-950/20">
                   <div className="flex items-center justify-between">
                     <span>Audit &amp; Telemetry</span>
-                    <span className="text-[9px] font-mono text-indigo-300/80 lowercase tracking-normal bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/60">
+                    <span className="text-[9px] font-mono text-teal-300/80 lowercase tracking-normal bg-teal-950/80 px-2 py-0.5 rounded border border-teal-800/60">
                       Avail &times; Perf &times; Qual = OEE
                     </span>
                   </div>
@@ -574,83 +573,81 @@ export default function DailyReconciliationMatrixView({
               </tr>
 
               {/* Specific Column Names */}
-              <tr className="matrix-sub-header-row font-semibold border-b border-slate-300 dark:border-slate-800 text-[11px]">
+              <tr className="bg-slate-900 text-slate-300 font-semibold border-b border-slate-800 text-[11px]">
                 {/* Machine & Running Job Info */}
-                <th className="matrix-sub-th px-3 py-2.5">Line</th>
-                <th className="matrix-sub-th px-3 py-2.5">Machine</th>
-                <th className="matrix-sub-th px-3 py-2.5 border-r border-slate-300 dark:border-slate-800" title="Product Code / Mold Size & Specs">
-                  Product Code / Mold
+                <th className="px-3 py-2.5">Line ID</th>
+                <th className="px-3 py-2.5">Machine Name</th>
+                <th className="px-3 py-2.5 border-r border-slate-800" title="Running Pipe Size, Diameter, Wall Thickness &amp; Specs">
+                  Running Pipe Size &amp; Specs
                 </th>
 
                 {/* Job Engineering Specs */}
-                <th className="matrix-sub-th px-3 py-2.5" title="Configured Nominal Extrusion Capacity">
-                  Cap (kg/h)
+                <th className="px-3 py-2.5" title="Configured Nominal Extrusion Capacity">
+                  Nominal Cap (kg/h)
                 </th>
-                <th className="matrix-sub-th px-3 py-2.5" title="Pipe Unit Weight in kg">
-                  Wt (kg)
+                <th className="px-3 py-2.5" title="Pipe Unit Weight in kg">
+                  Std Wt (kg/pc)
                 </th>
-                <th className="matrix-sub-th px-3 py-2.5 border-r border-slate-300 dark:border-slate-800" title="Standard Piece Rate per hour">
-                  Std Pace (pcs/h)
+                <th className="px-3 py-2.5 border-r border-slate-800" title="Standard Piece Rate per hour">
+                  Std Rate (Pcs/h)
                 </th>
 
                 {/* Production Balance */}
-                <th className="matrix-sub-th px-3 py-2.5" title="24-Hour Theoretical Capacity">
-                  Expected (Pcs/Kg)
+                <th className="px-3 py-2.5" title="24-Hour Theoretical Capacity">
+                  Expected (24h)
                 </th>
-                <th className="matrix-sub-th px-3 py-2.5" title="Reported Finished Goods Output">
-                  Actual (Pcs/Kg)
+                <th className="px-3 py-2.5" title="Reported Finished Goods Output">
+                  Actual Output
                 </th>
-                <th className="matrix-sub-th px-2.5 py-2.5 font-bold text-amber-600 dark:text-amber-400" title="Reported Scrap Output in kg">
+                <th className="px-2.5 py-2.5 text-amber-400 font-bold" title="Reported Scrap Output in kg">
                   Scrap (kg)
                 </th>
-                <th className="matrix-sub-th px-3 py-2.5 text-rose-600 dark:text-rose-300" title="Expected Output - Actual Output">
+                <th className="px-3 py-2.5 text-rose-300" title="Expected Output - Actual Output">
                   Deficit (Loss)
                 </th>
-                <th className="matrix-sub-th px-3 py-2.5 font-bold border-r border-slate-300 dark:border-slate-800 text-rose-600 dark:text-rose-400" title="Direct conversion: Deficit Pcs / Std Rate">
+                <th className="px-3 py-2.5 text-rose-400 font-bold border-r border-slate-800" title="Direct conversion: Deficit Pcs / Std Rate">
                   Lost Time (h)
                 </th>
 
                 {/* 24-Hour Time Allocation (Editable inputs & Realized Pace) */}
-                <th className="matrix-sub-th px-2.5 py-2.5 font-bold text-emerald-700 dark:text-emerald-400">
-                  Operating (h)
-                </th>
-                <th className="matrix-sub-th px-2.5 py-2.5 text-center font-bold text-cyan-700 dark:text-cyan-400" title="Actual realized pace during reported operating hours: Pcs/h, kg/h & Speed Efficiency %">
+                <th className="px-2.5 py-2.5 text-emerald-400 font-bold bg-emerald-950/10">Operating (h)</th>
+                <th className="px-2.5 py-2.5 text-center text-cyan-400 font-bold bg-cyan-950/20" title="Actual realized pace during reported operating hours: Pcs/h, kg/h &amp; Speed Efficiency %">
                   Actual Realized Rate
                 </th>
-                <th className="matrix-sub-th px-2.5 py-2.5">Die/Mold (h)</th>
-                <th className="matrix-sub-th px-2.5 py-2.5">Purge/Clean (h)</th>
-                <th className="matrix-sub-th px-2.5 py-2.5">Heater Fail (h)</th>
-                <th className="matrix-sub-th px-2.5 py-2.5">Mech/Puller (h)</th>
-                <th className="matrix-sub-th px-2.5 py-2.5">Material/No Order (h)</th>
-                <th className="matrix-sub-th px-2.5 py-2.5 border-r border-slate-300 dark:border-slate-800">Other Stop (h)</th>
+                <th className="px-2.5 py-2.5">Die/Mold (h)</th>
+                <th className="px-2.5 py-2.5">Purge/Clean (h)</th>
+                <th className="px-2.5 py-2.5">Heater Fail (h)</th>
+                <th className="px-2.5 py-2.5">Mech/Puller (h)</th>
+                <th className="px-2.5 py-2.5">Material/No Order (h)</th>
+                <th className="px-2.5 py-2.5 border-r border-slate-800">Other Stop (h)</th>
 
                 {/* Audit & OEE (3-Factor Triad) */}
-                <th className="matrix-sub-th px-3 py-2.5 text-center font-bold">Total Accounted</th>
-                <th className="matrix-sub-th px-3 py-2.5 text-center">Balance Check</th>
-                <th className="matrix-sub-th px-2 py-2.5 text-center" title="Availability Rate (A): Operating Hours / 24.0h">
+                <th className="px-3 py-2.5 text-center font-bold">Total (h)</th>
+                <th className="px-3 py-2.5 text-center">24h Status</th>
+                <th className="px-2 py-2.5 text-center text-slate-300" title="Availability Rate (A): Operating Hours / 24.0h">
                   Avail (%)
                 </th>
-                <th className="matrix-sub-th px-2 py-2.5 text-center text-cyan-700 dark:text-cyan-300" title="Performance / Speed Efficiency (P): Actual Pace / Nominal Capacity">
+                <th className="px-2 py-2.5 text-center text-cyan-300" title="Performance / Speed Efficiency (P): Actual Pace / Nominal Capacity">
                   <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">&times;</span>
+                    <span className="text-[10px] text-slate-500 font-bold select-none">&times;</span>
                     <span>Perf (%)</span>
                   </div>
                 </th>
-                <th className="matrix-sub-th px-2 py-2.5 text-center text-amber-700 dark:text-amber-300" title="Quality Rate (Q): Good Output (kg) / Total Melt (kg)">
+                <th className="px-2 py-2.5 text-center text-amber-300" title="Quality Rate (Q): Good Output (kg) / Total Melt (kg)">
                   <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">&times;</span>
+                    <span className="text-[10px] text-slate-500 font-bold select-none">&times;</span>
                     <span>Qual (%)</span>
                   </div>
                 </th>
-                <th className="matrix-sub-th px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 text-indigo-700 dark:text-indigo-300 font-bold" title="Overall OEE: Availability &times; Performance &times; Quality = OEE">
+                <th className="px-2.5 py-2.5 text-center border-r border-slate-800 text-teal-300 font-bold" title="Overall OEE: Availability &times; Performance &times; Quality = OEE">
                   <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">=</span>
+                    <span className="text-[10px] text-slate-500 font-bold select-none">=</span>
                     <span>OEE (%)</span>
                   </div>
                 </th>
 
                 {/* Actions */}
-                <th className="matrix-sub-th px-3 py-2.5 text-center">Reconcile / Save</th>
+                <th className="px-3 py-2.5 text-center">Reconcile / Save</th>
               </tr>
             </thead>
 
@@ -681,18 +678,18 @@ export default function DailyReconciliationMatrixView({
                     elements.push(
                       <tr
                         key={`header-${parentLineId}`}
-                        className="bg-slate-950 border-t-2 border-b border-blue-500/50"
+                        className="bg-slate-950 border-t-2 border-b border-emerald-500/50"
                       >
-                        <td colSpan={26} className="px-3 py-2 bg-gradient-to-r from-blue-950/80 via-slate-900 to-slate-950">
+                        <td colSpan={26} className="px-3 py-2 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-950">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-blue-600 text-white shadow-xs">
+                              <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-emerald-600 text-white shadow-xs">
                                 {parentLineId}
                               </span>
                               <span className="font-semibold text-slate-200 text-xs">
                                 {row.lineName.replace(/\s*\[Run\s*\d+.*\]/, '')}
                               </span>
-                              <span className="text-blue-400 text-xs font-medium">
+                              <span className="text-emerald-400 text-xs font-medium">
                                 &bull; Multi-Run Extrusion ({machineStatus.runCount} Runs Coupled)
                               </span>
                             </div>
@@ -748,7 +745,7 @@ export default function DailyReconciliationMatrixView({
                     <tr
                       key={row.lineId}
                       className={`transition hover:bg-slate-800/40 ${
-                        row.isMultiRun ? 'border-l-2 border-l-blue-500 bg-blue-950/10' : ''
+                        row.isMultiRun ? 'border-l-2 border-l-emerald-500 bg-emerald-950/10' : ''
                       } ${!isRowOperating ? 'opacity-70 bg-slate-950/40' : ''}`}
                     >
                       {/* 1. Line ID */}
@@ -757,7 +754,7 @@ export default function DailyReconciliationMatrixView({
                           <span
                             className={`px-2 py-0.5 rounded border text-xs font-mono ${
                               row.isMultiRun
-                                ? 'bg-blue-950 border-blue-500/60 text-blue-300 font-bold'
+                                ? 'bg-emerald-950 border-emerald-500/60 text-emerald-300 font-bold'
                                 : 'bg-slate-800 border-slate-700 text-slate-100'
                             }`}
                           >
@@ -765,7 +762,7 @@ export default function DailyReconciliationMatrixView({
                           </span>
                           {row.isMultiRun && (
                             <span
-                              className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold"
+                              className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold"
                               title={`Run ${row.runIndex} of ${row.totalRuns} on ${row.baseLineId}`}
                             >
                               R{row.runIndex}
@@ -806,7 +803,7 @@ export default function DailyReconciliationMatrixView({
                         title={row.sourceAudit ? row.sourceAudit.summary : 'Standard pipe unit weight in kg'}
                         onChange={(e) => handleCellChange(row.lineId, 'stdWeight', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'stdWeight')}
-                        className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
 
@@ -820,7 +817,7 @@ export default function DailyReconciliationMatrixView({
                           value={row.targetRate ?? row.stdRate ?? ''}
                           onChange={(e) => handleCellChange(row.lineId, 'targetRate', e.target.value)}
                           onBlur={() => handleCellBlur(row.lineId, 'targetRate')}
-                          className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-cyan-300 font-mono font-bold text-right"
+                          className="w-16 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-cyan-300 font-mono font-bold text-right"
                         />
                         <RateEstimatorPopover
                           lineId={row.baseLineId || row.lineId}
@@ -952,7 +949,7 @@ export default function DailyReconciliationMatrixView({
                         value={row.moldChangeHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'moldChangeHours', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'moldChangeHours')}
-                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
 
@@ -966,7 +963,7 @@ export default function DailyReconciliationMatrixView({
                         value={row.purgeCleaningHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'purgeCleaningHours', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'purgeCleaningHours')}
-                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
 
@@ -980,7 +977,7 @@ export default function DailyReconciliationMatrixView({
                         value={row.heaterFailureHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'heaterFailureHours', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'heaterFailureHours')}
-                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
 
@@ -994,7 +991,7 @@ export default function DailyReconciliationMatrixView({
                         value={row.mechanicalHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'mechanicalHours', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'mechanicalHours')}
-                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
 
@@ -1008,7 +1005,7 @@ export default function DailyReconciliationMatrixView({
                         value={row.materialNoOrderHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'materialNoOrderHours', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'materialNoOrderHours')}
-                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                     </td>
 
@@ -1025,12 +1022,12 @@ export default function DailyReconciliationMatrixView({
                         value={row.otherHours ?? ''}
                         onChange={(e) => handleCellChange(row.lineId, 'otherHours', e.target.value)}
                         onBlur={() => handleCellBlur(row.lineId, 'otherHours')}
-                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-blue-500 rounded text-slate-200 font-mono text-right"
+                        className="w-14 px-1.5 py-1 text-xs bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded text-slate-200 font-mono text-right"
                       />
                       <select
                         value={row.otherStopReason || (row.isPlannedWeekendShutdown ? 'planned_weekend' : 'other_operational')}
                         onChange={(e) => handleCellChange(row.lineId, 'otherStopReason', e.target.value)}
-                        className="mt-1 w-full text-[9px] bg-slate-900 border border-slate-800 text-slate-300 rounded px-1 py-0.5 focus:border-blue-500 cursor-pointer block"
+                        className="mt-1 w-full text-[9px] bg-slate-900 border border-slate-800 text-slate-300 rounded px-1 py-0.5 focus:border-emerald-500 cursor-pointer block"
                         title="Downtime justification reason for Other Stop"
                       >
                         <option value="other_operational">Other Operational</option>
@@ -1040,7 +1037,7 @@ export default function DailyReconciliationMatrixView({
                       {row.isPlannedWeekendShutdown && row.otherHours > 0 && (
                         <div className="mt-0.5">
                           <span
-                            className="inline-block px-1 py-0.5 rounded text-[8px] font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-800 whitespace-nowrap"
+                            className="inline-block px-1 py-0.5 rounded text-[8px] font-bold bg-teal-950/80 text-teal-300 border border-teal-800 whitespace-nowrap"
                             title={`Planned Shutdown: Weekend / No Overtime (${row.otherHours}h)`}
                           >
                             Weekend Shutdown
@@ -1130,7 +1127,7 @@ export default function DailyReconciliationMatrixView({
                                   <Sparkles className="w-3 h-3" />
                                 </button>
                               </div>
-                              <div className="text-[9px] text-blue-400 font-mono">
+                              <div className="text-[9px] text-emerald-400 font-mono">
                                 Machine: {totalMachineHours.toFixed(1)}h/24h [{machineStatus.machineBalanceStatus}]
                               </div>
                             </div>
@@ -1204,7 +1201,7 @@ export default function DailyReconciliationMatrixView({
 
                     {/* 21. OEE (%) */}
                     <td
-                      className="px-2.5 py-2 text-center font-mono font-bold border-r border-slate-800 text-indigo-300"
+                      className="px-2.5 py-2 text-center font-mono font-bold border-r border-slate-800 text-teal-300"
                       title={`${availPct.toFixed(1)}% (Avail) × ${speedEffPct.toFixed(1)}% (Perf) × ${qualityPct.toFixed(1)}% (Qual) = ${oeePct.toFixed(1)}% (OEE)`}
                     >
                       {oeePct.toFixed(1)}%
@@ -1216,8 +1213,8 @@ export default function DailyReconciliationMatrixView({
                         <button
                           type="button"
                           onClick={() => handleReconcileAndSaveRow(row.lineId)}
-                          className="btn-primary flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-xs border border-transparent transition cursor-pointer"
-                          style={{ backgroundColor: '#2563eb', color: '#ffffff' }}
+                          className="btn-primary flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-xs border border-transparent transition cursor-pointer"
+                          style={{ backgroundColor: '#059669', color: '#ffffff' }}
                           title="Reconcile 24h slots and save report for this machine"
                         >
                           <Save className="w-3 h-3 text-white" style={{ stroke: '#ffffff', color: '#ffffff' }} />

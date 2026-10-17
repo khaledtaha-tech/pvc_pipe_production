@@ -239,7 +239,7 @@ export default function ManualEntryModal({ isOpen, onClose, onAddRow, lang }) {
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition"
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition"
             >
               <Check className="w-4 h-4" />
               <span>{isAr ? 'إضافة وتدقيق' : 'Save & Clean'}</span>

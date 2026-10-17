@@ -1628,7 +1628,7 @@ export default function PrintSopModal({
                 <>Target: <strong>{totalSheets}</strong> Sheets ({daysCount} Days: {targetDate} to {endDate})</>
               )}
             </span>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontWeight: 600 }}>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(5, 150, 105, 0.1)', color: '#059669', border: '1px solid rgba(5, 150, 105, 0.25)', fontWeight: 600 }}>
               A4 Portrait &bull; 5mm Margin
             </span>
           </div>

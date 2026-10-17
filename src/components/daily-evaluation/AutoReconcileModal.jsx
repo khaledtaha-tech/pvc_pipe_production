@@ -318,7 +318,7 @@ export default function AutoReconcileModal({
               <div className="reconcile-event-card active">
                 <div className="reconcile-event-header">
                   <span className="reconcile-checkbox-wrap">
-                    <Clock className="w-4 h-4 text-indigo-500" />
+                    <Clock className="w-4 h-4 text-teal-500" />
                     <span className="reconcile-event-name">Direct Manual Stoppage Declaration</span>
                   </span>
                   <span className="reconcile-event-badge alert">Direct Entry</span>
@@ -389,8 +389,8 @@ export default function AutoReconcileModal({
                             height: '22px',
                             borderRadius: '4px',
                             border: '1px solid rgba(255,255,255,0.15)',
-                            background: manualDowntime.durationMin === btn.val ? 'rgba(99,102,241,0.25)' : 'transparent',
-                            color: manualDowntime.durationMin === btn.val ? '#818cf8' : '#94a3b8'
+                            background: manualDowntime.durationMin === btn.val ? 'rgba(20,184,166,0.25)' : 'transparent',
+                            color: manualDowntime.durationMin === btn.val ? '#2dd4bf' : '#94a3b8'
                           }}
                           onClick={() => setManualDowntime((prev) => ({ ...prev, durationMin: btn.val }))}
                         >
@@ -542,13 +542,13 @@ export default function AutoReconcileModal({
                 </div>
                 <div className="reconcile-audit-metric">
                   <span className="reconcile-metric-lbl">Operational Speed Loss (Reduced Rate):</span>
-                  <span className="reconcile-metric-val text-blue-300">
+                  <span className="reconcile-metric-val text-emerald-300">
                     {audit.speedLossPieces.toLocaleString()} Pcs ({audit.speedLossHours.toFixed(1)}h)
                   </span>
                 </div>
                 <div className="reconcile-audit-metric">
                   <span className="reconcile-metric-lbl">Performance Rate Efficiency:</span>
-                  <span className="reconcile-metric-val font-bold text-blue-300">
+                  <span className="reconcile-metric-val font-bold text-emerald-300">
                     {audit.performancePct.toFixed(1)}%
                   </span>
                 </div>

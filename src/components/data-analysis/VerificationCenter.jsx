@@ -207,20 +207,21 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
     <div className="space-y-6">
 
       {/* Header Banner & Core Action */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="app-card rounded-2xl p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           
           <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                <ShieldCheck className="w-6 h-6" />
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl brand-gradient flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
+                <ShieldCheck className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                   {isAr ? 'مركز التحقق الذكي للقدرات والسيناريوهات التشغيلية' : 'Self-Aware Capability & Scenario Verification Center'}
                 </h2>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {isAr 
                     ? 'نظام ذاتي الوعي يقرأ قدرات التطبيق الحالية ويولد خطط فحص تشغيلية واقعية ومستقلة'
                     : 'Introspects current registered capabilities and generates operational verification plans dynamically'}
@@ -233,24 +234,24 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleGeneratePlan}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-900/30 transition transform active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl brand-gradient hover:brightness-110 text-white font-bold text-xs shadow-lg shadow-emerald-500/25 transition transform active:scale-95"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-4 h-4 text-white" />
               <span>{isAr ? '🎯 إنشاء خطة التحقق الشاملة' : '🎯 Generate Verification Plan'}</span>
             </button>
 
             <button
               onClick={handleRunAllAuto}
               disabled={isRunningAuto}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/30 transition transform active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition transform active:scale-95 disabled:opacity-50"
             >
-              <Play className="w-4 h-4" />
+              <Play className="w-4 h-4 text-white" />
               <span>{isRunningAuto ? (isAr ? 'جاري الفحص...' : 'Running...') : (isAr ? '▶️ تشغيل الفحص الآلي' : '▶️ Run Auto Scenarios')}</span>
             </button>
 
             <button
               onClick={handleResetVerification}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition"
               title={isAr ? 'إعادة تعيين نتائج الفحص' : 'Reset Progress'}
             >
               <RotateCcw className="w-4 h-4" />
@@ -261,9 +262,9 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
 
         {/* Coverage Warnings Bar (Requirement 2 & 8) */}
         {plan && (plan.coverageReport.uncoveredCount > 0 || plan.coverageReport.partiallyCoveredCount > 0) && (
-          <div className="mt-4 p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl text-amber-300 text-xs flex items-center justify-between gap-4">
+          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
               <span>
                 {isAr 
                   ? `تنبيه تغطية: تم اكتشاف ${plan.coverageReport.uncoveredCount + plan.coverageReport.partiallyCoveredCount} قدرة تفتقر لمعايير الفحص الكاملة!`
@@ -272,7 +273,7 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
             </div>
             <button 
               onClick={() => setActiveTab('coverage')}
-              className="underline text-[11px] hover:text-white"
+              className="underline text-[11px] hover:text-slate-900 dark:hover:text-white font-semibold"
             >
               {isAr ? 'فحص النواقص' : 'Inspect Missing Metadata'}
             </button>
@@ -283,114 +284,118 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
 
       {/* KPI Stats Overview (Requirement 11) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+        <div className="app-card rounded-xl p-3.5 shadow-sm">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">
             {isAr ? 'القدرات المسجلة' : 'Total Capabilities'}
           </span>
-          <div className="text-xl font-mono font-black text-white mt-1">
+          <div className="text-xl font-mono font-black text-slate-900 dark:text-white mt-1">
             {plan?.capabilitiesCount || 0}
           </div>
-          <span className="text-[10px] text-emerald-400 font-medium">
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
             {plan?.coveredCapabilitiesCount || 0} {isAr ? 'مغطاة بالكامل' : 'Fully Covered'}
           </span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+        <div className="app-card rounded-xl p-3.5 shadow-sm">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">
             {isAr ? 'السيناريوهات المولدة' : 'Generated Scenarios'}
           </span>
-          <div className="text-xl font-mono font-black text-cyan-400 mt-1">
+          <div className="text-xl font-mono font-black text-emerald-600 dark:text-cyan-400 mt-1">
             {stats.total}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
             {plan?.autoCount || 0} {isAr ? 'آلي' : 'Auto'} / {plan?.manualCount || 0} {isAr ? 'يدوي' : 'Manual'}
           </span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+        <div className="app-card rounded-xl p-3.5 shadow-sm">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">
             {isAr ? 'ناجحة (PASSED)' : 'Passed Scenarios'}
           </span>
-          <div className="text-xl font-mono font-black text-emerald-400 mt-1">
+          <div className="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400 mt-1">
             {stats.passed}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
             {stats.total > 0 ? Math.round((stats.passed / stats.total) * 100) : 0}% {isAr ? 'معدل النجاح' : 'Success Rate'}
           </span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+        <div className="app-card rounded-xl p-3.5 shadow-sm">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">
             {isAr ? 'بحاجة لإصلاح' : 'Needs Fix'}
           </span>
-          <div className={`text-xl font-mono font-black mt-1 ${stats.needsFix > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+          <div className={`text-xl font-mono font-black mt-1 ${stats.needsFix > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
             {stats.needsFix}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
             {isAr ? 'انحرافات حسابية/منطقية' : 'Logic mismatches'}
           </span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+        <div className="app-card rounded-xl p-3.5 shadow-sm">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">
             {isAr ? 'لم تُفحص بعد' : 'Not Tested'}
           </span>
-          <div className="text-xl font-mono font-black text-amber-400 mt-1">
+          <div className="text-xl font-mono font-black text-amber-600 dark:text-amber-400 mt-1">
             {stats.notTested}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
             {isAr ? 'بانتظار التشغيل' : 'Pending execution'}
           </span>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+        <div className="app-card rounded-xl p-3.5 shadow-sm">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">
             {isAr ? 'إعادة فحص موصى بها' : 'Retest Recommended'}
           </span>
-          <div className={`text-xl font-mono font-black mt-1 ${stats.retest > 0 ? 'text-purple-400' : 'text-slate-400'}`}>
+          <div className={`text-xl font-mono font-black mt-1 ${stats.retest > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'}`}>
             {stats.retest}
           </div>
-          <span className="text-[10px] text-slate-400 font-medium">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
             {isAr ? 'تغيرت قدراتها' : 'Capability updated'}
           </span>
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab('scenarios')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               activeTab === 'scenarios' 
-                ? 'bg-cyan-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                ? 'brand-gradient text-white shadow-md shadow-emerald-500/20' 
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
             <span>{isAr ? 'السيناريوهات التشغيلية' : 'Operational Scenarios'}</span>
-            <span className="px-1.5 py-0.2 bg-slate-800 rounded text-[10px]">{stats.total}</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] ${
+              activeTab === 'scenarios' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            }`}>{stats.total}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('coverage')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               activeTab === 'coverage' 
-                ? 'bg-cyan-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                ? 'brand-gradient text-white shadow-md shadow-emerald-500/20' 
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
             }`}
           >
             <Cpu className="w-3.5 h-3.5" />
             <span>{isAr ? 'سجل القدرات والتغطية' : 'Capability Registry & Coverage'}</span>
-            <span className="px-1.5 py-0.2 bg-slate-800 rounded text-[10px]">{plan?.capabilitiesCount || 0}</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] ${
+              activeTab === 'coverage' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            }`}>{plan?.capabilitiesCount || 0}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('traceability')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               activeTab === 'traceability' 
-                ? 'bg-cyan-600 text-white shadow-md' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                ? 'brand-gradient text-white shadow-md shadow-emerald-500/20' 
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
             }`}
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -398,7 +403,7 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
           </button>
         </div>
 
-        <div className="text-xs text-slate-500 font-mono hidden sm:inline">
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono hidden sm:inline">
           Plan Generated: {plan?.generatedAt ? new Date(plan.generatedAt).toLocaleTimeString() : '-'}
         </div>
       </div>
@@ -408,7 +413,7 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
         <div className="space-y-4">
           
           {/* Filter and Search Bar */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="app-card rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
             
             <div className="relative w-full md:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 rtl:left-auto rtl:right-3 top-2.5" />
@@ -417,18 +422,18 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
                 placeholder={isAr ? 'بحث في السيناريو، السياق، الكود...' : 'Search scenario, context, rule, ID...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 rtl:pl-3 rtl:pr-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 rtl:pl-3 rtl:pr-9 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-xs"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-              <div className="flex items-center gap-1 text-xs text-slate-400">
-                <Filter className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <Filter className="w-3.5 h-3.5 text-emerald-500" />
                 <span>{isAr ? 'الحالة:' : 'Status:'}</span>
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200"
+                  className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-xs"
                 >
                   <option value="ALL">{isAr ? 'الكل (All)' : 'All Statuses'}</option>
                   <option value="PASSED">✅ {isAr ? 'ناجح' : 'Passed'}</option>
@@ -438,12 +443,12 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
                 </select>
               </div>
 
-              <div className="flex items-center gap-1 text-xs text-slate-400">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <span>{isAr ? 'النوع:' : 'Type:'}</span>
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200"
+                  className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-xs"
                 >
                   <option value="ALL">{isAr ? 'الكل' : 'All Types'}</option>
                   <option value="AUTO VERIFY">AUTO VERIFY</option>
@@ -466,51 +471,51 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
               return (
                 <div
                   key={sc.id}
-                  className={`bg-slate-900 border rounded-xl overflow-hidden transition-all duration-150 ${
+                  className={`app-card rounded-2xl overflow-hidden transition-all duration-150 ${
                     isPassed 
-                      ? 'border-emerald-800/40 hover:border-emerald-700/60' 
+                      ? 'border-emerald-300 dark:border-emerald-800/40 hover:border-emerald-500' 
                       : isNeedsFix 
-                        ? 'border-rose-800/50 bg-rose-950/10 hover:border-rose-700' 
+                        ? 'border-rose-300 dark:border-rose-800/50 bg-rose-50/30 dark:bg-rose-950/10 hover:border-rose-500' 
                         : isRetest
-                          ? 'border-purple-800/50 bg-purple-950/10'
-                          : 'border-slate-800 hover:border-slate-700'
+                          ? 'border-purple-300 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/10'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
                   {/* Card Header Row */}
                   <div className="p-4 flex items-center justify-between gap-4">
                     
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`p-2 rounded-lg flex-shrink-0 ${
+                      <div className={`p-2 rounded-xl flex-shrink-0 ${
                         isPassed 
-                          ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60' 
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border-emerald-800/60' 
                           : isNeedsFix 
-                            ? 'bg-rose-950/80 text-rose-400 border border-rose-800/60' 
+                            ? 'bg-rose-50 text-rose-600 border border-rose-200 dark:bg-rose-950/80 dark:text-rose-400 dark:border-rose-800/60' 
                             : isRetest
-                              ? 'bg-purple-950/80 text-purple-400 border border-purple-800/60'
-                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              ? 'bg-purple-50 text-purple-600 border border-purple-200 dark:bg-purple-950/80 dark:text-purple-400 dark:border-purple-800/60'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                       }`}>
                         {isPassed ? <CheckCircle2 className="w-5 h-5" /> : isNeedsFix ? <AlertTriangle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="font-bold text-sm text-white truncate">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
                             {sc.name}
                           </h4>
-                          <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold uppercase ${
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                             sc.verificationType === 'AUTO VERIFY' 
-                              ? 'bg-cyan-950 text-cyan-400 border border-cyan-800/60' 
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-800/60' 
                               : sc.verificationType === 'MANUAL VERIFY'
-                                ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
-                                : 'bg-purple-950 text-purple-300 border border-purple-800/60'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800/60'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800/60'
                           }`}>
                             {sc.verificationType}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded">
+                          <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 px-1.5 py-0.5 rounded-md">
                             {sc.scenarioCategory}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
                           {sc.businessContext}
                         </p>
                       </div>
@@ -586,7 +591,7 @@ export default function VerificationCenter({ lang, onInjectTestData }) {
 
                         {/* Execution Steps */}
                         <div className="bg-slate-900/90 p-3 rounded-lg border border-slate-800">
-                          <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider block mb-1">
+                          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">
                             👣 {isAr ? 'خطوات التنفيذ المتسلسلة (Execution Steps)' : 'Execution Steps'}
                           </span>
                           <ol className="list-decimal list-inside space-y-1 text-slate-300">

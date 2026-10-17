@@ -39,25 +39,25 @@ export default function Navbar({
   const isAr = lang === 'ar';
 
   return (
-    <header className={`sticky top-0 z-50 backdrop-blur-md transition-colors ${theme === 'light' ? 'bg-[#ece6db]/95 border-b border-[#d8d0c2] text-stone-900 shadow-xs' : 'bg-slate-900/90 border-b border-slate-800 text-white shadow-xl'}`}>
+    <header className={`sticky top-0 z-50 backdrop-blur-md transition-colors ${theme === 'light' ? 'bg-white/95 border-b border-slate-200 text-slate-900 shadow-xs' : 'bg-slate-900/90 border-b border-slate-800 text-white shadow-xl'}`}>
       <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex items-center justify-between h-20">
           
           {/* Logo & Title */}
           <div className="flex items-center space-x-4 rtl:space-x-reverse">
-            <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${theme === 'light' ? 'bg-[#0f766e] text-white shadow-sm ring-1 ring-teal-500/30' : 'bg-gradient-to-tr from-cyan-600 to-blue-600 shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-400/30'}`}>
-              <Factory className="h-7 w-7 text-white" />
+            <div className="h-11 w-11 rounded-xl flex items-center justify-center brand-gradient text-white shadow-md shadow-emerald-500/20">
+              <Factory className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className={`text-xl font-bold tracking-tight ${theme === 'light' ? 'text-stone-900' : 'bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent'}`}>
-                  {isAr ? '\u0645\u0646\u0635\u0629 \u062a\u0646\u0638\u064a\u0641 \u0648\u062a\u062d\u0644\u064a\u0644 \u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0645\u0648\u0627\u0633\u064a\u0631' : 'Pipe Production Data Cleaner & Analytics'}
+                <h1 className="text-xl font-bold tracking-tight brand-gradient-text">
+                  {isAr ? 'منصة تنظيف وتحليل بيانات المواسير' : 'Pipe Production Data Cleaner & Analytics'}
                 </h1>
-                <span className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full ${theme === 'light' ? 'bg-teal-50 text-teal-800 border border-teal-300' : 'bg-cyan-950 text-cyan-400 border border-cyan-800/60'}`}>
-                  {isAr ? 'v1.0 \u0628\u062b\u0642' : 'v1.0 Extrusion'}
+                <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-800/60">
+                  {isAr ? 'v1.0 بثق' : 'v1.0 Extrusion'}
                 </span>
               </div>
-              <p className={`text-xs mt-0.5 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
+              <p className={`text-xs mt-0.5 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                 {isAr 
                   ? '\u062a\u062f\u0642\u064a\u0642 \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a\u060c \u062a\u0635\u062d\u064a\u062d \u0627\u0644\u062a\u0648\u0627\u0631\u064a\u062e\u060c \u062a\u062d\u0644\u064a\u0644 \u062e\u0637\u0648\u0637 \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0648\u062d\u0633\u0627\u0628 \u0627\u0644\u0647\u0627\u0644\u0643 \u0648\u0627\u0644\u062a\u0648\u0642\u0641\u0627\u062a'
                   : 'Automated Excel Cleaning, Extrusion Line Audit, Scrap & Downtime KPIs'}
@@ -155,18 +155,18 @@ export default function Navbar({
             </button>
 
             {/* Light / Dark Dual Segmented Toggle (matches Blown Film Pro reference) */}
-            <div className={`flex items-center p-0.5 rounded-lg text-xs ${theme === 'light' ? 'bg-[#ded6c9] border border-[#d8d0c2]' : 'bg-slate-800/80 border border-slate-700'}`}>
+            <div className="flex items-center p-0.5 rounded-lg text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
               <button
                 onClick={() => theme !== 'light' && toggleTheme()}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-semibold transition cursor-pointer ${
                   theme === 'light'
-                    ? 'bg-white text-stone-900 border border-stone-300 font-bold shadow-xs'
+                    ? 'bg-white text-slate-900 border border-slate-200 font-bold shadow-xs'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title={isAr ? '\u062b\u064a\u0645 \u0641\u0627\u062a\u062d' : 'Light Mode'}
+                title={isAr ? 'ثيم فاتح' : 'Light Mode'}
               >
-                <Sun className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden sm:inline">{isAr ? '\u062b\u064a\u0645 \u0641\u0627\u062a\u062d' : 'Light'}</span>
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden sm:inline">{isAr ? 'ثيم فاتح' : 'Light'}</span>
               </button>
 
               <button
@@ -174,23 +174,23 @@ export default function Navbar({
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-semibold transition cursor-pointer ${
                   theme === 'dark'
                     ? 'bg-slate-900 text-cyan-300 border border-slate-700 font-bold shadow-xs'
-                    : 'text-stone-700 hover:text-stone-900'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title={isAr ? '\u062b\u064a\u0645 \u062f\u0627\u0643\u0646' : 'Dark Mode'}
+                title={isAr ? 'ثيم داكن' : 'Dark Mode'}
               >
-                <Moon className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden sm:inline">{isAr ? '\u062b\u064a\u0645 \u062f\u0627\u0643\u0646' : 'Dark'}</span>
+                <Moon className="w-3.5 h-3.5 text-teal-400" />
+                <span className="hidden sm:inline">{isAr ? 'ثيم داكن' : 'Dark'}</span>
               </button>
             </div>
 
             {/* Language Dual Segmented Toggle (matches Blown Film Pro reference) */}
-            <div className={`flex items-center p-0.5 rounded-lg text-xs ${theme === 'light' ? 'bg-[#ded6c9] border border-[#d8d0c2]' : 'bg-slate-800/80 border border-slate-700'}`}>
+            <div className="flex items-center p-0.5 rounded-lg text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
               <button
                 onClick={() => lang !== 'en' && setLang('en')}
                 className={`px-2.5 py-1.5 rounded-md font-semibold transition cursor-pointer ${
                   lang === 'en'
-                    ? (theme === 'light' ? 'bg-[#0f766e] text-white shadow-xs font-bold' : 'bg-cyan-600 text-white shadow-xs font-bold')
-                    : (theme === 'light' ? 'text-stone-700 hover:text-stone-900' : 'text-slate-400 hover:text-slate-200')
+                    ? 'brand-gradient text-white shadow-xs font-bold'
+                    : (theme === 'light' ? 'text-slate-600 hover:text-slate-900' : 'text-slate-400 hover:text-slate-200')
                 }`}
               >
                 English

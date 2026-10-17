@@ -89,7 +89,7 @@ export default function FileUploader({ onDataLoaded, onLoadSample, lang }) {
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
         
@@ -168,7 +168,7 @@ export default function FileUploader({ onDataLoaded, onLoadSample, lang }) {
               </p>
               <button
                 onClick={onLoadSample}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-lg shadow-cyan-900/30 transition transform active:scale-95"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg shadow-emerald-900/30 transition transform active:scale-95"
               >
                 <Sparkles className="w-4 h-4 text-cyan-200" />
                 <span>{isAr ? 'تجربة بيانات الصورة المرفقة' : 'Load Demo from Screenshot'}</span>

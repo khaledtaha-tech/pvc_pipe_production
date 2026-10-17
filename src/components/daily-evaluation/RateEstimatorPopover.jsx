@@ -221,7 +221,7 @@ export default function RateEstimatorPopover({
                   className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide ${
                     advisory.isSpeedLimited
                       ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                      : 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                      : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                   }`}
                 >
                   {advisory.bottleneckLabel}
@@ -236,7 +236,7 @@ export default function RateEstimatorPopover({
             <div
               className={`p-2 rounded border transition ${
                 advisory.isCapacityLimited
-                  ? 'bg-blue-950/30 border-blue-800/60 text-slate-200'
+                  ? 'bg-emerald-950/30 border-emerald-800/60 text-slate-200'
                   : 'bg-slate-950/40 border-slate-800/60 text-slate-400'
               }`}
             >
@@ -244,7 +244,7 @@ export default function RateEstimatorPopover({
                 <span className="flex items-center gap-1">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      advisory.isCapacityLimited ? 'bg-blue-400' : 'bg-slate-600'
+                      advisory.isCapacityLimited ? 'bg-emerald-400' : 'bg-slate-600'
                     }`}
                   />
                   Extruder Melt Capacity:
@@ -364,7 +364,7 @@ export default function RateEstimatorPopover({
               style={{ color: '#ffffff' }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 transition ${
                 isPositiveAdv
-                  ? 'bg-blue-600 hover:bg-blue-500 cursor-pointer'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 cursor-pointer'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
             >

@@ -628,7 +628,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                               u.role === 'admin'
                                 ? 'bg-amber-950/60 text-amber-300 border-amber-800/80 font-bold'
                                 : u.role === 'supervisor'
-                                ? 'bg-blue-950/60 text-blue-300 border-blue-800/80'
+                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80'
                                 : 'bg-slate-800 text-slate-300 border-slate-700'
                             }`}
                           >
@@ -730,7 +730,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 <button
                                   type="button"
                                   onClick={() => handleSaveCustomExpiry(u.id)}
-                                  className="px-2 py-0.5 text-[10px] bg-cyan-600 text-white rounded font-bold hover:bg-cyan-500 cursor-pointer"
+                                  className="px-2 py-0.5 text-[10px] bg-emerald-600 text-white rounded font-bold hover:bg-emerald-500 cursor-pointer"
                                 >
                                   Save
                                 </button>

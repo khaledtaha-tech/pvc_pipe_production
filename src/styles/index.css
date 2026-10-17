@@ -321,23 +321,48 @@ html.light thead:not([class*="bg-slate-9"]):not([class*="bg-slate-8"]):not([clas
   font-weight: 700 !important;
 }
 
-/* Enforce crisp white text on all dark table headers in ALL themes */
-thead[class*="bg-slate-9"] th,
-thead[class*="bg-slate-8"] th,
-thead[class*="bg-blue-9"] th,
-thead[class*="bg-blue-8"] th,
-tr[class*="bg-slate-9"] th,
-tr[class*="bg-slate-8"] th,
-th[class*="bg-slate-9"],
-th[class*="bg-slate-8"],
-th[class*="bg-blue-9"],
-th[class*="bg-blue-8"],
-th[class*="text-white"] {
+/* Enforce crisp white text on all dark table headers in ALL themes (excluding matrix sub-headers) */
+thead[class*="bg-slate-9"] th:not(.matrix-sub-th),
+thead[class*="bg-slate-8"] th:not(.matrix-sub-th),
+thead[class*="bg-blue-9"] th:not(.matrix-sub-th),
+thead[class*="bg-blue-8"] th:not(.matrix-sub-th),
+tr[class*="bg-slate-9"] th:not(.matrix-sub-th),
+tr[class*="bg-slate-8"] th:not(.matrix-sub-th),
+th[class*="bg-slate-9"]:not(.matrix-sub-th),
+th[class*="bg-slate-8"]:not(.matrix-sub-th),
+th[class*="bg-blue-9"]:not(.matrix-sub-th),
+th[class*="bg-blue-8"]:not(.matrix-sub-th),
+th[class*="text-white"]:not(.matrix-sub-th) {
   color: #ffffff !important;
 }
 
-html:not(.light) thead:not([class*="bg-slate-1"]):not([class*="bg-white"]) th:not([class*="bg-slate-1"]):not([class*="text-slate-8"]):not([class*="text-slate-9"]) {
+html:not(.light) thead:not([class*="bg-slate-1"]):not([class*="bg-white"]) th:not([class*="bg-slate-1"]):not([class*="text-slate-8"]):not([class*="text-slate-9"]):not(.matrix-sub-th) {
   color: #ffffff !important;
+}
+
+/* Daily Reconciliation Matrix Sub-Header Styles (Prevent white-on-white collision) */
+.matrix-sub-header-row th,
+th.matrix-sub-th,
+html.light .matrix-sub-header-row th,
+html.light th.matrix-sub-th {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  background: #f8fafc !important;
+  background-color: #f8fafc !important;
+}
+
+html:not(.light) .matrix-sub-header-row th,
+html:not(.light) th.matrix-sub-th {
+  color: #e2e8f0 !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  background: #1e293b !important;
+  background-color: #1e293b !important;
 }
 
 html.light thead th[class*="bg-teal-950"] {

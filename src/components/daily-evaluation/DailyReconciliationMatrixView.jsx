@@ -544,9 +544,9 @@ export default function DailyReconciliationMatrixView({
       {/* Wide Horizontal Scrollable Table with Sticky Headers & Viewport Scroll */}
       <div className="w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto overflow-y-auto max-h-[72vh] relative">
-          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[2000px]">
+          <table className="w-full border-collapse text-left text-xs whitespace-nowrap min-w-[2000px] reconciliation-matrix-table">
             {/* Top Multi-Header Row */}
-            <thead className="sticky top-0 z-20 shadow-md bg-slate-900 border-b border-slate-800">
+            <thead className="sticky top-0 z-20 shadow-md border-b border-slate-300 dark:border-slate-800">
               <tr className="bg-slate-950 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
                 <th colSpan={3} className="px-3 py-2 border-r border-slate-800 text-slate-300 bg-slate-950">
                   Machine &amp; Running Job Info
@@ -574,81 +574,83 @@ export default function DailyReconciliationMatrixView({
               </tr>
 
               {/* Specific Column Names */}
-              <tr className="bg-slate-900 text-slate-300 font-semibold border-b border-slate-800 text-[11px]">
+              <tr className="matrix-sub-header-row font-semibold border-b border-slate-300 dark:border-slate-800 text-[11px]">
                 {/* Machine & Running Job Info */}
-                <th className="px-3 py-2.5">Line ID</th>
-                <th className="px-3 py-2.5">Machine Name</th>
-                <th className="px-3 py-2.5 border-r border-slate-800" title="Running Pipe Size, Diameter, Wall Thickness &amp; Specs">
-                  Running Pipe Size &amp; Specs
+                <th className="matrix-sub-th px-3 py-2.5">Line</th>
+                <th className="matrix-sub-th px-3 py-2.5">Machine</th>
+                <th className="matrix-sub-th px-3 py-2.5 border-r border-slate-300 dark:border-slate-800" title="Product Code / Mold Size & Specs">
+                  Product Code / Mold
                 </th>
 
                 {/* Job Engineering Specs */}
-                <th className="px-3 py-2.5" title="Configured Nominal Extrusion Capacity">
-                  Nominal Cap (kg/h)
+                <th className="matrix-sub-th px-3 py-2.5" title="Configured Nominal Extrusion Capacity">
+                  Cap (kg/h)
                 </th>
-                <th className="px-3 py-2.5" title="Pipe Unit Weight in kg">
-                  Std Wt (kg/pc)
+                <th className="matrix-sub-th px-3 py-2.5" title="Pipe Unit Weight in kg">
+                  Wt (kg)
                 </th>
-                <th className="px-3 py-2.5 border-r border-slate-800" title="Standard Piece Rate per hour">
-                  Std Rate (Pcs/h)
+                <th className="matrix-sub-th px-3 py-2.5 border-r border-slate-300 dark:border-slate-800" title="Standard Piece Rate per hour">
+                  Std Pace (pcs/h)
                 </th>
 
                 {/* Production Balance */}
-                <th className="px-3 py-2.5" title="24-Hour Theoretical Capacity">
-                  Expected (24h)
+                <th className="matrix-sub-th px-3 py-2.5" title="24-Hour Theoretical Capacity">
+                  Expected (Pcs/Kg)
                 </th>
-                <th className="px-3 py-2.5" title="Reported Finished Goods Output">
-                  Actual Output
+                <th className="matrix-sub-th px-3 py-2.5" title="Reported Finished Goods Output">
+                  Actual (Pcs/Kg)
                 </th>
-                <th className="px-2.5 py-2.5 text-amber-400 font-bold" title="Reported Scrap Output in kg">
+                <th className="matrix-sub-th px-2.5 py-2.5 font-bold text-amber-600 dark:text-amber-400" title="Reported Scrap Output in kg">
                   Scrap (kg)
                 </th>
-                <th className="px-3 py-2.5 text-rose-300" title="Expected Output - Actual Output">
+                <th className="matrix-sub-th px-3 py-2.5 text-rose-600 dark:text-rose-300" title="Expected Output - Actual Output">
                   Deficit (Loss)
                 </th>
-                <th className="px-3 py-2.5 text-rose-400 font-bold border-r border-slate-800" title="Direct conversion: Deficit Pcs / Std Rate">
+                <th className="matrix-sub-th px-3 py-2.5 font-bold border-r border-slate-300 dark:border-slate-800 text-rose-600 dark:text-rose-400" title="Direct conversion: Deficit Pcs / Std Rate">
                   Lost Time (h)
                 </th>
 
                 {/* 24-Hour Time Allocation (Editable inputs & Realized Pace) */}
-                <th className="px-2.5 py-2.5 text-emerald-400 font-bold bg-emerald-950/10">Operating (h)</th>
-                <th className="px-2.5 py-2.5 text-center text-cyan-400 font-bold bg-cyan-950/20" title="Actual realized pace during reported operating hours: Pcs/h, kg/h &amp; Speed Efficiency %">
+                <th className="matrix-sub-th px-2.5 py-2.5 font-bold text-emerald-700 dark:text-emerald-400">
+                  Operating (h)
+                </th>
+                <th className="matrix-sub-th px-2.5 py-2.5 text-center font-bold text-cyan-700 dark:text-cyan-400" title="Actual realized pace during reported operating hours: Pcs/h, kg/h & Speed Efficiency %">
                   Actual Realized Rate
                 </th>
-                <th className="px-2.5 py-2.5">Die/Mold (h)</th>
-                <th className="px-2.5 py-2.5">Purge/Clean (h)</th>
-                <th className="px-2.5 py-2.5">Heater Fail (h)</th>
-                <th className="px-2.5 py-2.5">Mech/Puller (h)</th>
-                <th className="px-2.5 py-2.5">Material/No Order (h)</th>
-                <th className="px-2.5 py-2.5 border-r border-slate-800">Other Stop (h)</th>
+                <th className="matrix-sub-th px-2.5 py-2.5">Die/Mold (h)</th>
+                <th className="matrix-sub-th px-2.5 py-2.5">Purge/Clean (h)</th>
+                <th className="matrix-sub-th px-2.5 py-2.5">Heater Fail (h)</th>
+                <th className="matrix-sub-th px-2.5 py-2.5">Mech/Puller (h)</th>
+                <th className="matrix-sub-th px-2.5 py-2.5">Material/No Order (h)</th>
+                <th className="matrix-sub-th px-2.5 py-2.5 border-r border-slate-300 dark:border-slate-800">Other Stop (h)</th>
 
                 {/* Audit & OEE (3-Factor Triad) */}
-                <th className="px-3 py-2.5 text-center font-bold">Total (h)</th>
-                <th className="px-3 py-2.5 text-center">24h Status</th>
-                <th className="px-2 py-2.5 text-center text-slate-300" title="Availability Rate (A): Operating Hours / 24.0h">
+                <th className="matrix-sub-th px-3 py-2.5 text-center font-bold">Total Accounted</th>
+                <th className="matrix-sub-th px-3 py-2.5 text-center">Balance Check</th>
+                <th className="matrix-sub-th px-2 py-2.5 text-center" title="Availability Rate (A): Operating Hours / 24.0h">
                   Avail (%)
                 </th>
-                <th className="px-2 py-2.5 text-center text-cyan-300" title="Performance / Speed Efficiency (P): Actual Pace / Nominal Capacity">
+                <th className="matrix-sub-th px-2 py-2.5 text-center text-cyan-700 dark:text-cyan-300" title="Performance / Speed Efficiency (P): Actual Pace / Nominal Capacity">
                   <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-[10px] text-slate-500 font-bold select-none">&times;</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">&times;</span>
                     <span>Perf (%)</span>
                   </div>
                 </th>
-                <th className="px-2 py-2.5 text-center text-amber-300" title="Quality Rate (Q): Good Output (kg) / Total Melt (kg)">
+                <th className="matrix-sub-th px-2 py-2.5 text-center text-amber-700 dark:text-amber-300" title="Quality Rate (Q): Good Output (kg) / Total Melt (kg)">
                   <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-[10px] text-slate-500 font-bold select-none">&times;</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">&times;</span>
                     <span>Qual (%)</span>
                   </div>
                 </th>
-                <th className="px-2.5 py-2.5 text-center border-r border-slate-800 text-indigo-300 font-bold" title="Overall OEE: Availability &times; Performance &times; Quality = OEE">
+                <th className="matrix-sub-th px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 text-indigo-700 dark:text-indigo-300 font-bold" title="Overall OEE: Availability &times; Performance &times; Quality = OEE">
                   <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-[10px] text-slate-500 font-bold select-none">=</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">=</span>
                     <span>OEE (%)</span>
                   </div>
                 </th>
 
                 {/* Actions */}
-                <th className="px-3 py-2.5 text-center">Reconcile / Save</th>
+                <th className="matrix-sub-th px-3 py-2.5 text-center">Reconcile / Save</th>
               </tr>
             </thead>
 

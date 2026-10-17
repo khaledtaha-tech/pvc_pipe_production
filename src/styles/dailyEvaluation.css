@@ -8862,6 +8862,40 @@ html:not(.light) .standards-catalog-count-note {
   color: #94a3b8;
 }
 
+/* ============ DAILY RECONCILIATION MATRIX SUB-HEADER STYLING ============ */
+.matrix-sub-header-row,
+.matrix-sub-header-row th,
+th.matrix-sub-th,
+.reconciliation-matrix-table thead tr.matrix-sub-header-row th,
+html.light .matrix-sub-header-row,
+html.light .matrix-sub-header-row th,
+html.light th.matrix-sub-th,
+html.light .reconciliation-matrix-table thead tr.matrix-sub-header-row th {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  background: #f8fafc !important;
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html:not(.light) .matrix-sub-header-row,
+html:not(.light) .matrix-sub-header-row th,
+html:not(.light) th.matrix-sub-th,
+html:not(.light) .reconciliation-matrix-table thead tr.matrix-sub-header-row th {
+  color: #e2e8f0 !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+
 
 
 

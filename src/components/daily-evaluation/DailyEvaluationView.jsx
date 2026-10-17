@@ -51,6 +51,7 @@ import PrintSopChoiceModal from './PrintSopChoiceModal.jsx';
 import AutoReconcileModal from './AutoReconcileModal.jsx';
 import MachineSettingsModal from './MachineSettingsModal.jsx';
 import BaselineCatalogModal from './BaselineCatalogModal.jsx';
+import DailyAuditPdfModal from './DailyAuditPdfModal.jsx';
 import { syncBaselinesWithServer } from '../../logic/standardCatalogHelper.js';
 import DailyReconciliationMatrixView from './DailyReconciliationMatrixView.jsx';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
@@ -187,6 +188,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const [isReconcileModalOpen, setIsReconcileModalOpen] = useState(false);
   const [isMachineSettingsOpen, setIsMachineSettingsOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+  const [isDailyAuditPdfOpen, setIsDailyAuditPdfOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
   const [showAllLines, setShowAllLines] = useState(false);
@@ -1716,6 +1718,23 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             <span style={{ color: '#ffffff' }}>Print Morning SOP</span>
           </button>
 
+          {/* Daily PDF Report: Single-Page A4 Portrait Audit */}
+          <button
+            type="button"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
+            onClick={() => setIsDailyAuditPdfOpen(true)}
+            title="Daily PDF Report: Generate & Print Single-Page A4 Portrait Operational Audit (Yesterday's Run)"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            <span>Daily PDF Report</span>
+          </button>
+
           {/* Catalog Action: Standards Catalog */}
           <button
             type="button"
@@ -2364,6 +2383,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         isOpen={isCatalogModalOpen}
         onClose={() => setIsCatalogModalOpen(false)}
         machineMaster={machineMaster}
+      />
+
+      {/* Executive Single-Page A4 Daily Audit PDF Report Modal */}
+      <DailyAuditPdfModal
+        isOpen={isDailyAuditPdfOpen}
+        onClose={() => setIsDailyAuditPdfOpen(false)}
+        records={combinedDatasets}
+        selectedDate={selectedDate}
+        machineMaster={machineMaster}
+        onNotify={notify}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

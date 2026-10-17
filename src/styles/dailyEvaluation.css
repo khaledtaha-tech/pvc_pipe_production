@@ -8879,6 +8879,125 @@ html:not(.light) .standards-catalog-count-note {
   color: #94a3b8;
 }
 
+/* ============ DAILY AUDIT EXECUTIVE PDF REPORT (A4 PORTRAIT) ============ */
+.daily-audit-pdf-sheet {
+  width: 210mm;
+  max-width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 8mm 6mm;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.daily-audit-pdf-sheet * {
+  box-sizing: border-box;
+}
+
+.daily-audit-pdf-sheet table {
+  border-collapse: collapse;
+}
+
+.daily-audit-pdf-sheet th,
+.daily-audit-pdf-sheet td {
+  border-color: #cbd5e1;
+}
+
+/* Modal view adjustments */
+.daily-audit-preview-body {
+  background: #090d16;
+}
+
+.daily-audit-preview-wrapper {
+  background: #ffffff;
+}
+
+/* Dedicated Single-Page A4 Print Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 6mm;
+  }
+
+  body.print-daily-audit-active {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.print-daily-audit-active #root > *:not(.daily-audit-modal-backdrop) {
+    display: none !important;
+  }
+
+  body.print-daily-audit-active .daily-audit-modal-backdrop {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    inset: auto !important;
+    z-index: auto !important;
+  }
+
+  body.print-daily-audit-active .daily-audit-modal-dialog {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  body.print-daily-audit-active .daily-audit-toolbar {
+    display: none !important;
+  }
+
+  body.print-daily-audit-active .daily-audit-preview-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: none !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  body.print-daily-audit-active .daily-audit-preview-wrapper {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.print-daily-audit-active .daily-audit-pdf-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+
+  body.print-daily-audit-active .no-print {
+    display: none !important;
+  }
+}
+
+
 
 
 

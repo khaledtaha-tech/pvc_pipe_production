@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
-import Navbar from './components/common/Navbar';
+import Sidebar from './components/common/Sidebar';
+import Header from './components/common/Header';
 import DataAnalysisView from './components/data-analysis/DataAnalysisView';
 import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationView';
 import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
@@ -44,6 +45,15 @@ function AppContent() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('pvc_sidebar_collapsed') === 'true';
+  });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const handleToggleSidebarCollapse = (val) => {
+    setIsSidebarCollapsed(val);
+    localStorage.setItem('pvc_sidebar_collapsed', String(val));
+  };
 
   // Global save and toast feedback state
   const dailyEvalRef = useRef(null);
@@ -321,13 +331,8 @@ function AppContent() {
 
   return (
     <div className={`min-h-screen ambient-glow transition-colors duration-200 ${theme === 'light' ? 'bg-[#f8fafc] text-slate-900' : 'bg-[#0a0f1d] text-slate-100'}`}>
-      {/* Unified Suite Navbar */}
-      <Navbar
-        user={user}
-        onLogout={logout}
-        onOpenAdminModal={() => setIsAdminModalOpen(true)}
-        onGlobalSave={handleGlobalSave}
-        isSaving={isSaving}
+      {/* Modern Collapsible Industrial Sidebar */}
+      <Sidebar
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
         activeTab={activeTab}
@@ -336,118 +341,134 @@ function AppContent() {
         setLang={setLang}
         theme={theme}
         toggleTheme={toggleTheme}
-        recordCount={rawRows.length}
-        historicalCount={historicalRawRows.length}
-        masterCount={unifiedMasterRuns.length}
-        auditReport={auditReport}
-        onOpenManualEntry={() => setIsManualModalOpen(true)}
-        onExportClean={handleExportCleanExcel}
-        onExportMasterPlan={handleExportMasterPlanExcel}
-        onOpenMasterTable={() => setActiveTab('master')}
-        onOpenPlanning={() => setActiveTab('planning')}
-        onOpenVerification={() => setActiveTab('verification')}
-        onOpenBlankSopPrint={() => {
-          if (dailyEvalRef.current?.openBlankSopPrint) {
-            dailyEvalRef.current.openBlankSopPrint();
-          }
-        }}
+        user={user}
+        onLogout={logout}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
         onOpenMachineSettings={() => {
           if (dailyEvalRef.current?.openMachineSettings) {
             dailyEvalRef.current.openMachineSettings();
           }
         }}
-        onOpenReconciliationMatrix={() => {
-          if (currentModule !== 'daily-evaluation') {
-            setCurrentModule('daily-evaluation');
-          }
-          if (dailyEvalRef.current?.openMatrix) {
-            dailyEvalRef.current.openMatrix();
+        onOpenBlankSopPrint={() => {
+          if (dailyEvalRef.current?.openBlankSopPrint) {
+            dailyEvalRef.current.openBlankSopPrint();
           }
         }}
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={handleToggleSidebarCollapse}
+        isMobileOpen={isMobileSidebarOpen}
+        setIsMobileOpen={setIsMobileSidebarOpen}
+        recordCount={rawRows.length}
+        historicalCount={historicalRawRows.length}
+        masterCount={unifiedMasterRuns.length}
       />
 
-      {/* Main Container: Expanded to utilize lateral widescreen space */}
-      <main className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 py-4">
-        {currentModule === 'data-analysis' && (
-          <ErrorBoundary>
-            <DataAnalysisView
-              lang={lang}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              theme={theme}
-              rawRows={rawRows}
-              setRawRows={setRawRows}
-              historicalRawRows={historicalRawRows}
-              setHistoricalRawRows={setHistoricalRawRows}
-              currentSheetName={currentSheetName}
-              setCurrentSheetName={setCurrentSheetName}
-              cleanedRows={cleanedRows}
-              auditReport={auditReport}
-              analytics={analytics}
-              planningMatrix={uniquePlanningMatrix}
-              masterRuns={unifiedMasterRuns}
-              isManualModalOpen={isManualModalOpen}
-              setIsManualModalOpen={setIsManualModalOpen}
-              isClearDialogOpen={isClearDialogOpen}
-              setIsClearDialogOpen={setIsClearDialogOpen}
-              handleClearAllData={handleConfirmClearAll}
-              handleSaveManualRow={handleAddManualRow}
-              handleExportCleanLog={handleExportCleanExcel}
-              handleExportConsolidated={handleExportConsolidatedExcel}
-              handleExportMasterPlan={handleExportMasterPlanExcel}
-              handleExportUniqueCatalog={handleExportUniqueCatalog}
-              onNotify={showToast}
-            />
-          </ErrorBoundary>
-        )}
+      {/* Main Layout Area - Offset by Sidebar width on Desktop */}
+      <div className={`transition-all duration-300 ease-in-out flex flex-col min-h-screen ${
+        lang === 'ar'
+          ? (isSidebarCollapsed ? 'lg:pr-20' : 'lg:pr-64')
+          : (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64')
+      }`}>
+        {/* Sleek, Minimal Top Header */}
+        <Header
+          currentModule={currentModule}
+          activeTab={activeTab}
+          lang={lang}
+          theme={theme}
+          isCollapsed={isSidebarCollapsed}
+          setIsCollapsed={handleToggleSidebarCollapse}
+          setIsMobileOpen={setIsMobileSidebarOpen}
+          onGlobalSave={handleGlobalSave}
+          isSaving={isSaving}
+          onOpenManualEntry={() => setIsManualModalOpen(true)}
+          recordCount={rawRows.length}
+          historicalCount={historicalRawRows.length}
+          currentSheetName={currentSheetName}
+        />
 
-        {currentModule === 'data-hub' && (
-          <ErrorBoundary>
-            <DataExchangeCenter
-              lang={lang}
-              theme={theme}
-              rawRows={rawRows}
-              setRawRows={setRawRows}
-              historicalRawRows={historicalRawRows}
-              setHistoricalRawRows={setHistoricalRawRows}
-              currentSheetName={currentSheetName}
-              setCurrentSheetName={setCurrentSheetName}
-              cleanedRows={cleanedRows}
-              masterRuns={unifiedMasterRuns}
-              uniquePlanningMatrix={uniquePlanningMatrix}
-              analytics={analytics}
-              dailyEvalRef={dailyEvalRef}
-              onOpenBlankSopPrint={() => {
-                if (dailyEvalRef.current?.openBlankSopPrint) {
-                  dailyEvalRef.current.openBlankSopPrint();
-                }
-              }}
-              onOpenMachineSettings={() => {
-                if (dailyEvalRef.current?.openMachineSettings) {
-                  dailyEvalRef.current.openMachineSettings();
-                }
-              }}
-              onExportMasterPlan={handleExportMasterPlanExcel}
-              onExportUniqueCatalog={handleExportUniqueCatalog}
-              onExportCleanLog={handleExportCleanExcel}
-              onClearAllData={handleInstantClearData}
-              onNotify={showToast}
-            />
-          </ErrorBoundary>
-        )}
+        {/* Main Content Stage */}
+        <main className="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 lg:p-6 overflow-x-hidden">
+          {currentModule === 'data-analysis' && (
+            <ErrorBoundary>
+              <DataAnalysisView
+                lang={lang}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                theme={theme}
+                rawRows={rawRows}
+                setRawRows={setRawRows}
+                historicalRawRows={historicalRawRows}
+                setHistoricalRawRows={setHistoricalRawRows}
+                currentSheetName={currentSheetName}
+                setCurrentSheetName={setCurrentSheetName}
+                cleanedRows={cleanedRows}
+                auditReport={auditReport}
+                analytics={analytics}
+                planningMatrix={uniquePlanningMatrix}
+                masterRuns={unifiedMasterRuns}
+                isManualModalOpen={isManualModalOpen}
+                setIsManualModalOpen={setIsManualModalOpen}
+                isClearDialogOpen={isClearDialogOpen}
+                setIsClearDialogOpen={setIsClearDialogOpen}
+                handleClearAllData={handleConfirmClearAll}
+                handleSaveManualRow={handleAddManualRow}
+                handleExportCleanLog={handleExportCleanExcel}
+                handleExportConsolidated={handleExportConsolidatedExcel}
+                handleExportMasterPlan={handleExportMasterPlanExcel}
+                handleExportUniqueCatalog={handleExportUniqueCatalog}
+                onNotify={showToast}
+              />
+            </ErrorBoundary>
+          )}
 
-        <div className={`daily-eval-root w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800/80 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
-          <ErrorBoundary>
-            <DailyEvaluationView
-              ref={dailyEvalRef}
-              sharedTheme={theme}
-              lang={lang}
-              historicalRawRows={historicalRawRows}
-              rawRows={rawRows}
-            />
-          </ErrorBoundary>
-        </div>
-      </main>
+          {currentModule === 'data-hub' && (
+            <ErrorBoundary>
+              <DataExchangeCenter
+                lang={lang}
+                theme={theme}
+                rawRows={rawRows}
+                setRawRows={setRawRows}
+                historicalRawRows={historicalRawRows}
+                setHistoricalRawRows={setHistoricalRawRows}
+                currentSheetName={currentSheetName}
+                setCurrentSheetName={setCurrentSheetName}
+                cleanedRows={cleanedRows}
+                masterRuns={unifiedMasterRuns}
+                uniquePlanningMatrix={uniquePlanningMatrix}
+                analytics={analytics}
+                dailyEvalRef={dailyEvalRef}
+                onOpenBlankSopPrint={() => {
+                  if (dailyEvalRef.current?.openBlankSopPrint) {
+                    dailyEvalRef.current.openBlankSopPrint();
+                  }
+                }}
+                onOpenMachineSettings={() => {
+                  if (dailyEvalRef.current?.openMachineSettings) {
+                    dailyEvalRef.current.openMachineSettings();
+                  }
+                }}
+                onExportMasterPlan={handleExportMasterPlanExcel}
+                onExportUniqueCatalog={handleExportUniqueCatalog}
+                onExportCleanLog={handleExportCleanExcel}
+                onClearAllData={handleInstantClearData}
+                onNotify={showToast}
+              />
+            </ErrorBoundary>
+          )}
+
+          <div className={`daily-eval-root w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800/80 ${currentModule === 'daily-evaluation' ? 'block' : 'hidden'}`}>
+            <ErrorBoundary>
+              <DailyEvaluationView
+                ref={dailyEvalRef}
+                sharedTheme={theme}
+                lang={lang}
+                historicalRawRows={historicalRawRows}
+                rawRows={rawRows}
+              />
+            </ErrorBoundary>
+          </div>
+        </main>
+      </div>
 
       {/* Admin User Management Modal */}
       {isAdminModalOpen && (

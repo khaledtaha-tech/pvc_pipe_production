@@ -208,26 +208,33 @@ export default function Sidebar({
                           setActiveTab(sub.id);
                           if (isMobileOpen) setIsMobileOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        className={`sidebar-sub-item w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           isActive
-                            ? isLight 
-                              ? 'bg-emerald-50 text-emerald-800 font-bold border border-emerald-200 shadow-xs' 
-                              : 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-800/60'
+                            ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-700/30 ring-1 ring-emerald-500' 
                             : isLight
-                              ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
                               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                         }`}
+                        style={isActive ? { backgroundColor: '#059669', color: '#ffffff' } : {}}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <SubIcon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-500' : 'text-slate-400'}`} />
-                          <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
+                          <SubIcon 
+                            className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} 
+                            style={isActive ? { color: '#ffffff', stroke: '#ffffff' } : {}} 
+                          />
+                          <span className="truncate" style={isActive ? { color: '#ffffff' } : {}}>
+                            {isAr ? sub.labelAr : sub.labelEn}
+                          </span>
                         </div>
                         {sub.count > 0 && (
-                          <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full ${
-                            isActive
-                              ? 'bg-emerald-600 text-white'
-                              : isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'
-                          }`}>
+                          <span 
+                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
+                              isActive
+                                ? 'bg-white/20 text-white font-bold'
+                                : isLight ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-slate-400'
+                            }`}
+                            style={isActive ? { color: '#ffffff', backgroundColor: 'rgba(255,255,255,0.25)' } : {}}
+                          >
                             {sub.count}
                           </span>
                         )}

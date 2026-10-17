@@ -5,12 +5,12 @@
 }
 
 :root {
-  --primary: #1f4e79;
-  --secondary: #2e75b6;
-  --lighter: #deebf7;
-  --soft: #eef4fb;
-  --border: #b8cce4;
-  --softborder: #d9e1f2;
+  --primary: #064e3b;
+  --secondary: #0d9488;
+  --lighter: #ecfdf5;
+  --soft: #f0fdfa;
+  --border: #cbd5e1;
+  --softborder: #e2e8f0;
   --ink: #1c2733;
   --muted: #64748b;
   --kpi: #e2efda;
@@ -941,10 +941,11 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   font-size: 10px;
   font-weight: 800;
   color: #fff;
-  background: var(--primary);
-  padding: 2px 7px;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+  padding: 3px 8px;
+  border-radius: 6px;
   letter-spacing: 0.3px;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
 }
 
 .formula-text {
@@ -1007,7 +1008,9 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 
 .dmr-sheet {
   background: #fff;
-  border: 1.5px solid #1e3a8a;
+  border: 1.5px solid #059669;
+  border-radius: 12px;
+  overflow: hidden;
   width: 100%;
   min-width: 1100px;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -1015,7 +1018,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   font-size: 13px;
   line-height: 1.35;
   color: #0f172a;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 0 1px 1px rgba(5, 150, 105, 0.15);
   margin: 0 auto;
 }
 
@@ -1026,7 +1029,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 
 .labeltext {
   font-weight: 700;
-  color: #1e3a8a;
+  color: #047857;
 }
 
 .value-strong {
@@ -1048,13 +1051,13 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 }
 
 .sec-head .tcell {
-  border-color: #1e3a8a;
+  border-color: #047857;
 }
 
 .plant-cell {
-  background: #0f2942;
+  background: linear-gradient(135deg, #022c22 0%, #064e3b 100%);
   color: #fff;
-  border-color: #0f2942 !important;
+  border-color: #047857 !important;
   padding: 8px 14px;
   display: flex;
   flex-direction: column;
@@ -1072,16 +1075,18 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   font-size: 11px;
   opacity: 0.92;
   margin-top: 2px;
+  color: #6ee7b7;
 }
 
 .title-cell {
-  background: #1e3a8a;
+  background: linear-gradient(135deg, #064e3b 0%, #0d9488 50%, #047857 100%);
   color: #fff;
   text-align: center;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 8px 14px;
+  border-color: #047857 !important;
 }
 
 .sheet-title {
@@ -1095,12 +1100,13 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   margin-top: 2px;
   opacity: 0.95;
   letter-spacing: 0.2px;
+  color: #ccfbf1;
 }
 
 .doc-cell {
-  background: #0f2942;
+  background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
   color: #fff;
-  border-color: #0f2942 !important;
+  border-color: #047857 !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1111,6 +1117,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   font-size: 11.5px;
   font-weight: 700;
   text-align: center;
+  color: #a7f3d0;
 }
 
 /* 2. Date & Line Bar */
@@ -1145,7 +1152,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 .refs-header .tcell {
   background: #f1f5f9;
   border-color: #cbd5e1;
-  color: #1e3a8a;
+  color: #064e3b;
   font-weight: 800;
   text-align: center;
   padding: 6px 6px;
@@ -1162,7 +1169,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 .reflabel {
   background: #f1f5f9;
   font-weight: 800;
-  color: #1e3a8a;
+  color: #064e3b;
   text-align: center;
   font-size: 12.5px;
 }
@@ -1249,9 +1256,9 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 }
 
 .table-head-row .tcell {
-  background: #1e3a8a;
+  background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #0d9488 100%);
   color: #fff;
-  border-color: #10b981;
+  border-color: #059669;
   text-align: center;
   font-weight: 700;
   padding: 8px 6px;
@@ -1310,7 +1317,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 
 .shiftcell {
   font-weight: 700;
-  color: #1e3a8a;
+  color: #064e3b;
   font-size: 12.5px;
 }
 
@@ -1327,7 +1334,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 }
 
 .numcell.target {
-  color: #1e3a8a;
+  color: #064e3b;
   font-weight: 700;
 }
 
@@ -1396,20 +1403,20 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 }
 
 .trow.subtotal .tcell {
-  background: #e0e7ff !important;
-  border-top: 1.5px solid #1e3a8a !important;
-  border-bottom: 1.5px solid #1e3a8a !important;
+  background: #ecfdf5 !important;
+  border-top: 1.5px solid #064e3b !important;
+  border-bottom: 1.5px solid #064e3b !important;
   border-color: #cbd5e1;
   font-weight: 800;
   font-size: 13px;
-  color: #1e3a8a !important;
+  color: #064e3b !important;
   padding: 6px 6px;
 }
 
 .totallabel {
   text-align: left !important;
   justify-content: flex-start !important;
-  color: #1e3a8a !important;
+  color: #064e3b !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1422,11 +1429,11 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 }
 
 .trow.grand .tcell {
-  background: #1e3a8a !important;
+  background: linear-gradient(135deg, #064e3b 0%, #0d9488 100%) !important;
   color: #ffffff !important;
-  border-top: 1.5px solid #0f2942 !important;
-  border-bottom: 1.5px solid #0f2942 !important;
-  border-color: #10b981;
+  border-top: 1.5px solid #047857 !important;
+  border-bottom: 1.5px solid #047857 !important;
+  border-color: #059669;
   font-weight: 900;
   font-size: 14px;
   padding: 8px 6px;
@@ -1449,7 +1456,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   text-align: center;
   padding: 6px 4px;
   font-size: 12px;
-  border-top: 1.5px solid #1e3a8a;
+  border-top: 1.5px solid #064e3b;
   border-color: #cbd5e1;
 }
 
@@ -1485,14 +1492,14 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
   font-size: 12px;
   padding: 6px 12px;
   text-align: center;
-  border-bottom: 1.5px solid #1e3a8a;
+  border-bottom: 1.5px solid #064e3b;
   border-color: #cbd5e1;
   color: #475569;
 }
 
 .formula-kicker {
   font-weight: 800;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .formula-final {
@@ -1505,7 +1512,7 @@ html:not(.light) .toolbar-btn-outline:hover:not(:disabled) svg {
 
 .capacity-strip {
   font-size: 12.5px;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .capacity-strip b {
@@ -1987,8 +1994,8 @@ html:not(.light) .log-table th {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #1e3a8a;
-  border: 1px solid #1e3a8a;
+  background: #064e3b;
+  border: 1px solid #064e3b;
   color: #fff;
   font-weight: 700;
   padding: 8px 16px;
@@ -2017,7 +2024,7 @@ html:not(.light) .log-table th {
   align-items: center;
   justify-content: center;
   background: #ecfdf5;
-  color: #1e3a8a;
+  color: #064e3b;
   font-size: 11px;
   font-weight: 800;
   padding: 2px 7px;
@@ -2092,7 +2099,7 @@ html:not(.light) .log-table th {
 .batch-modal-machine {
   font-size: 14px;
   font-weight: 700;
-  color: #1e3a8a;
+  color: #064e3b;
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
   padding: 8px 14px;
@@ -2491,7 +2498,7 @@ html:not(.light) .log-table th {
 
 .dmr-sheet.pdf-compact-export .plant-cell {
   padding: 4px 6px !important;
-  background: #0f2942 !important;
+  background: #022c22 !important;
 }
 
 .dmr-sheet.pdf-compact-export .plant-line {
@@ -2507,7 +2514,7 @@ html:not(.light) .log-table th {
 
 .dmr-sheet.pdf-compact-export .title-cell {
   padding: 4px 6px !important;
-  background: #1e3a8a !important;
+  background: #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .sheet-title {
@@ -2523,7 +2530,7 @@ html:not(.light) .log-table th {
 
 .dmr-sheet.pdf-compact-export .doc-cell {
   padding: 4px 6px !important;
-  background: #0f2942 !important;
+  background: #022c22 !important;
 }
 
 .dmr-sheet.pdf-compact-export .doc-line {
@@ -2556,7 +2563,7 @@ html:not(.light) .log-table th {
   font-size: 7.5px !important;
   font-weight: 800 !important;
   background: #f1f5f9 !important;
-  color: #1e3a8a !important;
+  color: #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .ref-row .tcell {
@@ -2568,7 +2575,7 @@ html:not(.light) .log-table th {
   font-size: 7.8px !important;
   font-weight: 800 !important;
   background: #f1f5f9 !important;
-  color: #1e3a8a !important;
+  color: #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .counters-row .tcell {
@@ -2581,7 +2588,7 @@ html:not(.light) .log-table th {
   font-size: 7.8px !important;
   font-weight: 800 !important;
   line-height: 1.15 !important;
-  background: #1e3a8a !important;
+  background: #064e3b !important;
   color: #ffffff !important;
   border-color: #10b981 !important;
 }
@@ -2624,7 +2631,7 @@ html:not(.light) .log-table th {
 
 .dmr-sheet.pdf-compact-export .numcell.target {
   font-size: 8px !important;
-  color: #1e3a8a !important;
+  color: #064e3b !important;
   font-weight: 700 !important;
 }
 
@@ -2650,14 +2657,14 @@ html:not(.light) .log-table th {
   padding: 2px 3.5px !important;
   font-size: 8px !important;
   font-weight: 800 !important;
-  background: #e0e7ff !important;
-  color: #1e3a8a !important;
-  border-top: 1.5px solid #1e3a8a !important;
-  border-bottom: 1.5px solid #1e3a8a !important;
+  background: #ecfdf5 !important;
+  color: #064e3b !important;
+  border-top: 1.5px solid #064e3b !important;
+  border-bottom: 1.5px solid #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .trow.subtotal .totallabel {
-  color: #1e3a8a !important;
+  color: #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .trow.grand {
@@ -2669,7 +2676,7 @@ html:not(.light) .log-table th {
   padding: 2.5px 3.5px !important;
   font-size: 8.5px !important;
   font-weight: 900 !important;
-  background: #1e3a8a !important;
+  background: #064e3b !important;
   color: #ffffff !important;
 }
 
@@ -2679,7 +2686,7 @@ html:not(.light) .log-table th {
   font-weight: 800 !important;
   background: #e2e8f0 !important;
   color: #0f172a !important;
-  border-top: 1.5px solid #1e3a8a !important;
+  border-top: 1.5px solid #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .oee-values .tcell {
@@ -2700,7 +2707,7 @@ html:not(.light) .log-table th {
   font-size: 7.5px !important;
   background: #f8fafc !important;
   color: #475569 !important;
-  border-bottom: 1.5px solid #1e3a8a !important;
+  border-bottom: 1.5px solid #064e3b !important;
 }
 
 .dmr-sheet.pdf-compact-export .sign-row {
@@ -2890,7 +2897,7 @@ html:not(.light) .log-table th {
   background: #ffffff;
   padding: 12px 14px;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
-  border: 2px solid #1e3a8a;
+  border: 2px solid #064e3b;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: #0f172a;
   box-sizing: border-box;
@@ -2977,7 +2984,7 @@ html:not(.light) .log-table th {
   font-family: inherit;
   font-style: normal;
   text-transform: uppercase;
-  color: #1e3a8a;
+  color: #064e3b;
   letter-spacing: 0.5px;
   line-height: 1.25;
 }
@@ -2992,7 +2999,7 @@ html:not(.light) .log-table th {
   font-weight: 900;
   font-size: 14px;
   text-transform: uppercase;
-  color: #1e3a8a;
+  color: #064e3b;
   letter-spacing: 0.5px;
   line-height: 1.2;
   margin-bottom: 2px;
@@ -3042,7 +3049,7 @@ html:not(.light) .log-table th {
   font-weight: 800;
   font-size: 13px;
   text-align: center;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .sop-doc-title {
@@ -3050,7 +3057,7 @@ html:not(.light) .log-table th {
   font-size: 14px;
   letter-spacing: 1px;
   text-align: center;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .sop-brand {
@@ -3058,14 +3065,14 @@ html:not(.light) .log-table th {
   font-weight: 800;
   font-family: inherit;
   text-align: center;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .sop-pfollow {
   font-size: 14px;
   font-family: inherit;
   text-align: center;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .sop-prod-pieces {
@@ -3073,7 +3080,7 @@ html:not(.light) .log-table th {
   font-size: 13px;
   letter-spacing: 0.5px;
   text-align: center;
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 .sop-item-desc {
@@ -3121,7 +3128,7 @@ html:not(.light) .log-table th {
   font-weight: 800;
   font-size: 10.5px;
   text-transform: uppercase;
-  color: #1e3a8a;
+  color: #064e3b;
   letter-spacing: 0.3px;
   white-space: nowrap;
 }
@@ -3186,7 +3193,7 @@ html:not(.light) .log-table th {
 .sop-ref-hdr {
   font-style: italic;
   font-size: 10.5px;
-  color: #1e3a8a;
+  color: #064e3b;
   font-weight: 700;
 }
 
@@ -3209,8 +3216,8 @@ html:not(.light) .log-table th {
 .sop-general-th {
   font-size: 11px;
   font-weight: 800;
-  background: #e0e7ff;
-  color: #1e3a8a;
+  background: #ecfdf5;
+  color: #064e3b;
 }
 
 .sop-row {
@@ -3270,8 +3277,8 @@ html:not(.light) .log-table th {
   font-weight: 800;
   font-size: 10.5px;
   text-align: center;
-  color: #1e3a8a;
-  background: #e0e7ff;
+  color: #064e3b;
+  background: #ecfdf5;
   padding: 3px 4px !important;
   text-transform: uppercase;
   letter-spacing: 0.2px;
@@ -3363,7 +3370,7 @@ html:not(.light) .log-table th {
 .sop-sig-title {
   font-weight: 700;
   font-size: 11px;
-  color: #1e3a8a;
+  color: #064e3b;
   padding: 5px 8px !important;
 }
 
@@ -3631,7 +3638,7 @@ html:not(.light) .log-table th {
     overflow: hidden !important;
     box-shadow: none !important;
     background: #ffffff !important;
-    border: 1px solid #1e3a8a !important;
+    border: 1px solid #064e3b !important;
     color: #0f172a !important;
     font-size: 7.5px !important;
     line-height: 1.15 !important;
@@ -3745,7 +3752,7 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .labeltext {
-    color: #1e3a8a !important;
+    color: #064e3b !important;
   }
 
   .dmr-sheet .value-strong {
@@ -3753,13 +3760,13 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .sec-head .tcell {
-    border-color: #1e3a8a !important;
+    border-color: #064e3b !important;
   }
 
   .dmr-sheet .plant-cell {
-    background: #0f2942 !important;
+    background: #022c22 !important;
     color: #ffffff !important;
-    border-color: #0f2942 !important;
+    border-color: #022c22 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -3774,9 +3781,9 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .title-cell {
-    background: #1e3a8a !important;
+    background: #064e3b !important;
     color: #ffffff !important;
-    border-color: #1e3a8a !important;
+    border-color: #064e3b !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -3791,9 +3798,9 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .doc-cell {
-    background: #0f2942 !important;
+    background: #022c22 !important;
     color: #ffffff !important;
-    border-color: #0f2942 !important;
+    border-color: #022c22 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -3816,7 +3823,7 @@ html:not(.light) .log-table th {
   .dmr-sheet .refs-header .tcell {
     background: #f1f5f9 !important;
     border-color: #cbd5e1 !important;
-    color: #1e3a8a !important;
+    color: #064e3b !important;
     font-weight: 800 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -3830,7 +3837,7 @@ html:not(.light) .log-table th {
 
   .dmr-sheet .reflabel {
     background: #f1f5f9 !important;
-    color: #1e3a8a !important;
+    color: #064e3b !important;
     font-weight: 800 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -3851,7 +3858,7 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .table-head-row .tcell {
-    background: #1e3a8a !important;
+    background: #064e3b !important;
     color: #ffffff !important;
     border-color: #10b981 !important;
     font-weight: 800 !important;
@@ -3902,7 +3909,7 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .shiftcell {
-    color: #1e3a8a !important;
+    color: #064e3b !important;
     font-weight: 700 !important;
   }
 
@@ -3912,30 +3919,30 @@ html:not(.light) .log-table th {
   }
 
   .dmr-sheet .numcell.target {
-    color: #1e3a8a !important;
+    color: #064e3b !important;
     font-weight: 600 !important;
   }
 
   .dmr-sheet .trow.subtotal .tcell {
-    background: #e0e7ff !important;
-    border-top: 1.5px solid #1e3a8a !important;
-    border-bottom: 1.5px solid #1e3a8a !important;
+    background: #ecfdf5 !important;
+    border-top: 1.5px solid #064e3b !important;
+    border-bottom: 1.5px solid #064e3b !important;
     border-color: #cbd5e1 !important;
-    color: #1e3a8a !important;
+    color: #064e3b !important;
     font-weight: 800 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .dmr-sheet .trow.subtotal .totallabel {
-    color: #1e3a8a !important;
+    color: #064e3b !important;
   }
 
   .dmr-sheet .trow.grand .tcell {
-    background: #1e3a8a !important;
+    background: #064e3b !important;
     color: #ffffff !important;
-    border-top: 1.5px solid #0f2942 !important;
-    border-bottom: 1.5px solid #0f2942 !important;
+    border-top: 1.5px solid #022c22 !important;
+    border-bottom: 1.5px solid #022c22 !important;
     border-color: #10b981 !important;
     font-weight: 900 !important;
     -webkit-print-color-adjust: exact !important;
@@ -3949,7 +3956,7 @@ html:not(.light) .log-table th {
   .dmr-sheet .oee-labels .tcell {
     background: #e2e8f0 !important;
     color: #0f172a !important;
-    border-top: 1.5px solid #1e3a8a !important;
+    border-top: 1.5px solid #064e3b !important;
     border-color: #cbd5e1 !important;
     font-weight: 800 !important;
     -webkit-print-color-adjust: exact !important;
@@ -3971,7 +3978,7 @@ html:not(.light) .log-table th {
   .dmr-sheet .oee-formula-row .tcell {
     background: #f8fafc !important;
     color: #475569 !important;
-    border-bottom: 1.5px solid #1e3a8a !important;
+    border-bottom: 1.5px solid #064e3b !important;
     border-color: #cbd5e1 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -5111,9 +5118,9 @@ html:not(.light) .log-table th {
   }
 
   .plant-analytics-container .table-count-badge {
-    background: #eef4fb !important;
-    border: 1px solid #b8cce4 !important;
-    color: #1f4e79 !important;
+    background: #f0fdfa !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #064e3b !important;
     font-size: 9px !important;
     font-weight: 700 !important;
     padding: 2px 6px !important;
@@ -5998,7 +6005,7 @@ html:not(.light) .log-table th {
 }
 
 .print-sop-badge-sop {
-  background: #1e3a8a;
+  background: #064e3b;
   color: #ffffff;
   font-size: 10px;
   font-weight: 800;
@@ -6311,7 +6318,7 @@ html:not(.light) .log-table th {
 }
 
 .print-sop-fetch-btn:hover:not(:disabled) {
-  background: #e0e7ff;
+  background: #ecfdf5;
   color: #3730a3;
   border-color: #a5b4fc;
   box-shadow: 0 1px 3px rgba(67, 56, 202, 0.15);
@@ -8104,7 +8111,7 @@ html.light .daily-eval-root .supervisor-hero-badge {
 }
 
 html.light .daily-eval-root .supervisor-hero-title {
-  color: #1e3a8a;
+  color: #064e3b;
 }
 
 html.light .daily-eval-root .supervisor-hero-desc {

@@ -1,4 +1,6 @@
 import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 import {
   calculateMatrixRowMetrics,
   autoBalanceRowHours,
@@ -1446,4 +1448,37 @@ console.log('--- Starting Daily Reconciliation Matrix Unit Tests ---');
   console.log('Test 25 Passed: Speed Efficiency reactively updates when Std Rate is modified (drops from 106% to 78%)');
 }
 
-console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (25/25) ---');
+// Test 26: Verification of Column Headers in Daily Reconciliation Matrix Table
+{
+  const filePath = path.resolve('src/components/daily-evaluation/DailyReconciliationMatrixView.jsx');
+  const jsxContent = fs.readFileSync(filePath, 'utf8');
+
+  // Verify thead has sticky top-0 and z-20
+  assert.ok(jsxContent.includes('sticky top-0 z-20'), 'thead must have sticky top-0 and z-20');
+
+  // Verify matrix-sub-header-row class exists
+  assert.ok(jsxContent.includes('matrix-sub-header-row'), 'sub-header row must include matrix-sub-header-row');
+
+  // Verify matrix-sub-th class exists across th elements
+  assert.ok(jsxContent.includes('matrix-sub-th'), 'column th elements must include matrix-sub-th');
+
+  // Verify all required column labels exist
+  assert.ok(jsxContent.includes('Line &amp; Machine'), 'Must include Line & Machine header');
+  assert.ok(jsxContent.includes('Product Code &amp; Mold Specs'), 'Must include Product Code & Mold Specs header');
+  assert.ok(jsxContent.includes('Std Target (Pcs / Kg)'), 'Must include Std Target (Pcs / Kg) header');
+  assert.ok(jsxContent.includes('Actual FG Output'), 'Must include Actual FG Output header');
+  assert.ok(jsxContent.includes('Variance (Pcs / Kg)'), 'Must include Variance (Pcs / Kg) header');
+  assert.ok(jsxContent.includes('Operating (h)'), 'Must include Operating (h) header');
+  assert.ok(jsxContent.includes('Actual Realized Rate (Pcs/h, Kg/h, Eff%)'), 'Must include Actual Realized Rate (Pcs/h, Kg/h, Eff%) header');
+  assert.ok(jsxContent.includes('Die/Mold (h)'), 'Must include Die/Mold downtime category');
+  assert.ok(jsxContent.includes('Purge/Clean (h)'), 'Must include Purge/Clean downtime category');
+  assert.ok(jsxContent.includes('Heater Fail (h)'), 'Must include Heater Fail downtime category');
+  assert.ok(jsxContent.includes('Mech/Puller (h)'), 'Must include Mech/Puller downtime category');
+  assert.ok(jsxContent.includes('Material/No Order (h)'), 'Must include Material/No Order downtime category');
+  assert.ok(jsxContent.includes('Other Stop (h)'), 'Must include Other Stop downtime category');
+
+  console.log('Test 26 Passed: Daily Reconciliation Matrix column header visibility and labels verified');
+}
+
+console.log('--- ALL DAILY RECONCILIATION MATRIX UNIT TESTS PASSED (26/26) ---');
+

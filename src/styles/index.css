@@ -445,29 +445,38 @@ html:not(.light) thead:not([class*="bg-slate-1"]):not([class*="bg-white"]) th:no
   color: #ffffff !important;
 }
 
-/* Daily Reconciliation Matrix Sub-Header Styles (Prevent white-on-white collision) */
+/* Daily Reconciliation Matrix Sub-Header Styles (Prevent white-on-white collision & enforce high contrast) */
+.matrix-sub-header-row,
 .matrix-sub-header-row th,
 th.matrix-sub-th,
 html.light .matrix-sub-header-row th,
 html.light th.matrix-sub-th {
-  color: #1e293b !important;
-  font-weight: 600 !important;
-  font-size: 11px !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  font-size: 11.5px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
-  background: #f8fafc !important;
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  height: auto !important;
 }
 
 html:not(.light) .matrix-sub-header-row th,
 html:not(.light) th.matrix-sub-th {
-  color: #e2e8f0 !important;
-  font-weight: 600 !important;
-  font-size: 11px !important;
+  color: #f1f5f9 !important;
+  font-weight: 700 !important;
+  font-size: 11.5px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
-  background: #1e293b !important;
-  background-color: #1e293b !important;
+  background-color: #0f172a !important;
+  border-bottom: 2px solid #334155 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  height: auto !important;
 }
 
 html.light thead th[class*="bg-teal-950"] {

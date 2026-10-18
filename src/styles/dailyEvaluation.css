@@ -9118,8 +9118,38 @@ html:not(.light) .standards-catalog-count-note {
   }
 }
 
+/* ========================================================
+   RECONCILIATION MATRIX HEADER VISIBILITY & HIGH CONTRAST
+   ======================================================== */
+.matrix-sub-header-row,
+.matrix-sub-header-row th,
+th.matrix-sub-th {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  font-size: 11.5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 36px !important;
+}
 
+html.light .matrix-sub-header-row,
+html.light .matrix-sub-header-row th,
+html.light th.matrix-sub-th {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
 
-
-
-
+html:not(.light) .matrix-sub-header-row,
+html:not(.light) .matrix-sub-header-row th,
+html:not(.light) th.matrix-sub-th {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-bottom: 2px solid #334155 !important;
+}

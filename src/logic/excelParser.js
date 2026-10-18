@@ -785,8 +785,9 @@ export function parseExcelWorkbook(fileBuffer) {
   const wb = XLSX.read(fileBuffer, { type: 'array', cellDates: true });
 
   // 1. Dynamic Catalog Ingestion: Check for "Unique Planning Catalog" and ingest products
+  let catalogSync = null;
   try {
-    parseUniquePlanningCatalogSheet(wb);
+    catalogSync = parseUniquePlanningCatalogSheet(wb);
   } catch (err) {
     console.warn('Failed to parse Unique Planning Catalog sheet:', err);
   }
@@ -795,7 +796,11 @@ export function parseExcelWorkbook(fileBuffer) {
   const machineMaster = parseMachineMaster(wb);
 
   // 3. Parse daily log rows using matched sheet and dynamic master
-  return parseDailyLog(wb, machineMaster);
+  const dailyLogs = parseDailyLog(wb, machineMaster);
+  return {
+    ...dailyLogs,
+    catalogSync
+  };
 }
 
 /**

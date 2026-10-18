@@ -6,6 +6,13 @@
 
 import { SOP_FACTORY_PRESETS, resolveStdWeightFromSpecs } from './legacySopHelper.js';
 import { parseDiameterToMm } from '../utils/masterProfiles.js';
+import { matchMachine } from '../config/machines.js';
+import {
+  hasBaselineRate,
+  getBaselineEntry,
+  saveBaselineRate,
+  makeCatalogKey
+} from './standardCatalogHelper.js';
 
 export const PRODUCT_CATALOG_STORAGE_KEY = 'pvc_product_catalog_registry';
 export const PRODUCT_CATALOG_UPDATED_EVENT = 'pvc_product_catalog_updated';
@@ -264,17 +271,93 @@ export function saveProduct(productData, options = { syncServer: true }) {
 }
 
 /**
+ * Resolve canonical machine line ID (e.g. "L-06") from label or string
+ * @param {string} rawLine
+ * @returns {string|null}
+ */
+export function resolveCanonicalLineId(rawLine) {
+  if (!rawLine || rawLine === '-' || /unknown/i.test(rawLine)) return null;
+  const clean = String(rawLine).trim();
+  const matched = matchMachine(clean);
+  if (matched?.id) return matched.id.toUpperCase();
+  const m = clean.toUpperCase().match(/L[-_ ]?0?(\d+)/i);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    return `L-${String(num).padStart(2, '0')}`;
+  }
+  return null;
+}
+
+/**
+ * Compare technical specifications between existing catalog record and incoming Excel master
+ * Returns true if any engineering spec (OD, wall thickness, material, unit weight, description) differs.
+ */
+export function areTechnicalSpecsDifferent(existing, incoming) {
+  if (!existing || !incoming) return false;
+
+  // 1. Pipe OD
+  const existingOd = String(existing.odMm || '').trim();
+  const incomingOd = String(incoming.odMm || '').trim();
+  if (incomingOd && existingOd !== incomingOd) return true;
+
+  // 2. Wall Thickness / SDR
+  const existingWt = String(existing.wallThickness || '').trim();
+  const incomingWt = String(incoming.wallThickness || '').trim();
+  if (incomingWt && existingWt !== incomingWt) return true;
+
+  // 3. Material
+  const existingMat = String(existing.material || '').trim().toLowerCase();
+  const incomingMat = String(incoming.material || '').trim().toLowerCase();
+  if (incomingMat && existingMat !== incomingMat) return true;
+
+  // 4. Unit Weight / Std Weight
+  const existingWeight = Number(existing.unitWeight || existing.stdWeight || 0);
+  const incomingWeight = Number(incoming.unitWeight || incoming.stdWeight || 0);
+  if (incomingWeight > 0 && existingWeight > 0 && Math.abs(existingWeight - incomingWeight) > 0.001) {
+    return true;
+  }
+  if (incomingWeight > 0 && (!existingWeight || existingWeight <= 0)) {
+    return true;
+  }
+
+  // 5. Description
+  const existingDesc = String(existing.description || '').trim();
+  const incomingDesc = String(incoming.description || '').trim();
+  if (incomingDesc && existingDesc !== incomingDesc) return true;
+
+  return false;
+}
+
+/**
  * Upsert a batch of product records into the registry
- * Preserves existing verified standards while merging newly observed specs.
+ * Enforces strict Conflict Resolution:
+ * - Technical Specs (Pipe OD, SDR, Wall Thickness, Unit Weight, Material): EXCEL MASTER WINS.
+ * - Machine Operational Baselines: MANUAL OVERRIDE WINS (shop-floor calibrations protected 100%).
+ * - Uncalibrated Lines: Initialized from Excel nominal values.
  * @param {Array<Object>} items
  * @param {Object} [options]
- * @returns {number} Number of upserted products
+ * @returns {Object} { count, newProductsCount, refreshedSpecsCount, protectedBaselinesCount, auditMessage }
  */
 export function upsertBatchProducts(items = [], options = { syncServer: true, source: 'excel' }) {
-  if (!Array.isArray(items) || items.length === 0) return 0;
+  if (!Array.isArray(items) || items.length === 0) {
+    const emptyResult = {
+      count: 0,
+      newProductsCount: 0,
+      refreshedSpecsCount: 0,
+      protectedBaselinesCount: 0,
+      auditMessage: null,
+      valueOf() { return 0; }
+    };
+    return emptyResult;
+  }
+
   const registry = { ...getProductCatalogRegistry() };
   let changeCount = 0;
+  let newProductsCount = 0;
+  let refreshedSpecsCount = 0;
+  let protectedBaselinesCount = 0;
   const updatedItems = [];
+  const checkedBaselineKeys = new Set();
 
   for (const item of items) {
     if (!item) continue;
@@ -297,8 +380,69 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
     let targetPcsH = item.targetPcsH != null ? Math.round(Number(item.targetPcsH)) : (existing?.targetPcsH || null);
     let nominalSpeed = item.nominalSpeed != null ? Number(item.nominalSpeed) : (existing?.nominalSpeed || null);
 
+    // Identify candidate machine lines
+    const candidateLines = [];
+    const primaryCanonical = resolveCanonicalLineId(item.primaryExtruder || existing?.primaryExtruder);
+    if (primaryCanonical) {
+      candidateLines.push({ lineId: primaryCanonical, rate: targetPcsH });
+    }
+
+    if (Array.isArray(item.alternativeLines)) {
+      item.alternativeLines.forEach((alt) => {
+        const canonical = resolveCanonicalLineId(alt.lineId);
+        if (canonical && !candidateLines.some((c) => c.lineId === canonical)) {
+          candidateLines.push({ lineId: canonical, rate: alt.rate || targetPcsH });
+        }
+      });
+    }
+
+    // 1. Machine Operational Baselines: Conflict Resolution
+    // MANUAL OVERRIDE WINS: If an approved baseline exists, PRESERVE IT 100%.
+    // Fallback for Uncalibrated Lines: If no baseline exists, initialize from Excel nominal values.
+    if (options.source === 'excel' || options.source === 'excel_catalog' || options.protectBaselines) {
+      for (const cand of candidateLines) {
+        const baselineKey = makeCatalogKey(cand.lineId, rawCode);
+        if (!baselineKey || checkedBaselineKeys.has(baselineKey)) continue;
+        checkedBaselineKeys.add(baselineKey);
+
+        if (hasBaselineRate(cand.lineId, rawCode)) {
+          // Manual baseline override preserved 100%
+          protectedBaselinesCount++;
+        } else if (cand.rate && cand.rate > 0) {
+          // Uncalibrated line fallback: initialize from Excel
+          saveBaselineRate(cand.lineId, rawCode, cand.rate, 'Initialized from Excel Unique Planning Catalog');
+        }
+      }
+    }
+
+    // If primary line has an approved manual baseline, preserve it on the product record too
+    if (primaryCanonical && hasBaselineRate(primaryCanonical, rawCode)) {
+      const entry = getBaselineEntry(primaryCanonical, rawCode);
+      if (entry && entry.baselinePcsH > 0) {
+        targetPcsH = entry.baselinePcsH;
+      }
+    }
+
     if ((targetPcsH === null || targetPcsH <= 0) && nominalSpeed > 0 && pipeLength > 0) {
       targetPcsH = Math.round((nominalSpeed * 60) / pipeLength);
+    } else if (targetPcsH > 0 && pipeLength > 0) {
+      nominalSpeed = Math.round(((targetPcsH * pipeLength) / 60) * 10) / 10;
+    }
+
+    // 2. Technical Specs Conflict Resolution: EXCEL MASTER WINS
+    if (!existing) {
+      newProductsCount++;
+    } else {
+      const specsDiffer = areTechnicalSpecsDifferent(existing, {
+        odMm: item.odMm,
+        wallThickness: item.wallThickness,
+        material: item.material,
+        unitWeight: uWeight,
+        description: desc
+      });
+      if (specsDiffer) {
+        refreshedSpecsCount++;
+      }
     }
 
     const merged = {
@@ -335,7 +479,20 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
     }
   }
 
-  return changeCount;
+  const auditMessage = (newProductsCount > 0 || refreshedSpecsCount > 0 || protectedBaselinesCount > 0)
+    ? `Catalog Sync Complete: ${newProductsCount} new products added, ${refreshedSpecsCount} engineering specs refreshed, ${protectedBaselinesCount} shop-floor baselines protected.`
+    : null;
+
+  const result = {
+    count: changeCount,
+    newProductsCount,
+    refreshedSpecsCount,
+    protectedBaselinesCount,
+    auditMessage,
+    valueOf() { return changeCount; }
+  };
+
+  return result;
 }
 
 /**
@@ -384,7 +541,15 @@ export function autoRegisterPendingProduct(itemCode, description = '', specs = {
  */
 export function parseUniquePlanningCatalogSheet(wb) {
   if (!wb || !wb.SheetNames || !Array.isArray(wb.SheetNames)) {
-    return { success: false, count: 0, sheetFound: false };
+    return {
+      success: false,
+      count: 0,
+      sheetFound: false,
+      newProductsCount: 0,
+      refreshedSpecsCount: 0,
+      protectedBaselinesCount: 0,
+      auditMessage: null
+    };
   }
 
   const sheetName = wb.SheetNames.find((name) =>
@@ -395,12 +560,28 @@ export function parseUniquePlanningCatalogSheet(wb) {
   );
 
   if (!sheetName) {
-    return { success: false, count: 0, sheetFound: false };
+    return {
+      success: false,
+      count: 0,
+      sheetFound: false,
+      newProductsCount: 0,
+      refreshedSpecsCount: 0,
+      protectedBaselinesCount: 0,
+      auditMessage: null
+    };
   }
 
   const sheet = wb.Sheets[sheetName];
   if (!sheet) {
-    return { success: false, count: 0, sheetFound: false };
+    return {
+      success: false,
+      count: 0,
+      sheetFound: false,
+      newProductsCount: 0,
+      refreshedSpecsCount: 0,
+      protectedBaselinesCount: 0,
+      auditMessage: null
+    };
   }
 
   // Import XLSX dynamically or use global/passed tools
@@ -423,7 +604,15 @@ export function parseUniquePlanningCatalogSheet(wb) {
   }
 
   if (tableRows.length === 0) {
-    return { success: true, count: 0, sheetFound: true };
+    return {
+      success: true,
+      count: 0,
+      sheetFound: true,
+      newProductsCount: 0,
+      refreshedSpecsCount: 0,
+      protectedBaselinesCount: 0,
+      auditMessage: null
+    };
   }
 
   const ingestedItems = [];
@@ -516,11 +705,29 @@ export function parseUniquePlanningCatalogSheet(wb) {
       ''
     ).trim();
 
+    const rawAltRate1 = String(
+      row['Alternative Rate Band 1 (kg/hr)'] ??
+      row['Alternative Rate Band 1'] ??
+      row['Planning Alternative 1 Rate Band'] ??
+      row['J'] ??
+      row[9] ??
+      ''
+    ).trim();
+
     const rawAltMach2 = String(
       row['Alternative Extruder 2'] ??
       row['Planning Alternative 2'] ??
       row['K'] ??
       row[10] ??
+      ''
+    ).trim();
+
+    const rawAltRate2 = String(
+      row['Alternative Rate Band 2 (kg/hr)'] ??
+      row['Alternative Rate Band 2'] ??
+      row['Planning Alternative 2 Rate Band'] ??
+      row['L'] ??
+      row[11] ??
       ''
     ).trim();
 
@@ -533,7 +740,64 @@ export function parseUniquePlanningCatalogSheet(wb) {
 
     const odMmNum = parseDiameterToMm(rawOd) || (rawOd.match(/\d+(?:\.\d+)?/) ? Number(rawOd.match(/\d+(?:\.\d+)?/)[0]) : null);
 
-    const resolvedWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, 6.0) || 0;
+    let resolvedWeight = Number(
+      row['Unit Weight (kg)'] ??
+      row['Unit Weight'] ??
+      row['Std Weight'] ??
+      row['Weight (kg)'] ??
+      row['Unit Wt'] ??
+      0
+    );
+    if (isNaN(resolvedWeight) || resolvedWeight <= 0) {
+      resolvedWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, 6.0) || 0;
+    }
+    if (resolvedWeight <= 0 && odMmNum > 0) {
+      const wtMatch = rawWt.match(/\d+(?:\.\d+)?/);
+      const wtNum = wtMatch ? Number(wtMatch[0]) : 0;
+      if (wtNum > 0 && wtNum < odMmNum) {
+        resolvedWeight = Math.round(Math.PI * (odMmNum - wtNum) * wtNum * 6.0 * 0.00142 * 100) / 100;
+      }
+    }
+
+    const rawDirectPcsH = Number(
+      row['Target Pace (pcs/hr)'] ??
+      row['Target Rate (Pcs/h)'] ??
+      row['Target (Pcs/h)'] ??
+      row['Target Pcs/h'] ??
+      0
+    );
+    const targetPcsH = (rawDirectPcsH > 0)
+      ? Math.round(rawDirectPcsH)
+      : ((histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null);
+
+    const altLines = [];
+    const alt1Line = resolveCanonicalLineId(rawAltMach1);
+    if (alt1Line) {
+      const alt1Match = rawAltRate1.match(/\d+(?:\.\d+)?/g);
+      let alt1RateKgH = null;
+      if (alt1Match && alt1Match.length > 0) {
+        const nums = alt1Match.map(Number);
+        alt1RateKgH = nums.reduce((a, b) => a + b, 0) / nums.length;
+      }
+      const alt1PcsH = (alt1RateKgH && resolvedWeight > 0)
+        ? Math.round(alt1RateKgH / resolvedWeight)
+        : (targetPcsH || null);
+      altLines.push({ lineId: alt1Line, rate: alt1PcsH });
+    }
+
+    const alt2Line = resolveCanonicalLineId(rawAltMach2);
+    if (alt2Line) {
+      const alt2Match = rawAltRate2.match(/\d+(?:\.\d+)?/g);
+      let alt2RateKgH = null;
+      if (alt2Match && alt2Match.length > 0) {
+        const nums = alt2Match.map(Number);
+        alt2RateKgH = nums.reduce((a, b) => a + b, 0) / nums.length;
+      }
+      const alt2PcsH = (alt2RateKgH && resolvedWeight > 0)
+        ? Math.round(alt2RateKgH / resolvedWeight)
+        : (targetPcsH || null);
+      altLines.push({ lineId: alt2Line, rate: alt2PcsH });
+    }
 
     ingestedItems.push({
       itemCode: rawCode,
@@ -548,13 +812,28 @@ export function parseUniquePlanningCatalogSheet(wb) {
       primaryExtruder: rawPrimaryMach && rawPrimaryMach !== '-' ? rawPrimaryMach : '',
       compatibleMachines,
       targetPcsH: (histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null,
+      alternativeLines: altLines,
       isPending: false,
       source: 'excel_catalog'
     });
   }
 
-  const count = upsertBatchProducts(ingestedItems, { syncServer: true, source: 'excel_catalog' });
-  return { success: true, count, sheetFound: true, items: ingestedItems };
+  const batchResult = upsertBatchProducts(ingestedItems, {
+    syncServer: true,
+    source: 'excel_catalog',
+    protectBaselines: true
+  });
+
+  return {
+    success: true,
+    sheetFound: true,
+    count: batchResult.count,
+    newProductsCount: batchResult.newProductsCount,
+    refreshedSpecsCount: batchResult.refreshedSpecsCount,
+    protectedBaselinesCount: batchResult.protectedBaselinesCount,
+    auditMessage: batchResult.auditMessage,
+    items: ingestedItems
+  };
 }
 
 /**

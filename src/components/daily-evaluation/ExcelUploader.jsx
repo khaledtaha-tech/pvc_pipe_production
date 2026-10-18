@@ -118,13 +118,26 @@ export default function ExcelUploader({
           sheetName: res.sheetName,
           latestLoggedDate: res.latestLoggedDate || null,
           latestDateLines: res.latestDateLines || [],
-          latestDateLineMap: res.latestDateLineMap || {}
+          latestDateLineMap: res.latestDateLineMap || {},
+          catalogSync: res.catalogSync || null
         });
       }
 
       if (res.rows.length > 0) {
         const targetD = res.latestLoggedDate || res.rows[0].date;
         if (targetD) setSelectedDate(targetD);
+      }
+
+      if (res.catalogSync?.auditMessage) {
+        onNotify(res.catalogSync.auditMessage);
+        if (res.rows.length > 0) {
+          setTimeout(() => {
+            onNotify(
+              `Parsed ${res.rows.length} logs from "${res.sheetName}" & ${res.machineMaster?.length || 9} lines from Machine_Master`
+            );
+          }, 3500);
+        }
+      } else if (res.rows.length > 0) {
         onNotify(
           `Parsed ${res.rows.length} logs from "${res.sheetName}" & ${res.machineMaster?.length || 9} lines from Machine_Master`
         );

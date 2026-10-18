@@ -23,6 +23,12 @@ import {
   syncProductsWithServer,
   PRODUCT_CATALOG_STORAGE_KEY
 } from '../../src/logic/productCatalogHelper.js';
+import {
+  saveBaselineRate,
+  getBaselineRate,
+  getBaselineEntry,
+  hasBaselineRate
+} from '../../src/logic/standardCatalogHelper.js';
 import { getAvailableProductsCatalog, resolveStdWeightFromSpecs } from '../../src/logic/legacySopHelper.js';
 import { parseExcelWorkbook } from '../../src/logic/excelParser.js';
 
@@ -256,4 +262,209 @@ assert.strictEqual(fetchedRemote.unitWeight, 2.15);
 globalThis.fetch = originalFetch;
 console.log('Test 8 Passed: Server sync and bidirectional merge verified.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (8/8) ---');
+// 9. Conflict Resolution: Excel Master Wins on Technical Specs
+console.log('Test 9: Conflict resolution - Excel master wins on technical specs');
+// Pre-register product with outdated specs
+saveProduct({
+  itemCode: 'CR-SPEC-01',
+  description: 'Old Legacy Spec Description',
+  odMm: '110',
+  wallThickness: '3.0mm',
+  material: 'PVC',
+  unitWeight: 1.20,
+  pipeLength: 6.0,
+  source: 'manual'
+}, { syncServer: false });
+
+const wbSpecs = XLSX.utils.book_new();
+const specRows = [
+  {
+    'Item Code': 'CR-SPEC-01',
+    'Product Description & Specs': 'uPVC PIPE 110X4.2MM PN-10 SASO-ISO 1452 (OFFICIAL MASTER)',
+    'Pipe OD (mm) & Nominal Size': '110',
+    'Wall Thickness / SDR': '4.2mm',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '185 kg/hr',
+    'Primary Extruder Recommendation': 'L-05 - KTS 200'
+  }
+];
+const wsSpecs = XLSX.utils.json_to_sheet(specRows);
+XLSX.utils.book_append_sheet(wbSpecs, wsSpecs, 'Unique Planning Catalog');
+
+const specSyncResult = parseUniquePlanningCatalogSheet(wbSpecs);
+assert.strictEqual(specSyncResult.success, true);
+assert.strictEqual(specSyncResult.refreshedSpecsCount, 1, 'Should record 1 engineering spec refreshed');
+assert.strictEqual(specSyncResult.newProductsCount, 0, 'Existing product should not count as new');
+
+const updatedProduct = getProductByCode('CR-SPEC-01');
+assert.strictEqual(updatedProduct.description, 'uPVC PIPE 110X4.2MM PN-10 SASO-ISO 1452 (OFFICIAL MASTER)');
+assert.strictEqual(updatedProduct.wallThickness, '4.2mm');
+assert.strictEqual(updatedProduct.material, 'uPVC');
+console.log('Test 9 Passed: Excel master successfully overwrote technical specs.');
+
+// 10. Conflict Resolution: Shop-Floor Manual Baselines Win 100% & Fallback for Uncalibrated Lines
+console.log('Test 10: Conflict resolution - shop-floor manual baselines win 100%');
+// 1. Manually calibrate L-06 for product CR-BASE-01 on shop floor
+saveBaselineRate('L-06', 'CR-BASE-01', 45, 'Calibrated by Head of Production on shop floor');
+assert.strictEqual(hasBaselineRate('L-06', 'CR-BASE-01'), true);
+assert.strictEqual(getBaselineRate('L-06', 'CR-BASE-01'), 45);
+
+// 2. Incoming Excel sheet provides generic/different rate for L-06 (e.g. ~25 pcs/h) and uncalibrated L-03
+const wbBaseline = XLSX.utils.book_new();
+const baselineRows = [
+  {
+    'Item Code': 'CR-BASE-01',
+    'Product Description & Specs': 'uPVC PIPE 200X8.0MM PN-10',
+    'Pipe OD (mm) & Nominal Size': '200',
+    'Wall Thickness / SDR': '8.0mm',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '200 kg/hr',
+    'Primary Extruder Recommendation': 'L-06 - KTS 700',
+    'Alternative Extruder 1': 'L-03 - Kabra 90',
+    'Alternative Rate Band 1 (kg/hr)': '240 kg/hr'
+  }
+];
+const wsBaseline = XLSX.utils.json_to_sheet(baselineRows);
+XLSX.utils.book_append_sheet(wbBaseline, wsBaseline, 'Unique Planning Catalog');
+
+const baselineSyncResult = parseUniquePlanningCatalogSheet(wbBaseline);
+assert.strictEqual(baselineSyncResult.success, true);
+assert.strictEqual(baselineSyncResult.protectedBaselinesCount, 1, 'Manual baseline on L-06 must be protected');
+
+// Verify manual baseline on L-06 remains 45 pcs/h (100% protected, not overwritten by Excel)
+const postSyncBaseline = getBaselineEntry('L-06', 'CR-BASE-01');
+assert.strictEqual(postSyncBaseline.baselinePcsH, 45, 'Manual shop-floor baseline must remain exactly 45 pcs/h');
+assert.strictEqual(postSyncBaseline.notes, 'Calibrated by Head of Production on shop floor');
+
+// Verify uncalibrated line L-03 was initialized from Excel nominal values
+const postSyncL03 = getBaselineEntry('L-03', 'CR-BASE-01');
+assert.ok(postSyncL03, 'Uncalibrated line L-03 must be initialized');
+assert.ok(postSyncL03.baselinePcsH > 0, 'Uncalibrated line L-03 must have positive rate');
+assert.ok(postSyncL03.notes.includes('Initialized from Excel'), 'Uncalibrated line must note Excel initialization');
+console.log('Test 10 Passed: Manual shop-floor baseline protected 100% and uncalibrated line initialized.');
+
+// 11. Sync Audit Feedback Format & Silent Fallback on Zero-Delta Sync
+console.log('Test 11: Sync audit feedback toast message and silent fallback on zero-delta');
+// Ingestion with 1 new product, 1 refreshed spec, 1 protected baseline
+saveProduct({
+  itemCode: 'AUDIT-SPEC-OLD',
+  description: 'Outdated Spec',
+  odMm: '75',
+  wallThickness: '2.0mm',
+  material: 'uPVC',
+  unitWeight: 0.9
+}, { syncServer: false });
+saveProduct({
+  itemCode: 'AUDIT-BASE-01',
+  description: 'Baseline Protected Product',
+  odMm: '90',
+  wallThickness: '3.5mm',
+  material: 'uPVC',
+  unitWeight: 1.15
+}, { syncServer: false });
+saveBaselineRate('L-06', 'AUDIT-BASE-01', 50, 'Shop floor override');
+
+const wbAudit = XLSX.utils.book_new();
+const auditRows = [
+  {
+    'Item Code': 'AUDIT-NEW-01', // New product
+    'Product Description & Specs': 'Brand New Catalog Product',
+    'Pipe OD (mm) & Nominal Size': '63',
+    'Wall Thickness / SDR': '3.0mm',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '150 kg/hr',
+    'Primary Extruder Recommendation': 'L-05'
+  },
+  {
+    'Item Code': 'AUDIT-SPEC-OLD', // Refreshed spec
+    'Product Description & Specs': 'Refreshed Official Spec',
+    'Pipe OD (mm) & Nominal Size': '75',
+    'Wall Thickness / SDR': '2.5mm', // changed from 2.0mm
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '160 kg/hr',
+    'Primary Extruder Recommendation': ''
+  },
+  {
+    'Item Code': 'AUDIT-BASE-01', // Protected baseline
+    'Product Description & Specs': 'Baseline Protected Product',
+    'Pipe OD (mm) & Nominal Size': '90',
+    'Wall Thickness / SDR': '3.5mm',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '140 kg/hr',
+    'Primary Extruder Recommendation': 'L-06'
+  }
+];
+const wsAudit = XLSX.utils.json_to_sheet(auditRows);
+XLSX.utils.book_append_sheet(wbAudit, wsAudit, 'Unique Planning Catalog');
+
+const auditResult = parseUniquePlanningCatalogSheet(wbAudit);
+assert.strictEqual(auditResult.newProductsCount, 1);
+assert.strictEqual(auditResult.refreshedSpecsCount, 1);
+assert.strictEqual(auditResult.protectedBaselinesCount, 1);
+const expectedMessage = 'Catalog Sync Complete: 1 new products added, 1 engineering specs refreshed, 1 shop-floor baselines protected.';
+assert.strictEqual(auditResult.auditMessage, expectedMessage);
+
+// Test silent fallback when workbook has no changes or conflicts
+const wbNoChanges = XLSX.utils.book_new();
+const wsNoChanges = XLSX.utils.json_to_sheet([
+  {
+    'Item Code': 'AUDIT-SPEC-OLD',
+    'Product Description & Specs': 'Refreshed Official Spec',
+    'Pipe OD (mm) & Nominal Size': '75',
+    'Wall Thickness / SDR': '2.5mm',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '160 kg/hr',
+    'Primary Extruder Recommendation': ''
+  }
+]);
+XLSX.utils.book_append_sheet(wbNoChanges, wsNoChanges, 'Unique Planning Catalog');
+const noChangeResult = parseUniquePlanningCatalogSheet(wbNoChanges);
+assert.strictEqual(noChangeResult.newProductsCount, 0);
+assert.strictEqual(noChangeResult.refreshedSpecsCount, 0);
+assert.strictEqual(noChangeResult.protectedBaselinesCount, 0);
+assert.strictEqual(noChangeResult.auditMessage, null, 'Zero delta sync must return null auditMessage for silent fallback');
+console.log('Test 11 Passed: Sync audit feedback format and silent fallback verified.');
+
+// 12. Historical Log & Finalized Report Immutability
+console.log('Test 12: Historical production log and report archive immutability');
+// Mock existing historical logs in storage
+const testHistoricalLog = {
+  id: 'HIST-2026-09-08-L06',
+  date: '2026-09-08',
+  lineId: 'L-06',
+  itemCode: 'CR-SPEC-01',
+  productionQty: 450,
+  operatingHours: 24,
+  totalWeight: 810,
+  scrapKg: 12
+};
+mockStorageMap.set('pvc_saved_report_2026-09-08_L-06', JSON.stringify(testHistoricalLog));
+
+// Ingest workbook with different catalog data
+const wbHistTest = XLSX.utils.book_new();
+const wsHistTest = XLSX.utils.json_to_sheet([
+  {
+    'Item Code': 'CR-SPEC-01',
+    'Product Description & Specs': 'Engineering Spec Change Version 2',
+    'Pipe OD (mm) & Nominal Size': '110',
+    'Wall Thickness / SDR': '5.0mm',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '210 kg/hr',
+    'Primary Extruder Recommendation': 'L-06'
+  }
+]);
+XLSX.utils.book_append_sheet(wbHistTest, wsHistTest, 'Unique Planning Catalog');
+parseUniquePlanningCatalogSheet(wbHistTest);
+
+// Verify historical log in storage remains 100% identical and untouched
+const preservedLogRaw = mockStorageMap.get('pvc_saved_report_2026-09-08_L-06');
+assert.ok(preservedLogRaw, 'Historical log archive must exist');
+const preservedLog = JSON.parse(preservedLogRaw);
+assert.strictEqual(preservedLog.productionQty, 450, 'Historical production qty must be immutable');
+assert.strictEqual(preservedLog.totalWeight, 810, 'Historical total weight must be immutable');
+assert.strictEqual(preservedLog.scrapKg, 12, 'Historical scrap must be immutable');
+assert.strictEqual(preservedLog.operatingHours, 24, 'Historical operating hours must be immutable');
+console.log('Test 12 Passed: Historical logs and archives remain 100% untouched and immutable.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (12/12) ---');
+

@@ -52,16 +52,27 @@ export function calculateDailyFromHourly(hourlyRatePcsH) {
   return Math.round(hourly * 24);
 }
 
+function getStorage() {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage;
+  }
+  if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
+    return globalThis.localStorage;
+  }
+  return null;
+}
+
 /**
  * Retrieve all persistent machine-mold baseline operating rates.
  * Returns an object keyed by `${lineId}__${productCode}`.
  */
 export function getAllBaselines() {
-  if (typeof window === 'undefined' || !window.localStorage) {
+  const storage = getStorage();
+  if (!storage) {
     return {};
   }
   try {
-    const raw = window.localStorage.getItem(BASELINE_CATALOG_STORAGE_KEY);
+    const raw = storage.getItem(BASELINE_CATALOG_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
     if (parsed && typeof parsed === 'object') {
       Object.keys(parsed).forEach((k) => {
@@ -219,10 +230,11 @@ export function saveBaselineRate(lineId, productCode, baselinePcsH, notes = '', 
 
   catalog[key] = entry;
 
-  if (typeof window !== 'undefined' && window.localStorage) {
+  const storage = getStorage();
+  if (storage) {
     try {
-      window.localStorage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(catalog));
-      if (typeof window.dispatchEvent === 'function') {
+      storage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(
           new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: entry })
         );
@@ -373,7 +385,8 @@ export async function removeBaselineRateFromServer(lineId, productCode, options 
  * @returns {Promise<{ success: boolean, count?: number, catalog?: Object, error?: string, offline?: boolean }>}
  */
 export async function syncBaselinesWithServer(options = {}) {
-  if (typeof window === 'undefined' || !window.localStorage) {
+  const storage = getStorage();
+  if (!storage) {
     return { success: false, offline: true, message: 'No localStorage environment available' };
   }
 
@@ -497,10 +510,11 @@ export function removeBaselineRate(lineId, productCode) {
   const catalog = getAllBaselines();
   if (catalog[key]) {
     delete catalog[key];
-    if (typeof window !== 'undefined' && window.localStorage) {
+    const storage = getStorage();
+    if (storage) {
       try {
-        window.localStorage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(catalog));
-        if (typeof window.dispatchEvent === 'function') {
+        storage.setItem(BASELINE_CATALOG_STORAGE_KEY, JSON.stringify(catalog));
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
           window.dispatchEvent(
             new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: { lineId, productCode, deleted: true } })
           );
@@ -520,10 +534,11 @@ export function removeBaselineRate(lineId, productCode) {
  * Clear all machine-mold baselines from localStorage.
  */
 export function clearAllBaselines(options = {}) {
-  if (typeof window !== 'undefined' && window.localStorage) {
+  const storage = getStorage();
+  if (storage) {
     try {
-      window.localStorage.removeItem(BASELINE_CATALOG_STORAGE_KEY);
-      if (typeof window.dispatchEvent === 'function') {
+      storage.removeItem(BASELINE_CATALOG_STORAGE_KEY);
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(
           new CustomEvent(BASELINE_CATALOG_UPDATED_EVENT, { detail: { cleared: true } })
         );

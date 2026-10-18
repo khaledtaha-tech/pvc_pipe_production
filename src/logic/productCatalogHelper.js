@@ -17,6 +17,7 @@ import {
 
 export const PRODUCT_CATALOG_STORAGE_KEY = 'pvc_product_catalog_registry';
 export const PRODUCT_CATALOG_UPDATED_EVENT = 'pvc_product_catalog_updated';
+export const PROVENANCE_AUDIT_STORAGE_KEY = 'pvc_provenance_latest_audit';
 
 // In-memory fallback for non-browser / test environments
 let inMemoryProductRegistry = null;
@@ -153,6 +154,8 @@ export function getProductCatalogRegistry() {
           if (mergedAny) {
             try {
               storage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(parsed));
+              const snapshot = generateProvenanceAuditSnapshot(Object.values(parsed));
+              storage.setItem(PROVENANCE_AUDIT_STORAGE_KEY, JSON.stringify(snapshot, null, 2));
             } catch (_) {}
           }
           inMemoryProductRegistry = parsed;
@@ -174,6 +177,8 @@ export function getProductCatalogRegistry() {
   if (storage) {
     try {
       storage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(seed));
+      const snapshot = generateProvenanceAuditSnapshot(Object.values(seed));
+      storage.setItem(PROVENANCE_AUDIT_STORAGE_KEY, JSON.stringify(snapshot, null, 2));
     } catch (_) {}
   }
   return seed;
@@ -244,6 +249,9 @@ function persistProductRegistry(registry, detail = {}) {
   if (storage) {
     try {
       storage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(registry));
+      // Dual Sync Persistence: compile and persist latest full diagnostic snapshot
+      const snapshot = generateProvenanceAuditSnapshot(Object.values(registry));
+      storage.setItem(PROVENANCE_AUDIT_STORAGE_KEY, JSON.stringify(snapshot, null, 2));
     } catch (err) {
       console.warn('Failed to save product catalog to storage:', err);
     }
@@ -1182,4 +1190,187 @@ export function getSourceOriginBadgeTheme(origin) {
       };
   }
 }
+
+/**
+ * Transform a product record into the standard Provenance Audit snapshot schema
+ * @param {Object} item
+ * @returns {Object|null}
+ */
+export function transformProductToProvenanceAuditItem(item) {
+  if (!item) return null;
+  const rawCode = String(item.itemCode || item.code || '').trim();
+  const desc = String(item.description || '').trim();
+
+  // Parse OD in mm
+  let od_mm = null;
+  if (item.odMm !== undefined && item.odMm !== null && item.odMm !== '') {
+    const m = String(item.odMm).match(/\d+(?:\.\d+)?/);
+    if (m) {
+      od_mm = Number(parseFloat(m[0]).toFixed(2));
+    }
+  }
+
+  // SDR extraction
+  let sdr = null;
+  const wtRaw = String(item.wallThickness || '').trim();
+  const sdrMatch = wtRaw.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i) ||
+                   desc.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
+  if (sdrMatch) {
+    sdr = `SDR${sdrMatch[1]}`;
+  } else if (/^SDR/i.test(wtRaw)) {
+    sdr = wtRaw.toUpperCase();
+  }
+
+  // Wall thickness in mm
+  let wall_thickness_mm = null;
+  const mmMatch = wtRaw.match(/^(\d+(?:\.\d+)?)\s*(?:mm)?$/i);
+  if (mmMatch && !/sdr/i.test(wtRaw)) {
+    wall_thickness_mm = Number(parseFloat(mmMatch[1]).toFixed(2));
+  } else if (od_mm && sdrMatch) {
+    const sdrVal = parseFloat(sdrMatch[1]);
+    if (sdrVal > 0) {
+      wall_thickness_mm = Number((od_mm / sdrVal).toFixed(2));
+    }
+  }
+
+  // Std weight in kg
+  const uWeight = Number(item.unitWeight || item.stdWeight || 0);
+  const std_weight_kg = uWeight > 0 ? Number(uWeight.toFixed(2)) : 0;
+
+  // Suggested pace in pcs/h
+  const suggested_pace_pcs_h = (item.targetPcsH !== undefined && item.targetPcsH !== null && Number(item.targetPcsH) > 0)
+    ? Math.round(Number(item.targetPcsH))
+    : null;
+
+  const source_origin = item.source_origin || (item.source === 'factory_preset' ? 'preset_seed' : (item.isPending ? 'daily_log' : 'planning_catalog'));
+
+  return {
+    item_code: rawCode,
+    description: desc,
+    od_mm,
+    sdr: sdr || (wtRaw && !wall_thickness_mm ? wtRaw : null),
+    wall_thickness_mm,
+    std_weight_kg,
+    suggested_pace_pcs_h,
+    source_origin,
+    source_file: item.source_file || (source_origin === 'preset_seed' ? 'System Defaults' : (source_origin === 'manual_override' ? 'manual_input' : 'Unique Planning Catalog')),
+    source_sheet: item.source_sheet || (source_origin === 'preset_seed' ? 'Factory Presets' : (source_origin === 'manual_override' ? 'Floor Override' : 'Planning Catalog')),
+    last_updated_at: item.last_updated_at || item.updatedAt || new Date().toISOString()
+  };
+}
+
+/**
+ * Generate complete structured array of catalog provenance audit items
+ * @param {Array<Object>|null} items
+ * @returns {Array<Object>}
+ */
+export function generateProvenanceAuditSnapshot(items = null) {
+  const sourceList = Array.isArray(items) && items.length > 0
+    ? items
+    : getAllProducts();
+
+  return sourceList
+    .map(transformProductToProvenanceAuditItem)
+    .filter(Boolean)
+    .sort((a, b) => {
+      const codeA = String(a.item_code || '');
+      const codeB = String(b.item_code || '');
+      return codeA.localeCompare(codeB, undefined, { numeric: true });
+    });
+}
+
+/**
+ * Persist current full catalog snapshot into localStorage for zero-lag instant exports
+ * @param {Array<Object>|null} items
+ * @returns {Array<Object>} The generated snapshot
+ */
+export function saveProvenanceAuditSnapshot(items = null) {
+  const snapshot = generateProvenanceAuditSnapshot(items);
+  const storage = getStorage();
+  if (storage) {
+    try {
+      storage.setItem(PROVENANCE_AUDIT_STORAGE_KEY, JSON.stringify(snapshot, null, 2));
+    } catch (err) {
+      console.warn('Failed to persist provenance audit snapshot:', err);
+    }
+  }
+  return snapshot;
+}
+
+/**
+ * Retrieve cached provenance audit snapshot from localStorage or generate on-the-fly
+ * @returns {Array<Object>}
+ */
+export function getProvenanceAuditSnapshot() {
+  const storage = getStorage();
+  if (storage) {
+    try {
+      const raw = storage.getItem(PROVENANCE_AUDIT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+  return generateProvenanceAuditSnapshot();
+}
+
+/**
+ * Format audit export filename: Catalog_Provenance_Audit_[YYYY-MM-DD_HHmm].json
+ * @param {Date} [date]
+ * @param {string} [ext]
+ * @returns {string}
+ */
+export function formatProvenanceAuditFilename(date = new Date(), ext = 'json') {
+  const d = (date instanceof Date && !isNaN(date.getTime())) ? date : new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  return `Catalog_Provenance_Audit_${y}-${m}-${day}_${hh}${mm}.${ext}`;
+}
+
+/**
+ * Convert provenance audit snapshot to CSV format
+ * @param {Array<Object>} snapshot
+ * @returns {string}
+ */
+export function convertProvenanceSnapshotToCsv(snapshot = []) {
+  const headers = [
+    'item_code',
+    'description',
+    'od_mm',
+    'sdr',
+    'wall_thickness_mm',
+    'std_weight_kg',
+    'suggested_pace_pcs_h',
+    'source_origin',
+    'source_file',
+    'source_sheet',
+    'last_updated_at'
+  ];
+
+  const escapeCsv = (val) => {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const rows = [headers.join(',')];
+  for (const item of snapshot) {
+    if (!item) continue;
+    const row = headers.map((h) => escapeCsv(item[h]));
+    rows.push(row.join(','));
+  }
+
+  return rows.join('\r\n');
+}
+
 

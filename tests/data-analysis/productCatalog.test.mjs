@@ -23,7 +23,14 @@ import {
   syncProductsWithServer,
   PRODUCT_CATALOG_STORAGE_KEY,
   formatSourceOriginLabel,
-  getSourceOriginBadgeTheme
+  getSourceOriginBadgeTheme,
+  PROVENANCE_AUDIT_STORAGE_KEY,
+  transformProductToProvenanceAuditItem,
+  generateProvenanceAuditSnapshot,
+  saveProvenanceAuditSnapshot,
+  getProvenanceAuditSnapshot,
+  formatProvenanceAuditFilename,
+  convertProvenanceSnapshotToCsv
 } from '../../src/logic/productCatalogHelper.js';
 import {
   saveBaselineRate,
@@ -634,7 +641,79 @@ assert.strictEqual(overrideTheme.tag, 'Calibrated Floor Override');
 
 console.log('Test 16 Passed: Data provenance tracking & source attribution metadata integrity verified.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (16/16) ---');
+// 17. One-Click Export & Diagnostic Snapshot Verification
+console.log('Test 17: One-click export snapshot and dual sync persistence');
+
+assert.strictEqual(PROVENANCE_AUDIT_STORAGE_KEY, 'pvc_provenance_latest_audit');
+
+// 17.1 Verify item transformation schema
+const item188 = getProductByCode('188');
+assert.ok(item188, 'Item 188 must exist');
+const transformed188 = transformProductToProvenanceAuditItem(item188);
+
+assert.strictEqual(transformed188.item_code, '188');
+assert.strictEqual(transformed188.description, 'MANARCO UPVC PIPE 3" SDR26 ASTM');
+assert.strictEqual(transformed188.od_mm, 88.9);
+assert.strictEqual(transformed188.sdr, 'SDR26');
+assert.strictEqual(transformed188.wall_thickness_mm, 3.42);
+assert.strictEqual(transformed188.std_weight_kg, 7.85);
+assert.strictEqual(transformed188.suggested_pace_pcs_h, 25);
+assert.strictEqual(transformed188.source_origin, 'planning_catalog');
+assert.strictEqual(transformed188.source_file, 'Unique_Planning_Catalog.xlsx');
+assert.strictEqual(transformed188.source_sheet, 'Unique Planning Catalog');
+assert.ok(transformed188.last_updated_at, 'last_updated_at must exist');
+
+// Verify preset seed transformation schema
+const seedProduct249 = getProductByCode('249');
+assert.ok(seedProduct249, 'Seed item 249 must exist');
+const transformed249 = transformProductToProvenanceAuditItem(seedProduct249);
+assert.strictEqual(transformed249.item_code, '249');
+assert.strictEqual(transformed249.source_origin, 'preset_seed');
+assert.strictEqual(transformed249.source_file, 'System Defaults');
+assert.strictEqual(transformed249.source_sheet, 'Factory Presets');
+assert.ok(transformed249.last_updated_at, 'last_updated_at must exist');
+
+// 17.2 Verify full audit snapshot generation and dual persistence
+const snapshot = generateProvenanceAuditSnapshot();
+assert.ok(Array.isArray(snapshot), 'Snapshot must be an array');
+assert.ok(snapshot.length >= 20, 'Snapshot must contain all registered products');
+const found188InSnapshot = snapshot.find((x) => x.item_code === '188');
+assert.ok(found188InSnapshot, 'Item 188 must be in generated snapshot');
+
+// Verify dual persistence in localStorage
+saveProvenanceAuditSnapshot();
+const rawStorageAudit = globalThis.localStorage.getItem(PROVENANCE_AUDIT_STORAGE_KEY);
+assert.ok(rawStorageAudit, 'Storage key pvc_provenance_latest_audit must exist');
+const parsedAudit = JSON.parse(rawStorageAudit);
+assert.ok(Array.isArray(parsedAudit), 'Cached audit must be an array');
+assert.strictEqual(parsedAudit.length, snapshot.length);
+
+const retrievedSnapshot = getProvenanceAuditSnapshot();
+assert.strictEqual(retrievedSnapshot.length, snapshot.length);
+
+// 17.3 Verify filename format
+const testDate = new Date('2026-10-18T12:30:00Z');
+const jsonFilename = formatProvenanceAuditFilename(testDate, 'json');
+assert.ok(
+  /^Catalog_Provenance_Audit_\d{4}-\d{2}-\d{2}_\d{4}\.json$/.test(jsonFilename),
+  `Filename ${jsonFilename} must match Catalog_Provenance_Audit_YYYY-MM-DD_HHmm.json`
+);
+
+const csvFilename = formatProvenanceAuditFilename(testDate, 'csv');
+assert.ok(
+  /^Catalog_Provenance_Audit_\d{4}-\d{2}-\d{2}_\d{4}\.csv$/.test(csvFilename),
+  `Filename ${csvFilename} must match Catalog_Provenance_Audit_YYYY-MM-DD_HHmm.csv`
+);
+
+// 17.4 Verify CSV conversion
+const csvContent = convertProvenanceSnapshotToCsv(snapshot.slice(0, 3));
+assert.ok(csvContent.includes('item_code,description,od_mm,sdr'), 'CSV must include standard header row');
+assert.ok(csvContent.split('\r\n').length >= 4, 'CSV must have headers and data rows');
+
+console.log('Test 17 Passed: One-click export snapshot and dual sync persistence verified.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (17/17) ---');
+
 
 
 

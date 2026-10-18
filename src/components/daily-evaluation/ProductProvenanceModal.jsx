@@ -4,8 +4,12 @@ import {
   formatSourceOriginLabel,
   getSourceOriginBadgeTheme,
   PRODUCT_CATALOG_UPDATED_EVENT,
-  syncProductsWithServer
+  syncProductsWithServer,
+  generateProvenanceAuditSnapshot,
+  formatProvenanceAuditFilename,
+  convertProvenanceSnapshotToCsv
 } from '../../logic/productCatalogHelper.js';
+import { downloadBlob } from '../../logic/batchZipExport.js';
 
 export default function ProductProvenanceModal({
   isOpen,
@@ -14,10 +18,41 @@ export default function ProductProvenanceModal({
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [originFilter, setOriginFilter] = useState('ALL');
+  const [feedback, setFeedback] = useState('');
 
   const loadProducts = () => {
     const all = getAllProducts();
     setProducts(all || []);
+  };
+
+  const handleExportJson = () => {
+    try {
+      const snapshot = generateProvenanceAuditSnapshot(products);
+      const jsonContent = JSON.stringify(snapshot, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const filename = formatProvenanceAuditFilename(new Date(), 'json');
+      downloadBlob(blob, filename);
+      setFeedback(`Exported ${snapshot.length} items to ${filename}`);
+      setTimeout(() => setFeedback(''), 4000);
+    } catch (err) {
+      console.warn('Failed to export provenance audit JSON:', err);
+      alert('Failed to export provenance audit JSON.');
+    }
+  };
+
+  const handleExportCsv = () => {
+    try {
+      const snapshot = generateProvenanceAuditSnapshot(products);
+      const csvContent = convertProvenanceSnapshotToCsv(snapshot);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const filename = formatProvenanceAuditFilename(new Date(), 'csv');
+      downloadBlob(blob, filename);
+      setFeedback(`Exported ${snapshot.length} items to ${filename}`);
+      setTimeout(() => setFeedback(''), 4000);
+    } catch (err) {
+      console.warn('Failed to export provenance audit CSV:', err);
+      alert('Failed to export provenance audit CSV.');
+    }
   };
 
   useEffect(() => {
@@ -365,17 +400,58 @@ export default function ProductProvenanceModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between" style={{ flexShrink: 0 }}>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            Showing {filteredProducts.length} of {products.length} registered catalog items
+        <div className="px-6 py-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3" style={{ flexShrink: 0 }}>
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+            <span>Showing {filteredProducts.length} of {products.length} registered catalog items</span>
+            {feedback && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                <span>{feedback}</span>
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
-            onClick={onClose}
-          >
-            Close Inspector
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Export JSON Button */}
+            <button
+              type="button"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
+              onClick={handleExportJson}
+              title="Download structured JSON snapshot of all catalog items and provenance metadata"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Export Provenance Audit (JSON)</span>
+            </button>
+
+            {/* Export CSV Button */}
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+              onClick={handleExportCsv}
+              title="Download CSV table of catalog specifications and provenance"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+              <span>Export (CSV)</span>
+            </button>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
+              onClick={onClose}
+            >
+              Close Inspector
+            </button>
+          </div>
         </div>
       </div>
     </div>

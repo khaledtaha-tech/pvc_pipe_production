@@ -30,7 +30,11 @@ import {
   saveProvenanceAuditSnapshot,
   getProvenanceAuditSnapshot,
   formatProvenanceAuditFilename,
-  convertProvenanceSnapshotToCsv
+  convertProvenanceSnapshotToCsv,
+  isValidProductCode,
+  extractProductDimensions,
+  normalizePipeUnitWeight,
+  purgeInvalidCatalogItems
 } from '../../src/logic/productCatalogHelper.js';
 import {
   saveBaselineRate,
@@ -712,7 +716,150 @@ assert.ok(csvContent.split('\r\n').length >= 4, 'CSV must have headers and data 
 
 console.log('Test 17 Passed: One-click export snapshot and dual sync persistence verified.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (17/17) ---');
+// 18. Garbage Row Filtering & Phantom SKU Rejection
+console.log('Test 18: Garbage row filtering & phantom code rejection');
+assert.strictEqual(isValidProductCode('s'), false, 'Single letter "s" must be rejected');
+assert.strictEqual(isValidProductCode('x'), false, 'Single letter "x" must be rejected');
+assert.strictEqual(isValidProductCode('Dear Sir As Per the plan...'), false, 'Email conversational text must be rejected');
+assert.strictEqual(isValidProductCode('Item Code'), false, 'Header "Item Code" must be rejected');
+assert.strictEqual(isValidProductCode('Total'), false, 'Summary footer "Total" must be rejected');
+assert.strictEqual(isValidProductCode('Grand Total'), false, 'Summary footer "Grand Total" must be rejected');
+assert.strictEqual(isValidProductCode('-'), false, 'Punctuation "-" must be rejected');
+assert.strictEqual(isValidProductCode(''), false, 'Empty code must be rejected');
+
+// Legitimate codes must be accepted
+assert.strictEqual(isValidProductCode('188'), true, 'Item 188 must be valid');
+assert.strictEqual(isValidProductCode('195'), true, 'Item 195 must be valid');
+assert.strictEqual(isValidProductCode('249'), true, 'Item 249 must be valid');
+assert.strictEqual(isValidProductCode('247 R'), true, 'Alphanumeric item 247 R must be valid');
+assert.strictEqual(isValidProductCode('COMP-01'), true, 'Alphanumeric item COMP-01 must be valid');
+
+// Test autoRegisterPendingProduct rejects phantom "s"
+const rejectedS = autoRegisterPendingProduct('s', 'Dear Sir As Per the plan...');
+assert.strictEqual(rejectedS, null, 'autoRegisterPendingProduct must return null for invalid code "s"');
+
+// Test purgeInvalidCatalogItems eliminates existing corrupted entries
+const dirtyRegistry = { ...getProductCatalogRegistry() };
+dirtyRegistry['s'] = {
+  itemCode: 's',
+  description: 'Dear Sir As Per the plan...',
+  unitWeight: 0,
+  stdWeight: 0,
+  source_origin: 'daily_log'
+};
+globalThis.localStorage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(dirtyRegistry));
+const purgedCount = purgeInvalidCatalogItems();
+assert.ok(purgedCount >= 1, 'purgeInvalidCatalogItems must purge at least 1 invalid item');
+const cleanedRegistry = getProductCatalogRegistry();
+assert.strictEqual(cleanedRegistry['s'], undefined, 'Phantom item "s" must not exist in cleaned registry');
+assert.strictEqual(getProductByCode('s'), null, 'getProductByCode("s") must return null');
+console.log('Test 18 Passed: Garbage rows and phantom codes strictly rejected and purged.');
+
+// 19. Auto-Extraction of Engineering Dimensions (OD & Wall Thickness)
+console.log('Test 19: Auto-extraction of engineering dimensions');
+
+// Metric OD & Wall Thickness from description e.g. 110x5.3
+const dims110 = extractProductDimensions({ description: 'uPVC PIPE 110x5.3 PN-12.5 SASO-ISO 1452-2' });
+assert.strictEqual(dims110.od_mm, 110, 'OD must be extracted as 110 mm');
+assert.strictEqual(dims110.wall_thickness_mm, 5.3, 'Wall thickness must be extracted as 5.3 mm');
+
+// Secondary MM pattern e.g. 160MM ... 7.7MM
+const dims160 = extractProductDimensions({ description: 'uPVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R' });
+assert.strictEqual(dims160.od_mm, 160, 'OD must be extracted as 160 mm');
+assert.strictEqual(dims160.wall_thickness_mm, 7.7, 'Wall thickness must be extracted as 7.7 mm');
+
+// Imperial OD with SDR computation e.g. 4" SDR 26 -> OD 114.3mm, Wall 114.3/26 = 4.40mm
+const dims4Inch = extractProductDimensions({ description: 'PVC 4" PIPE SDR 26 ASTMD 2241' });
+assert.strictEqual(dims4Inch.od_mm, 114.3, '4" OD must be 114.3 mm');
+assert.strictEqual(dims4Inch.sdr, 'SDR26', 'SDR must be SDR26');
+assert.strictEqual(dims4Inch.wall_thickness_mm, 4.40, 'Wall thickness for 4" SDR 26 must be 4.40 mm');
+
+// Imperial OD with SDR computation e.g. 3" SDR26 -> OD 88.9mm, Wall 88.9/26 = 3.42mm
+const dims3Inch = extractProductDimensions({ description: 'MANARCO UPVC PIPE 3" SDR26 ASTM' });
+assert.strictEqual(dims3Inch.od_mm, 88.9, '3" OD must be 88.9 mm');
+assert.strictEqual(dims3Inch.sdr, 'SDR26', 'SDR must be SDR26');
+assert.strictEqual(dims3Inch.wall_thickness_mm, 3.42, 'Wall thickness for 3" SDR 26 must be 3.42 mm');
+
+// ASTM Schedule e.g. 3/4" SCH40 -> OD 26.7mm, Wall 2.87mm
+const dimsSch40 = extractProductDimensions({ description: 'PVC PIPE 3/4"SCH40' });
+assert.strictEqual(dimsSch40.od_mm, 26.7, '3/4" OD must be 26.7 mm');
+assert.strictEqual(dimsSch40.wall_thickness_mm, 2.87, '3/4" SCH40 wall thickness must be 2.87 mm');
+
+// Pattern with PN and explicit MM e.g. 75MM PN10X3.6MM
+const dims75 = extractProductDimensions({ description: 'uPVC PIPE 75MM PN10X3.6MM SASO-ISO-1452-2' });
+assert.strictEqual(dims75.od_mm, 75, 'OD must be 75 mm');
+assert.strictEqual(dims75.wall_thickness_mm, 3.6, 'Wall thickness must be 3.6 mm');
+
+console.log('Test 19 Passed: Engineering dimensions successfully auto-extracted across metric and imperial specs.');
+
+// 20. Metric Weight Unit Normalization
+console.log('Test 20: Metric weight unit normalization');
+
+// Item 195 preset verification: 6m full pipe piece weight must be 5.70 kg (not linear 0.95 kg)
+const item195 = getProductByCode('195');
+assert.ok(item195, 'Item 195 must exist');
+assert.strictEqual(item195.unitWeight, 5.70, 'Item 195 unit weight must be normalized to 5.70 kg for 6m pipe');
+assert.strictEqual(item195.stdWeight, 5.70, 'Item 195 std weight must be normalized to 5.70 kg for 6m pipe');
+const audit195 = transformProductToProvenanceAuditItem(item195);
+assert.strictEqual(audit195.std_weight_kg, 5.70, 'Audit item 195 std_weight_kg must be 5.70');
+assert.strictEqual(audit195.od_mm, 75, 'Audit item 195 od_mm must be 75');
+assert.strictEqual(audit195.wall_thickness_mm, 2.2, 'Audit item 195 wall_thickness_mm must be 2.2');
+
+// normalizePipeUnitWeight function tests
+// 1. Pipe OD >= 75mm with suspiciously low weight (< 1.5 kg) is multiplied by 6.0m
+const normLowWeight = normalizePipeUnitWeight(0.95, 75, 6.0, false);
+assert.strictEqual(normLowWeight, 5.70, '0.95 kg/m for 75mm pipe must normalize to 5.70 kg');
+
+// 2. Already normalized pipe weight (e.g. item 249 at 2.65 kg) is NOT altered
+const normStandardWeight = normalizePipeUnitWeight(2.65, 110, 6.0, false);
+assert.strictEqual(normStandardWeight, 2.65, 'Standard weight 2.65 kg must not be altered');
+
+// 3. Small diameter conduit (e.g. 20mm with 0.55 kg) is NOT altered
+const normConduitWeight = normalizePipeUnitWeight(0.55, 20, 6.0, false);
+assert.strictEqual(normConduitWeight, 0.55, 'Conduit weight 0.55 kg must not be altered');
+
+// 4. Compounding (e.g. 25.0 kg) is NOT altered
+const normCompound = normalizePipeUnitWeight(25.0, null, 0, true);
+assert.strictEqual(normCompound, 25.0, 'Compounding 25 kg must not be altered');
+
+console.log('Test 20 Passed: Metric weights normalized to full 6m piece weights accurately.');
+
+// 21. Provenance Metadata Tagging Fix for Daily Production Logs
+console.log('Test 21: Provenance metadata tagging fix for daily logs');
+
+// Ingest a dynamic pending item simulating daily shift log
+const dynamicDailyProd = autoRegisterPendingProduct('199', 'uPVC PIPE 90MM PN10X4.3MM SASO-ISO-1452-2', {
+  source_origin: 'daily_log',
+  source_file: 'AlManar_Daily_Log_Shift1.xlsb',
+  source_sheet: 'Daily Shift Log'
+});
+assert.ok(dynamicDailyProd, 'Dynamic product 199 must be created');
+assert.strictEqual(dynamicDailyProd.source_origin, 'daily_log');
+assert.strictEqual(dynamicDailyProd.source_file, 'AlManar_Daily_Log_Shift1.xlsb');
+assert.strictEqual(dynamicDailyProd.source_sheet, 'Daily Shift Log');
+
+// Verify audit snapshot transformation never reports "Unique Planning Catalog" for daily logs
+const audit199 = transformProductToProvenanceAuditItem(dynamicDailyProd);
+assert.strictEqual(audit199.source_origin, 'daily_log');
+assert.strictEqual(audit199.source_file, 'AlManar_Daily_Log_Shift1.xlsb');
+assert.strictEqual(audit199.source_sheet, 'Daily Shift Log');
+assert.notStrictEqual(audit199.source_file, 'Unique Planning Catalog', 'source_file must never be Unique Planning Catalog for daily_log');
+
+// Verify fallback behavior when source_file was unassigned or mistakenly defaulted to Unique Planning Catalog
+const testLogFallback = transformProductToProvenanceAuditItem({
+  itemCode: '201',
+  description: 'uPVC PIPE 63x3.0 PN-10',
+  source_origin: 'daily_log',
+  source_file: 'Unique Planning Catalog', // erroneous legacy setting
+  source_sheet: 'Unique Planning Catalog'
+});
+assert.strictEqual(testLogFallback.source_origin, 'daily_log');
+assert.strictEqual(testLogFallback.source_file, 'Daily Production Log', 'Erronous fallback must be corrected to Daily Production Log');
+assert.strictEqual(testLogFallback.source_sheet, 'Daily Shift Log', 'Erronous fallback must be corrected to Daily Shift Log');
+
+console.log('Test 21 Passed: Daily log provenance tagging strictly enforced.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (21/21) ---');
 
 
 

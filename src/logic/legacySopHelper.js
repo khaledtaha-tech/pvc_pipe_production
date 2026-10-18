@@ -205,7 +205,7 @@ export const SOP_FACTORY_PRESETS = [
   { itemCode: '991', description: 'PVC 4" PIPE SDR 26 ASTMD 2241', unitWeight: 2.10, stdWeight: 2.10, pipeLength: 6.0 },
   { itemCode: '198', description: 'PVC PIPE 3/4"SCH40', unitWeight: 0.35, stdWeight: 0.35, pipeLength: 6.0 },
   { itemCode: '1291', description: 'MANARCO PVC PIPE 3" SCH 40 ASTMD 1785', unitWeight: 1.85, stdWeight: 1.85, pipeLength: 6.0 },
-  { itemCode: '195', description: 'uPVC PIPE 75MM 2.2MM GRAY PN-6 EN 1452', unitWeight: 0.95, stdWeight: 0.95, pipeLength: 6.0 },
+  { itemCode: '195', description: 'uPVC PIPE 75MM 2.2MM GRAY PN-6 EN 1452', unitWeight: 5.70, stdWeight: 5.70, pipeLength: 6.0, odMm: '75', wallThickness: '2.2mm' },
   { itemCode: '197', description: 'PVC 1" PIPE SCH40 ASTMD 2241', unitWeight: 0.50, stdWeight: 0.50, pipeLength: 6.0 },
   { itemCode: '230', description: 'PVC PIPE 160MM EN1452 PN7.5 4.7MM GRAY R/R', unitWeight: 3.80, stdWeight: 3.80, pipeLength: 6.0 },
   { itemCode: '259', description: 'PVC PIPE 160X11.8MM PN20', unitWeight: 50.0, stdWeight: 50.0, pipeLength: 6.0 },

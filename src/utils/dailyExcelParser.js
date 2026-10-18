@@ -32,7 +32,7 @@ import {
 } from './dailyReportEngine.js';
 import { newId } from '../data/store.js';
 import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
-import { parseUniquePlanningCatalogSheet, autoRegisterPendingProduct } from './productCatalogHelper.js';
+import { parseUniquePlanningCatalogSheet, autoRegisterPendingProduct, isValidProductCode } from './productCatalogHelper.js';
 
 /**
  * Format and normalize Excel date (Date object, serial number, or date string) into YYYY-MM-DD
@@ -569,7 +569,7 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES, options = {}) {
     if (!description && !itemCode && qty === 0) continue;
 
     // Resilient fallback: auto-register unrecorded item codes into central product catalog
-    if (itemCode) {
+    if (itemCode && isValidProductCode(itemCode, description)) {
       try {
         autoRegisterPendingProduct(itemCode, description, {
           unitWeight: unitWeight > 0 ? unitWeight : 0,

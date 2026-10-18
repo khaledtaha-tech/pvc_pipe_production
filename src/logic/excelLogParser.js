@@ -1,7 +1,7 @@
 import { MACHINES, matchMachine, normalizeLineId, sanitizeMachineMaster } from '../config/machines.js';
 import { normalizeExcelDate } from './excelParser.js';
 import { resolveStdWeightFromSpecs } from './legacySopHelper.js';
-import { autoRegisterPendingProduct } from './productCatalogHelper.js';
+import { autoRegisterPendingProduct, isValidProductCode } from './productCatalogHelper.js';
 
 export const LATEST_RUN_STORAGE_KEYS = {
   LATEST_EXCEL_LOGGED_RUN: 'latestExcelLoggedRun',
@@ -168,7 +168,7 @@ export function extractLatestDateOperationalLines(rowsOrParsed, targetDate = nul
       : resolveStdWeightFromSpecs({ itemCode: cleanItemCode, description: cleanDesc }, 6.0);
 
     // Auto-register discovered product into central catalog
-    if (cleanItemCode) {
+    if (cleanItemCode && isValidProductCode(cleanItemCode, cleanDesc)) {
       try {
         autoRegisterPendingProduct(cleanItemCode, cleanDesc, {
           unitWeight: resolvedWeight,

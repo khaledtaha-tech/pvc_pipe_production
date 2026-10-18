@@ -7,7 +7,7 @@
 import * as XLSX from 'xlsx';
 import { SOP_FACTORY_PRESETS, resolveStdWeightFromSpecs } from './legacySopHelper.js';
 import { parseDiameterToMm } from '../utils/masterProfiles.js';
-import { matchMachine } from '../config/machines.js';
+import { matchMachine, ASTM_IMPERIAL_OD_MAP, BLACKLISTED_STANDARD_NUMBERS } from '../config/machines.js';
 import {
   hasBaselineRate,
   getBaselineEntry,
@@ -30,6 +30,308 @@ function getStorage() {
     return globalThis.localStorage;
   }
   return null;
+}
+
+/**
+ * Standard ASTM Schedule wall thicknesses (mm) keyed by OD mm
+ */
+export const ASTM_SCHEDULE_WALL_THICKNESS = {
+  SCH40: {
+    21.3: 2.77, // 1/2"
+    26.7: 2.87, // 3/4"
+    33.4: 3.38, // 1"
+    42.2: 3.56, // 1-1/4"
+    48.3: 3.68, // 1-1/2"
+    60.3: 3.91, // 2"
+    73.0: 5.16, // 2-1/2"
+    88.9: 5.49, // 3"
+    114.3: 6.02, // 4"
+    168.3: 7.11, // 6"
+    219.1: 8.18  // 8"
+  },
+  SCH80: {
+    21.3: 3.73,
+    26.7: 3.91,
+    33.4: 4.55,
+    42.2: 4.85,
+    48.3: 5.08,
+    60.3: 5.54,
+    73.0: 7.01,
+    88.9: 7.62,
+    114.3: 8.56,
+    168.3: 10.97,
+    219.1: 12.70
+  }
+};
+
+/**
+ * Validates whether an item code and description represent an authentic factory catalog SKU
+ * Filters out conversational text, email notes ("Dear Sir..."), summary headers, and phantom single letters ("s").
+ * @param {string|number} rawCode
+ * @param {string} [desc]
+ * @returns {boolean}
+ */
+export function isValidProductCode(rawCode, desc = '') {
+  if (rawCode === undefined || rawCode === null) return false;
+  const code = String(rawCode).trim();
+  if (!code) return false;
+
+  // Single non-digit letter is invalid (e.g. "s", "x")
+  if (/^[a-zA-Z]$/.test(code)) return false;
+
+  // Header or summary labels
+  if (/^(?:item\s*code|code|total|grand\s*total|summary|average|remarks|notes?|date|shift|line|machine|product\s*(?:code|description|name)?)$/i.test(code)) {
+    return false;
+  }
+
+  // Conversational / email phrases
+  if (/(?:dear\s*sir|as\s*per|please\s*find|regards|thank|subject|sent\s*from)/i.test(code)) {
+    return false;
+  }
+  if (desc && /(?:dear\s*sir|as\s*per\s*(?:the\s*)?plan|please\s*find)/i.test(desc)) {
+    return false;
+  }
+
+  // Codes that are long sentences (more than 3 words with text)
+  if (code.split(/\s+/).length > 3 && /[a-zA-Z]{3,}/.test(code)) {
+    return false;
+  }
+
+  // Exceedingly long strings
+  if (code.length > 40) return false;
+
+  // Must contain at least one alphanumeric character
+  if (!/[a-zA-Z0-9]/.test(code)) return false;
+
+  return true;
+}
+
+/**
+ * Auto-extracts engineering dimensions (OD mm, Wall Thickness mm, SDR) from specs or description
+ * @param {Object|string} productOrOd Product record object or explicit OD string
+ * @param {string} [wallThickness] Wall thickness or SDR
+ * @param {string} [description] Product specification description
+ * @returns {{ od_mm: number|null, wall_thickness_mm: number|null, sdr: string|null }}
+ */
+export function extractProductDimensions(productOrOd, wallThickness = '', description = '') {
+  let odRaw = '';
+  let wtRaw = '';
+  let desc = '';
+
+  if (productOrOd && typeof productOrOd === 'object') {
+    odRaw = String(productOrOd.odMm ?? productOrOd.od_mm ?? productOrOd.od ?? '').trim();
+    wtRaw = String(productOrOd.wallThickness ?? productOrOd.wall_thickness_mm ?? productOrOd.wall_thickness ?? '').trim();
+    desc = String(productOrOd.description ?? productOrOd.productDescription ?? productOrOd.spec ?? '').trim();
+  } else {
+    odRaw = String(productOrOd ?? '').trim();
+    wtRaw = String(wallThickness ?? '').trim();
+    desc = String(description ?? '').trim();
+  }
+
+  let od_mm = null;
+
+  // 1. Explicit numeric or string OD
+  if (odRaw && odRaw !== '-' && odRaw !== 'null' && odRaw !== 'undefined') {
+    const parsedOd = parseDiameterToMm(odRaw);
+    if (parsedOd && parsedOd > 0) {
+      od_mm = Number(parsedOd.toFixed(2));
+    } else {
+      const numMatch = odRaw.match(/^(\d+(?:\.\d+)?)/);
+      if (numMatch) {
+        const val = parseFloat(numMatch[1]);
+        if (!BLACKLISTED_STANDARD_NUMBERS.includes(String(Math.round(val))) && val >= 10 && val <= 1200) {
+          od_mm = Number(val.toFixed(2));
+        }
+      }
+    }
+  }
+
+  // 2. Extract OD from description if still null
+  if (od_mm === null && desc) {
+    // 2a. Match Imperial OD in description (e.g. 1/2", 3/4", 1", 1-1/4", 1-1/2", 2", 2-1/2", 3", 4", 5", 6", 8", 10", 12")
+    const inchMatch = desc.match(/(?:^|[\s"'(])(1\/2|3\/4|1-1\/4|1\s*1\/4|1-1\/2|1\s*1\/2|2-1\/2|2\s*1\/2|1|2|3|4|5|6|8|10|12)(?:"|''|\s*inch|\s*in\b)/i);
+    if (inchMatch) {
+      const rawInch = inchMatch[1].trim();
+      const lookupKey = rawInch + '"';
+      if (ASTM_IMPERIAL_OD_MAP[lookupKey] !== undefined) {
+        od_mm = ASTM_IMPERIAL_OD_MAP[lookupKey];
+      } else if (ASTM_IMPERIAL_OD_MAP[rawInch] !== undefined) {
+        od_mm = ASTM_IMPERIAL_OD_MAP[rawInch];
+      }
+    }
+
+    // 2b. Match Metric OD in description (e.g. 110x5.3, 200X9.6, 50x2.4, 20X1.6, 25X1.9)
+    if (od_mm === null) {
+      const dimXMatch = desc.match(/(?:^|[\s(])(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/);
+      if (dimXMatch) {
+        const val = parseFloat(dimXMatch[1]);
+        if (!BLACKLISTED_STANDARD_NUMBERS.includes(String(Math.round(val))) && val >= 10 && val <= 1200) {
+          od_mm = Number(val.toFixed(2));
+        }
+      }
+    }
+
+    // 2c. Match Metric MM in description (e.g. 160MM, 75MM, 50 MM, 32MM, 25MM, 20 MM)
+    if (od_mm === null) {
+      const mmMatch = desc.match(/(?:^|[\s(])(\d+(?:\.\d+)?)\s*MM\b/i);
+      if (mmMatch) {
+        const val = parseFloat(mmMatch[1]);
+        if (!BLACKLISTED_STANDARD_NUMBERS.includes(String(Math.round(val))) && val >= 10 && val <= 1200) {
+          od_mm = Number(val.toFixed(2));
+        }
+      }
+    }
+  }
+
+  // 3. Extract SDR
+  let sdr = null;
+  const sdrMatch = wtRaw.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i) ||
+                   desc.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
+  if (sdrMatch) {
+    sdr = `SDR${sdrMatch[1]}`;
+  } else if (/^SDR/i.test(wtRaw)) {
+    sdr = wtRaw.toUpperCase().replace(/\s+/g, '');
+  }
+
+  // 4. Extract Wall Thickness in mm
+  let wall_thickness_mm = null;
+
+  // 4a. Explicit wall thickness in wtRaw (e.g. "2.2mm", "4.0mm", "2.2")
+  const mmMatch = wtRaw.match(/^(\d+(?:\.\d+)?)\s*(?:mm)?$/i);
+  if (mmMatch && !/sdr/i.test(wtRaw)) {
+    wall_thickness_mm = Number(parseFloat(mmMatch[1]).toFixed(2));
+  }
+
+  // 4b. Wall thickness from metric description pattern (e.g. 110x5.3 or 200X9.6 or 75MM PN10X3.6MM)
+  if (wall_thickness_mm === null && desc) {
+    const xPattern = desc.match(/(?:^|[\s(])(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/);
+    if (xPattern) {
+      const candidateWt = parseFloat(xPattern[2]);
+      const candidateOd = parseFloat(xPattern[1]);
+      if (candidateWt > 0 && candidateWt < 50 && (!od_mm || candidateWt < od_mm || candidateOd === od_mm)) {
+        wall_thickness_mm = Number(candidateWt.toFixed(2));
+      }
+    }
+  }
+
+  // 4c. Secondary MM pattern in description (e.g. 160MM ... 7.7MM, or 75MM 2.2MM)
+  if (wall_thickness_mm === null && desc) {
+    const allMmMatches = Array.from(desc.matchAll(/(\d+(?:\.\d+)?)\s*MM\b/gi));
+    for (const m of allMmMatches) {
+      const val = parseFloat(m[1]);
+      if (BLACKLISTED_STANDARD_NUMBERS.includes(String(Math.round(val)))) continue;
+      if (od_mm && Math.abs(val - od_mm) < 0.1) continue;
+      if (val > 0.5 && val <= 35) {
+        wall_thickness_mm = Number(val.toFixed(2));
+        break;
+      }
+    }
+  }
+
+  // 4d. Compute wall thickness from SDR if od_mm and sdr are known
+  if (wall_thickness_mm === null && od_mm && sdrMatch) {
+    const sdrVal = parseFloat(sdrMatch[1]);
+    if (sdrVal > 0) {
+      wall_thickness_mm = Number((od_mm / sdrVal).toFixed(2));
+    }
+  }
+
+  // 4e. Compute wall thickness from ASTM Schedule (e.g. SCH40, SCH80)
+  if (wall_thickness_mm === null && od_mm && desc) {
+    if (/\bSCH\s*[-:]?\s*40\b/i.test(desc)) {
+      const sch40Val = ASTM_SCHEDULE_WALL_THICKNESS.SCH40[od_mm];
+      if (sch40Val) {
+        wall_thickness_mm = sch40Val;
+      }
+    } else if (/\bSCH\s*[-:]?\s*80\b/i.test(desc)) {
+      const sch80Val = ASTM_SCHEDULE_WALL_THICKNESS.SCH80[od_mm];
+      if (sch80Val) {
+        wall_thickness_mm = sch80Val;
+      }
+    }
+  }
+
+  return {
+    od_mm: od_mm !== null ? Number(od_mm.toFixed(2)) : null,
+    wall_thickness_mm: wall_thickness_mm !== null ? Number(wall_thickness_mm.toFixed(2)) : null,
+    sdr: sdr || (wtRaw && !wall_thickness_mm ? wtRaw : null)
+  };
+}
+
+/**
+ * Normalizes pipe unit weight: converts kg/m linear weight to full piece weight (kg/pipe)
+ * For standard 6m pipes where weight is suspiciously low for its OD (weight < 1.5 kg for OD >= 75mm),
+ * multiplies by pipe length (default 6.0m).
+ * @param {number} weight
+ * @param {number|null} [odMm]
+ * @param {number} [pipeLength=6.0]
+ * @param {boolean} [isCompounding=false]
+ * @returns {number}
+ */
+export function normalizePipeUnitWeight(weight, odMm = null, pipeLength = 6.0, isCompounding = false) {
+  const w = Number(weight);
+  if (isNaN(w) || w <= 0) return 0;
+  if (isCompounding) return Number(w.toFixed(2));
+
+  const len = Number(pipeLength) > 0 ? Number(pipeLength) : 6.0;
+  const od = Number(odMm);
+
+  // If OD >= 75mm and weight < 1.5 kg for a standard pipe (len >= 5.0m),
+  // this is definitely a linear weight per meter (kg/m), not full pipe piece weight.
+  if (od >= 75 && w < 1.5 && len >= 5.0) {
+    return Number((w * len).toFixed(2));
+  }
+
+  return Number(w.toFixed(2));
+}
+
+/**
+ * Purge invalid catalog items (phantom entries, single letters like "s", conversational text)
+ * from localStorage registry and in-memory cache.
+ * @returns {number} Number of purged records
+ */
+export function purgeInvalidCatalogItems() {
+  const storage = getStorage();
+  let purgedCount = 0;
+  let target = {};
+
+  if (storage) {
+    try {
+      const raw = storage.getItem(PRODUCT_CATALOG_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          target = parsed;
+        }
+      }
+    } catch (_) {}
+  }
+  if (Object.keys(target).length === 0 && inMemoryProductRegistry) {
+    target = { ...inMemoryProductRegistry };
+  }
+
+  const cleanedRegistry = {};
+  for (const [key, item] of Object.entries(target)) {
+    const code = item?.itemCode || key;
+    const desc = item?.description || '';
+    if (isValidProductCode(code, desc)) {
+      cleanedRegistry[key] = item;
+    } else {
+      purgedCount++;
+    }
+  }
+
+  if (purgedCount > 0) {
+    inMemoryProductRegistry = cleanedRegistry;
+    if (storage) {
+      try {
+        storage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(cleanedRegistry));
+        const snapshot = generateProvenanceAuditSnapshot(Object.values(cleanedRegistry));
+        storage.setItem(PROVENANCE_AUDIT_STORAGE_KEY, JSON.stringify(snapshot, null, 2));
+      } catch (_) {}
+    }
+  }
+  return purgedCount;
 }
 
 /**
@@ -65,9 +367,16 @@ function getInitialSeedCatalog() {
   if (Array.isArray(SOP_FACTORY_PRESETS)) {
     SOP_FACTORY_PRESETS.forEach((preset) => {
       const code = normalizeProductCode(preset.itemCode);
-      if (!code) return;
-      const uWeight = Number(preset.unitWeight || preset.stdWeight) || 0;
+      if (!code || !isValidProductCode(code, preset.description)) return;
+
+      const dims = extractProductDimensions(preset);
+      const odMmStr = preset.odMm || (dims.od_mm ? String(dims.od_mm) : '');
+      const wtStr = preset.wallThickness || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || ''));
+
+      const rawWeight = Number(preset.unitWeight || preset.stdWeight) || 0;
       const length = preset.pipeLength !== undefined ? Number(preset.pipeLength) : (preset.isCompounding ? 0 : 6.0);
+      const uWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, length, preset.isCompounding);
+
       const targetPcsH = preset.targetPcsH !== undefined && preset.targetPcsH !== null
         ? Number(preset.targetPcsH)
         : (uWeight > 0 && !preset.isCompounding ? Math.round(200 / uWeight) : null);
@@ -75,8 +384,8 @@ function getInitialSeedCatalog() {
       catalog[code] = {
         itemCode: String(preset.itemCode).trim(),
         description: preset.description || '',
-        odMm: preset.odMm || '',
-        wallThickness: preset.wallThickness || '',
+        odMm: odMmStr,
+        wallThickness: wtStr,
         material: preset.isCompounding ? 'PVC Compound' : (preset.material || 'uPVC'),
         unitWeight: uWeight,
         stdWeight: uWeight,
@@ -142,16 +451,43 @@ export function getProductCatalogRegistry() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-          // Fallback backfill: Ensure newly added seed presets (such as 188) are present
+          // Sanitize registry: immediately purge any invalid codes (e.g. phantom item "s")
+          let cleanedAny = false;
+          for (const [code, val] of Object.entries(parsed)) {
+            if (!isValidProductCode(code, val?.description)) {
+              delete parsed[code];
+              cleanedAny = true;
+            }
+          }
+
+          // Fallback backfill: Ensure newly added seed presets (such as 188, 195) are present or refreshed
           let mergedAny = false;
           const seed = getInitialSeedCatalog();
           for (const [code, val] of Object.entries(seed)) {
             if (!parsed[code]) {
               parsed[code] = val;
               mergedAny = true;
+            } else if (parsed[code].source_origin === 'preset_seed' || parsed[code].source === 'factory_preset') {
+              let specUpdated = false;
+              if (!parsed[code].odMm && val.odMm) {
+                parsed[code].odMm = val.odMm;
+                specUpdated = true;
+              }
+              if (!parsed[code].wallThickness && val.wallThickness) {
+                parsed[code].wallThickness = val.wallThickness;
+                specUpdated = true;
+              }
+              if (code === '195' && Number(parsed[code].unitWeight) < 2) {
+                parsed[code].unitWeight = val.unitWeight;
+                parsed[code].stdWeight = val.stdWeight;
+                parsed[code].odMm = val.odMm;
+                parsed[code].wallThickness = val.wallThickness;
+                specUpdated = true;
+              }
+              if (specUpdated) mergedAny = true;
             }
           }
-          if (mergedAny) {
+          if (cleanedAny || mergedAny) {
             try {
               storage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(parsed));
               const snapshot = generateProvenanceAuditSnapshot(Object.values(parsed));
@@ -168,6 +504,13 @@ export function getProductCatalogRegistry() {
   }
 
   if (inMemoryProductRegistry && Object.keys(inMemoryProductRegistry).length > 0) {
+    let cleanedAnyMem = false;
+    for (const [code, val] of Object.entries(inMemoryProductRegistry)) {
+      if (!isValidProductCode(code, val?.description)) {
+        delete inMemoryProductRegistry[code];
+        cleanedAnyMem = true;
+      }
+    }
     return inMemoryProductRegistry;
   }
 
@@ -268,19 +611,25 @@ function persistProductRegistry(registry, detail = {}) {
 export function saveProduct(productData, options = { syncServer: true }) {
   if (!productData) throw new Error('Product data is required');
   const rawCode = String(productData.itemCode || productData.productCode || productData.code || '').trim();
-  if (!rawCode) throw new Error('Item code is required');
+  const desc = String(productData.description || productData.productDescription || productData.spec || '').trim();
+  if (!rawCode || !isValidProductCode(rawCode, desc)) throw new Error(`Invalid item code: ${rawCode}`);
 
   const normalizedCode = normalizeProductCode(rawCode);
-  const desc = String(productData.description || productData.productDescription || productData.spec || '').trim();
-
-  let uWeight = Number(productData.unitWeight || productData.stdWeight);
-  if (isNaN(uWeight) || uWeight <= 0) {
-    uWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, 6.0) || 0;
-  }
+  const existing = getProductByCode(rawCode);
+  const effectiveDesc = desc || existing?.description || `Product Code ${rawCode}`;
 
   const pipeLength = productData.pipeLength !== undefined && productData.pipeLength !== null && productData.pipeLength !== ''
     ? Number(productData.pipeLength)
     : 6.0;
+
+  const isCompounding = Boolean(productData.isCompounding ?? existing?.isCompounding);
+  const dims = extractProductDimensions({ odMm: productData.odMm || existing?.odMm, wallThickness: productData.wallThickness || existing?.wallThickness, description: effectiveDesc });
+
+  let uWeight = Number(productData.unitWeight || productData.stdWeight);
+  if (isNaN(uWeight) || uWeight <= 0) {
+    uWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: effectiveDesc }, pipeLength) || (existing?.unitWeight || 0);
+  }
+  uWeight = normalizePipeUnitWeight(uWeight, dims.od_mm, pipeLength, isCompounding);
 
   let targetPcsH = productData.targetPcsH !== undefined && productData.targetPcsH !== null && productData.targetPcsH !== ''
     ? Math.round(Number(productData.targetPcsH))
@@ -297,18 +646,40 @@ export function saveProduct(productData, options = { syncServer: true }) {
     nominalSpeed = Math.round(((targetPcsH * pipeLength) / 60) * 10) / 10;
   }
 
-  const existing = getProductByCode(rawCode);
-
   const nowIso = new Date().toISOString();
   const sourceOrigin = productData.source_origin ||
     (Boolean(productData.isPending) ? 'daily_log' : (existing?.source_origin || 'manual_override'));
 
+  const finalOdMm = productData.odMm || existing?.odMm || (dims.od_mm ? String(dims.od_mm) : '');
+  const finalWallThickness = productData.wallThickness || existing?.wallThickness || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || ''));
+
+  let sourceFile = productData.source_file || existing?.source_file;
+  let sourceSheet = productData.source_sheet || existing?.source_sheet;
+
+  if (sourceOrigin === 'daily_log') {
+    if (!sourceFile || sourceFile === 'Unique Planning Catalog' || sourceFile === 'System Defaults') {
+      sourceFile = 'Daily Production Log';
+    }
+    if (!sourceSheet || sourceSheet === 'Unique Planning Catalog' || sourceSheet === 'Planning Catalog' || sourceSheet === 'Factory Presets') {
+      sourceSheet = 'Daily Shift Log';
+    }
+  } else if (sourceOrigin === 'preset_seed') {
+    sourceFile = sourceFile || 'System Defaults';
+    sourceSheet = sourceSheet || 'Factory Presets';
+  } else if (sourceOrigin === 'manual_override') {
+    sourceFile = sourceFile || 'manual_input';
+    sourceSheet = sourceSheet || 'Floor Override';
+  } else {
+    sourceFile = sourceFile || 'Unique Planning Catalog';
+    sourceSheet = sourceSheet || 'Planning Catalog';
+  }
+
   const product = {
     ...(existing || {}),
     itemCode: rawCode,
-    description: desc || existing?.description || `Product Code ${rawCode}`,
-    odMm: productData.odMm || existing?.odMm || '',
-    wallThickness: productData.wallThickness || existing?.wallThickness || '',
+    description: effectiveDesc,
+    odMm: finalOdMm,
+    wallThickness: finalWallThickness,
     material: productData.material || existing?.material || 'uPVC',
     unitWeight: uWeight > 0 ? uWeight : (existing?.unitWeight || 0),
     stdWeight: uWeight > 0 ? uWeight : (existing?.stdWeight || 0),
@@ -318,12 +689,12 @@ export function saveProduct(productData, options = { syncServer: true }) {
     primaryExtruder: productData.primaryExtruder || existing?.primaryExtruder || '',
     compatibleMachines: productData.compatibleMachines || existing?.compatibleMachines || '',
     historicalRateKgH: productData.historicalRateKgH || existing?.historicalRateKgH || null,
-    isCompounding: Boolean(productData.isCompounding ?? existing?.isCompounding),
+    isCompounding,
     isPending: Boolean(productData.isPending ?? false),
     source: productData.source || existing?.source || (sourceOrigin === 'manual_override' ? 'manual' : 'auto_discovery'),
     source_origin: sourceOrigin,
-    source_file: productData.source_file || existing?.source_file || (sourceOrigin === 'manual_override' ? 'manual_input' : 'Daily Production Log'),
-    source_sheet: productData.source_sheet || existing?.source_sheet || (sourceOrigin === 'manual_override' ? 'Floor Override' : 'Production Log'),
+    source_file: sourceFile,
+    source_sheet: sourceSheet,
     last_updated_at: productData.last_updated_at || nowIso,
     updatedAt: nowIso
   };
@@ -430,20 +801,25 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
   for (const item of items) {
     if (!item) continue;
     const rawCode = String(item.itemCode || item.productCode || item.code || '').trim();
-    if (!rawCode) continue;
+    const desc = String(item.description || item.productDescription || item.spec || '').trim();
+    if (!rawCode || !isValidProductCode(rawCode, desc)) continue;
 
     const normCode = normalizeProductCode(rawCode);
     const existing = registry[normCode];
-
-    const desc = String(item.description || item.productDescription || item.spec || existing?.description || '').trim();
-    let uWeight = Number(item.unitWeight || item.stdWeight || existing?.unitWeight);
-    if (isNaN(uWeight) || uWeight <= 0) {
-      uWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, 6.0) || 0;
-    }
+    const effectiveDesc = desc || existing?.description || `Product Code ${rawCode}`;
 
     const pipeLength = Number(item.pipeLength || existing?.pipeLength) > 0
       ? Number(item.pipeLength || existing?.pipeLength)
       : 6.0;
+
+    const isCompounding = Boolean(item.isCompounding ?? existing?.isCompounding);
+    const dims = extractProductDimensions({ odMm: item.odMm || existing?.odMm, wallThickness: item.wallThickness || existing?.wallThickness, description: effectiveDesc });
+
+    let uWeight = Number(item.unitWeight || item.stdWeight || existing?.unitWeight);
+    if (isNaN(uWeight) || uWeight <= 0) {
+      uWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: effectiveDesc }, pipeLength) || 0;
+    }
+    uWeight = normalizePipeUnitWeight(uWeight, dims.od_mm, pipeLength, isCompounding);
 
     let targetPcsH = item.targetPcsH != null ? Math.round(Number(item.targetPcsH)) : (existing?.targetPcsH || null);
     let nominalSpeed = item.nominalSpeed != null ? Number(item.nominalSpeed) : (existing?.nominalSpeed || null);
@@ -498,15 +874,18 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
     }
 
     // 2. Technical Specs Conflict Resolution: EXCEL MASTER WINS
+    const finalOdMm = item.odMm || existing?.odMm || (dims.od_mm ? String(dims.od_mm) : '');
+    const finalWallThickness = item.wallThickness || existing?.wallThickness || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || ''));
+
     if (!existing) {
       newProductsCount++;
     } else {
       const specsDiffer = areTechnicalSpecsDifferent(existing, {
-        odMm: item.odMm,
-        wallThickness: item.wallThickness,
+        odMm: finalOdMm,
+        wallThickness: finalWallThickness,
         material: item.material,
         unitWeight: uWeight,
-        description: desc
+        description: effectiveDesc
       });
       if (specsDiffer) {
         refreshedSpecsCount++;
@@ -516,9 +895,9 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
     const merged = {
       ...(existing || {}),
       itemCode: rawCode,
-      description: desc || `Product Code ${rawCode}`,
-      odMm: item.odMm || existing?.odMm || '',
-      wallThickness: item.wallThickness || existing?.wallThickness || '',
+      description: effectiveDesc,
+      odMm: finalOdMm,
+      wallThickness: finalWallThickness,
       material: item.material || existing?.material || 'uPVC',
       unitWeight: uWeight > 0 ? uWeight : 0,
       stdWeight: uWeight > 0 ? uWeight : 0,
@@ -528,7 +907,7 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
       primaryExtruder: item.primaryExtruder || existing?.primaryExtruder || '',
       compatibleMachines: item.compatibleMachines || existing?.compatibleMachines || '',
       historicalRateKgH: item.historicalRateKgH != null ? Number(item.historicalRateKgH) : (existing?.historicalRateKgH || null),
-      isCompounding: Boolean(item.isCompounding ?? existing?.isCompounding),
+      isCompounding,
       // If previously verified (isPending === false), keep verified status
       isPending: existing ? Boolean(existing.isPending && (item.isPending ?? true)) : Boolean(item.isPending ?? false),
       source: existing?.source === 'manual' ? 'manual' : (item.source || options.source || 'excel'),
@@ -577,35 +956,52 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
  */
 export function autoRegisterPendingProduct(itemCode, description = '', specs = {}) {
   const clean = normalizeProductCode(itemCode);
-  if (!clean) return null;
+  const desc = String(description || '').trim();
+  if (!clean || !isValidProductCode(clean, desc)) return null;
 
   const existing = getProductByCode(itemCode);
   if (existing) {
     // If existing has no description, augment it
-    if (!existing.description && description) {
+    if (!existing.description && desc) {
       return saveProduct({
         ...existing,
-        description: description.trim()
+        description: desc
       }, { syncServer: true });
     }
     return existing;
   }
 
-  const desc = String(description || '').trim() || `Product Code ${itemCode}`;
-  const resolvedWeight = Number(specs.unitWeight || specs.stdWeight) || resolveStdWeightFromSpecs({ itemCode, description: desc }, 6.0) || 0;
+  const dims = extractProductDimensions({ odMm: specs.odMm, wallThickness: specs.wallThickness, description: desc });
+  const rawWeight = Number(specs.unitWeight || specs.stdWeight) || resolveStdWeightFromSpecs({ itemCode, description: desc }, 6.0) || 0;
+  const resolvedWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, specs.pipeLength || 6.0, false);
   const nowIso = new Date().toISOString();
+
+  const sourceOrigin = specs.source_origin || 'daily_log';
+  let sourceFile = specs.source_file;
+  let sourceSheet = specs.source_sheet;
+
+  if (sourceOrigin === 'daily_log') {
+    if (!sourceFile || sourceFile === 'Unique Planning Catalog' || sourceFile === 'System Defaults') {
+      sourceFile = 'Daily Production Log';
+    }
+    if (!sourceSheet || sourceSheet === 'Unique Planning Catalog' || sourceSheet === 'Planning Catalog' || sourceSheet === 'Factory Presets') {
+      sourceSheet = 'Daily Shift Log';
+    }
+  }
 
   return saveProduct({
     itemCode: String(itemCode).trim(),
-    description: desc,
+    description: desc || `Product Code ${itemCode}`,
+    odMm: specs.odMm || (dims.od_mm ? String(dims.od_mm) : ''),
+    wallThickness: specs.wallThickness || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || '')),
     unitWeight: resolvedWeight,
     stdWeight: resolvedWeight,
     pipeLength: Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0,
     isPending: true,
     source: 'auto_discovery',
-    source_origin: specs.source_origin || 'daily_log',
-    source_file: specs.source_file || 'Daily Production Log',
-    source_sheet: specs.source_sheet || 'Production Log',
+    source_origin: sourceOrigin,
+    source_file: sourceFile || 'Daily Production Log',
+    source_sheet: sourceSheet || 'Daily Shift Log',
     last_updated_at: specs.last_updated_at || nowIso,
     ...specs
   }, { syncServer: true });
@@ -710,10 +1106,6 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
       ''
     ).trim();
 
-    if (!rawCode || /item\s*code/i.test(rawCode) || /total/i.test(rawCode)) {
-      continue;
-    }
-
     const desc = String(
       row['Product Description & Specs'] ??
       row['Pipe Description & Standard Spec'] ??
@@ -723,6 +1115,10 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
       row[1] ??
       ''
     ).trim();
+
+    if (!rawCode || !isValidProductCode(rawCode, desc)) {
+      continue;
+    }
 
     const rawOd = String(
       row['Pipe OD (mm) & Nominal Size'] ??
@@ -817,7 +1213,8 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
       .filter((m) => m && m !== '-' && !/unknown/i.test(m));
     const compatibleMachines = Array.from(new Set(compatList)).join(', ');
 
-    const odMmNum = parseDiameterToMm(rawOd) || (rawOd.match(/\d+(?:\.\d+)?/) ? Number(rawOd.match(/\d+(?:\.\d+)?/)[0]) : null);
+    const dims = extractProductDimensions({ odMm: rawOd, wallThickness: rawWt, description: desc });
+    const odMmNum = dims.od_mm || parseDiameterToMm(rawOd) || (rawOd.match(/\d+(?:\.\d+)?/) ? Number(rawOd.match(/\d+(?:\.\d+)?/)[0]) : null);
 
     let resolvedWeight = Number(
       row['Unit Weight (kg)'] ??
@@ -832,20 +1229,24 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
     }
     if (resolvedWeight <= 0 && odMmNum > 0) {
       const sdrMatch = rawWt.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
-      let wtNum = 0;
-      if (sdrMatch) {
-        const sdrVal = Number(sdrMatch[1]);
-        if (sdrVal > 0) {
-          wtNum = Math.round((odMmNum / sdrVal) * 100) / 100;
+      let wtNum = dims.wall_thickness_mm || 0;
+      if (!wtNum) {
+        if (sdrMatch) {
+          const sdrVal = Number(sdrMatch[1]);
+          if (sdrVal > 0) {
+            wtNum = Math.round((odMmNum / sdrVal) * 100) / 100;
+          }
+        } else {
+          const wtMatch = rawWt.match(/\d+(?:\.\d+)?/);
+          wtNum = wtMatch ? Number(wtMatch[0]) : 0;
         }
-      } else {
-        const wtMatch = rawWt.match(/\d+(?:\.\d+)?/);
-        wtNum = wtMatch ? Number(wtMatch[0]) : 0;
       }
       if (wtNum > 0 && wtNum < odMmNum) {
         resolvedWeight = Math.round(Math.PI * (odMmNum - wtNum) * wtNum * 6.0 * 0.00142 * 100) / 100;
       }
     }
+
+    resolvedWeight = normalizePipeUnitWeight(resolvedWeight, odMmNum || dims.od_mm, 6.0, false);
 
     const rawDirectPcsH = Number(
       row['Target Pace (pcs/hr)'] ??
@@ -898,11 +1299,14 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
     }
 
     const nowIso = new Date().toISOString();
+    const odValStr = odMmNum ? String(odMmNum) : (rawOd || (dims.od_mm ? String(dims.od_mm) : ''));
+    const wtValStr = rawWt || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || ''));
+
     ingestedItems.push({
       itemCode: rawCode,
       description: desc || `uPVC Pipe ${rawOd} ${rawWt}`.trim(),
-      odMm: odMmNum ? String(odMmNum) : rawOd,
-      wallThickness: rawWt,
+      odMm: odValStr,
+      wallThickness: wtValStr,
       material: rawMat || 'uPVC',
       unitWeight: resolvedWeight,
       stdWeight: resolvedWeight,
@@ -1200,42 +1604,18 @@ export function transformProductToProvenanceAuditItem(item) {
   if (!item) return null;
   const rawCode = String(item.itemCode || item.code || '').trim();
   const desc = String(item.description || '').trim();
+  if (!isValidProductCode(rawCode, desc)) return null;
 
-  // Parse OD in mm
-  let od_mm = null;
-  if (item.odMm !== undefined && item.odMm !== null && item.odMm !== '') {
-    const m = String(item.odMm).match(/\d+(?:\.\d+)?/);
-    if (m) {
-      od_mm = Number(parseFloat(m[0]).toFixed(2));
-    }
-  }
+  // Extract engineering dimensions (OD, Wall Thickness, SDR)
+  const dims = extractProductDimensions(item);
+  const od_mm = dims.od_mm;
+  const sdr = dims.sdr;
+  const wall_thickness_mm = dims.wall_thickness_mm;
 
-  // SDR extraction
-  let sdr = null;
-  const wtRaw = String(item.wallThickness || '').trim();
-  const sdrMatch = wtRaw.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i) ||
-                   desc.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
-  if (sdrMatch) {
-    sdr = `SDR${sdrMatch[1]}`;
-  } else if (/^SDR/i.test(wtRaw)) {
-    sdr = wtRaw.toUpperCase();
-  }
-
-  // Wall thickness in mm
-  let wall_thickness_mm = null;
-  const mmMatch = wtRaw.match(/^(\d+(?:\.\d+)?)\s*(?:mm)?$/i);
-  if (mmMatch && !/sdr/i.test(wtRaw)) {
-    wall_thickness_mm = Number(parseFloat(mmMatch[1]).toFixed(2));
-  } else if (od_mm && sdrMatch) {
-    const sdrVal = parseFloat(sdrMatch[1]);
-    if (sdrVal > 0) {
-      wall_thickness_mm = Number((od_mm / sdrVal).toFixed(2));
-    }
-  }
-
-  // Std weight in kg
-  const uWeight = Number(item.unitWeight || item.stdWeight || 0);
-  const std_weight_kg = uWeight > 0 ? Number(uWeight.toFixed(2)) : 0;
+  // Std weight in kg (normalized)
+  const rawWeight = Number(item.unitWeight || item.stdWeight || 0);
+  const normalizedWeight = normalizePipeUnitWeight(rawWeight, od_mm, item.pipeLength || 6.0, item.isCompounding);
+  const std_weight_kg = normalizedWeight > 0 ? Number(normalizedWeight.toFixed(2)) : 0;
 
   // Suggested pace in pcs/h
   const suggested_pace_pcs_h = (item.targetPcsH !== undefined && item.targetPcsH !== null && Number(item.targetPcsH) > 0)
@@ -1244,17 +1624,38 @@ export function transformProductToProvenanceAuditItem(item) {
 
   const source_origin = item.source_origin || (item.source === 'factory_preset' ? 'preset_seed' : (item.isPending ? 'daily_log' : 'planning_catalog'));
 
+  let source_file = item.source_file;
+  let source_sheet = item.source_sheet;
+
+  if (source_origin === 'daily_log') {
+    if (!source_file || source_file === 'Unique Planning Catalog' || source_file === 'System Defaults') {
+      source_file = 'Daily Production Log';
+    }
+    if (!source_sheet || source_sheet === 'Unique Planning Catalog' || source_sheet === 'Planning Catalog' || source_sheet === 'Factory Presets') {
+      source_sheet = 'Daily Shift Log';
+    }
+  } else if (source_origin === 'preset_seed') {
+    source_file = source_file || 'System Defaults';
+    source_sheet = source_sheet || 'Factory Presets';
+  } else if (source_origin === 'manual_override') {
+    source_file = source_file || 'manual_input';
+    source_sheet = source_sheet || 'Floor Override';
+  } else {
+    source_file = source_file || 'Unique Planning Catalog';
+    source_sheet = source_sheet || 'Planning Catalog';
+  }
+
   return {
     item_code: rawCode,
     description: desc,
     od_mm,
-    sdr: sdr || (wtRaw && !wall_thickness_mm ? wtRaw : null),
+    sdr,
     wall_thickness_mm,
     std_weight_kg,
     suggested_pace_pcs_h,
     source_origin,
-    source_file: item.source_file || (source_origin === 'preset_seed' ? 'System Defaults' : (source_origin === 'manual_override' ? 'manual_input' : 'Unique Planning Catalog')),
-    source_sheet: item.source_sheet || (source_origin === 'preset_seed' ? 'Factory Presets' : (source_origin === 'manual_override' ? 'Floor Override' : 'Planning Catalog')),
+    source_file,
+    source_sheet,
     last_updated_at: item.last_updated_at || item.updatedAt || new Date().toISOString()
   };
 }

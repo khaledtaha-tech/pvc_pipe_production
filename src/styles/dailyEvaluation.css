@@ -6413,6 +6413,19 @@ html:not(.light) .log-table th {
   margin-bottom: 3px;
 }
 
+.print-sop-provenance-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
 .print-sop-warning-badge {
   display: inline-flex;
   align-items: center;

@@ -36,7 +36,9 @@ import {
   PRODUCT_CATALOG_UPDATED_EVENT,
   syncProductsWithServer,
   getProductByCode,
-  getAllProducts
+  getAllProducts,
+  formatSourceOriginLabel,
+  getSourceOriginBadgeTheme
 } from '../../logic/productCatalogHelper.js';
 
 const SOP_CONFIG_STORAGE_KEY = 'sop_operational_config';
@@ -1189,6 +1191,26 @@ export default function PrintSopModal({
 
               const utilizationPct = nominalKgH > 0 ? Math.round((calculatedKgH / nominalKgH) * 100) : 0;
 
+              const currentProduct = line?.itemCode
+                ? (productCatalog.find((p) => String(p.itemCode).trim().toUpperCase() === String(line.itemCode).trim().toUpperCase()) || getProductByCode(line.itemCode))
+                : null;
+
+              const weightOrigin = currentProduct?.source_origin || (currentProduct?.source === 'factory_preset' ? 'preset_seed' : (currentProduct?.isPending ? 'daily_log' : 'preset_seed'));
+              const weightBadgeTheme = currentProduct ? getSourceOriginBadgeTheme(weightOrigin) : null;
+              const weightTooltip = currentProduct
+                ? `Source Origin: ${formatSourceOriginLabel(weightOrigin)}\nFile: ${currentProduct.source_file || 'System Defaults'}\nSheet: ${currentProduct.source_sheet || 'Factory Presets'}${currentProduct.last_updated_at ? `\nLast Updated: ${new Date(currentProduct.last_updated_at).toLocaleString()}` : ''}`
+                : 'System Default Seed Preset';
+
+              const paceOrigin = line.isBaseline
+                ? 'manual_override'
+                : (currentProduct?.source_origin || 'planning_catalog');
+              const paceBadgeTheme = getSourceOriginBadgeTheme(paceOrigin);
+              const paceTooltip = line.isBaseline
+                ? `Source: Approved Machine Baseline Standard\nLine: ${line.machineId} | Mold: ${line.itemCode}\nPolicy: Manual Floor Calibration Wins 100%`
+                : (currentProduct
+                    ? `Source Origin: ${formatSourceOriginLabel(paceOrigin)}\nFile: ${currentProduct.source_file || 'Excel Workbook'}\nSheet: ${currentProduct.source_sheet || 'Unique Planning Catalog'}${currentProduct.last_updated_at ? `\nLast Updated: ${new Date(currentProduct.last_updated_at).toLocaleString()}` : ''}`
+                    : 'Calculated Nominal Benchmark Pace');
+
               return (
                 <div
                   key={line.machineId}
@@ -1544,10 +1566,19 @@ export default function PrintSopModal({
 
                           {/* Baseline Approved Badge OR Missing Baseline Warning + Suggested Pace Badges */}
                           {line.isBaseline && Number(line.baselineRate || line.calculatedRate) > 0 ? (
-                            <div className="print-sop-baseline-badge">
-                              <span className="print-sop-baseline-badge-dot" />
-                              <span>
-                                Baseline Standard: {Number(line.baselineRate || line.calculatedRate).toLocaleString()} pcs/h ({Math.round(Number(line.baselineRate || line.calculatedRate) * 24).toLocaleString()} pcs/day)
+                            <div className="print-sop-baseline-badge flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="print-sop-baseline-badge-dot" />
+                                <span>
+                                  Baseline Standard: {Number(line.baselineRate || line.calculatedRate).toLocaleString()} pcs/h ({Math.round(Number(line.baselineRate || line.calculatedRate) * 24).toLocaleString()} pcs/day)
+                                </span>
+                              </div>
+                              <span
+                                className="print-sop-provenance-tag text-[10px] px-1.5 py-0.5 rounded font-semibold border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 cursor-help inline-flex items-center gap-1 shadow-2xs ml-auto"
+                                title={paceTooltip}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                <span>[Calibrated Override]</span>
                               </span>
                             </div>
                           ) : (
@@ -1558,11 +1589,22 @@ export default function PrintSopModal({
                                   <span>No Approved Baseline for this Line &amp; Mold</span>
                                 </div>
                                 {(line.suggestedRate || Number(line.calculatedRate) > 0) && (
-                                  <div className="print-sop-suggested-badge">
-                                    <span className="print-sop-suggested-badge-dot" />
-                                    <span>
-                                      Suggested Pace: {Number(line.suggestedRate || line.calculatedRate).toLocaleString()} pcs/h ({Math.round(Number(line.suggestedRate || line.calculatedRate) * 24).toLocaleString()} pcs/day) [Unverified]
-                                    </span>
+                                  <div className="print-sop-suggested-badge flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="print-sop-suggested-badge-dot" />
+                                      <span>
+                                        Suggested Pace: {Number(line.suggestedRate || line.calculatedRate).toLocaleString()} pcs/h ({Math.round(Number(line.suggestedRate || line.calculatedRate) * 24).toLocaleString()} pcs/day)
+                                      </span>
+                                    </div>
+                                    {currentProduct && paceBadgeTheme && (
+                                      <span
+                                        className={`print-sop-provenance-tag text-[10px] px-1.5 py-0.5 rounded font-semibold border cursor-help inline-flex items-center gap-1 shadow-2xs ml-auto ${paceBadgeTheme.classes}`}
+                                        title={paceTooltip}
+                                      >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${paceBadgeTheme.dotClass}`} />
+                                        <span>[{paceBadgeTheme.tag}]</span>
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1639,7 +1681,18 @@ export default function PrintSopModal({
                         </div>
 
                         <div className="print-sop-param">
-                          <label className="print-sop-label">Std Weight (kg/pipe):</label>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <label className="print-sop-label mb-0">Std Weight (kg/pipe):</label>
+                            {currentProduct && weightBadgeTheme && (
+                              <span
+                                className={`print-sop-provenance-tag text-[10px] px-1.5 py-0.5 rounded font-semibold border cursor-help inline-flex items-center gap-1 shadow-2xs ${weightBadgeTheme.classes}`}
+                                title={weightTooltip}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${weightBadgeTheme.dotClass}`} />
+                                <span>[{weightBadgeTheme.tag}]</span>
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="number"
                             step="0.01"

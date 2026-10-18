@@ -52,6 +52,7 @@ import AutoReconcileModal from './AutoReconcileModal.jsx';
 import MachineSettingsModal from './MachineSettingsModal.jsx';
 import BaselineCatalogModal from './BaselineCatalogModal.jsx';
 import DailyAuditPdfModal from './DailyAuditPdfModal.jsx';
+import ProductProvenanceModal from './ProductProvenanceModal.jsx';
 import { syncBaselinesWithServer } from '../../logic/standardCatalogHelper.js';
 import DailyReconciliationMatrixView from './DailyReconciliationMatrixView.jsx';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
@@ -189,6 +190,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   const [isMachineSettingsOpen, setIsMachineSettingsOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isDailyAuditPdfOpen, setIsDailyAuditPdfOpen] = useState(false);
+  const [isProvenanceModalOpen, setIsProvenanceModalOpen] = useState(false);
   const [sopBatchPrintModels, setSopBatchPrintModels] = useState([]);
   const [isGeneratingMorningPdf, setIsGeneratingMorningPdf] = useState(false);
   const [showAllLines, setShowAllLines] = useState(false);
@@ -1750,6 +1752,22 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             <span>Standards Catalog</span>
           </button>
 
+          {/* Provenance & Source Attribution: Catalog Inspector */}
+          <button
+            type="button"
+            className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
+            onClick={() => setIsProvenanceModalOpen(true)}
+            title="Catalog Inspector: Audit and inspect specifications data provenance and origin files"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              <line x1="11" y1="8" x2="11" y2="14" />
+              <line x1="8" y1="11" x2="14" y2="11" />
+            </svg>
+            <span>Catalog Inspector</span>
+          </button>
+
           {/* Machine Config: Machine Settings */}
           <button
             type="button"
@@ -2393,6 +2411,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         selectedDate={selectedDate}
         machineMaster={machineMaster}
         onNotify={notify}
+      />
+
+      {/* Product Provenance & Source Attribution Inspector Modal */}
+      <ProductProvenanceModal
+        isOpen={isProvenanceModalOpen}
+        onClose={() => setIsProvenanceModalOpen(false)}
       />
 
       {toast ? <div className="toast no-print">{toast}</div> : null}

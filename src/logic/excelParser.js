@@ -292,7 +292,7 @@ export function parseMachineMaster(wb) {
 /**
  * Parses Daily Production Log rows from an Excel workbook
  */
-export function parseDailyLog(wb, dynamicMaster = MACHINES) {
+export function parseDailyLog(wb, dynamicMaster = MACHINES, options = {}) {
   if (!wb || !wb.SheetNames || wb.SheetNames.length === 0) {
     throw new Error('Workbook contains no readable sheets.');
   }
@@ -572,7 +572,10 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     if (itemCode) {
       try {
         autoRegisterPendingProduct(itemCode, description, {
-          unitWeight: unitWeight > 0 ? unitWeight : 0
+          unitWeight: unitWeight > 0 ? unitWeight : 0,
+          source_origin: 'daily_log',
+          source_file: options.fileName || wb._fileName || 'Daily Production Log',
+          source_sheet: targetSheetName || 'Daily Production Log'
         });
       } catch (_) {}
     }
@@ -781,13 +784,16 @@ export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES, o
 /**
  * Parses an uploaded Excel file (.xlsx / .xls) and extracts Daily Production Log rows
  */
-export function parseExcelWorkbook(fileBuffer) {
+export function parseExcelWorkbook(fileBuffer, fileName = '') {
   const wb = XLSX.read(fileBuffer, { type: 'array', cellDates: true });
+  if (fileName) {
+    wb._fileName = fileName;
+  }
 
   // 1. Dynamic Catalog Ingestion: Check for "Unique Planning Catalog" and ingest products
   let catalogSync = null;
   try {
-    catalogSync = parseUniquePlanningCatalogSheet(wb);
+    catalogSync = parseUniquePlanningCatalogSheet(wb, { fileName });
   } catch (err) {
     console.warn('Failed to parse Unique Planning Catalog sheet:', err);
   }
@@ -796,7 +802,7 @@ export function parseExcelWorkbook(fileBuffer) {
   const machineMaster = parseMachineMaster(wb);
 
   // 3. Parse daily log rows using matched sheet and dynamic master
-  const dailyLogs = parseDailyLog(wb, machineMaster);
+  const dailyLogs = parseDailyLog(wb, machineMaster, { fileName });
   return {
     ...dailyLogs,
     catalogSync

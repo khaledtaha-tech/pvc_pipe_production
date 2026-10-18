@@ -21,7 +21,9 @@ import {
   parseUniquePlanningCatalogSheet,
   getProductCatalogRegistry,
   syncProductsWithServer,
-  PRODUCT_CATALOG_STORAGE_KEY
+  PRODUCT_CATALOG_STORAGE_KEY,
+  formatSourceOriginLabel,
+  getSourceOriginBadgeTheme
 } from '../../src/logic/productCatalogHelper.js';
 import {
   saveBaselineRate,
@@ -552,6 +554,87 @@ assert.strictEqual(ingested188.wallThickness, 'SDR26');
 assert.ok(ingested188.unitWeight >= 7.8 && ingested188.unitWeight <= 7.9, `Unit weight ${ingested188.unitWeight} should be ~7.85 kg`);
 console.log('Test 15 Passed: Unique Planning Catalog ingestion with SDR26 verified.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (15/15) ---');
+// 16. Data Provenance Tracking & Source Attribution Verification
+console.log('Test 16: Data provenance tracking & source attribution metadata integrity');
+
+// 16.1 Seed product provenance
+const seed249 = getProductByCode('249');
+assert.ok(seed249, 'Preset code 249 should exist');
+assert.strictEqual(seed249.source_origin, 'preset_seed', 'Preset origin must be preset_seed');
+assert.strictEqual(seed249.source_file, 'System Defaults', 'Preset source file must be System Defaults');
+assert.strictEqual(seed249.source_sheet, 'Factory Presets', 'Preset source sheet must be Factory Presets');
+assert.ok(seed249.last_updated_at, 'last_updated_at must be populated on seed preset');
+
+// 16.2 Ingested planning catalog provenance
+const wbProvTest = XLSX.utils.book_new();
+const wsProvTest = XLSX.utils.json_to_sheet([
+  {
+    'Item Code': '350',
+    'Product Description & Specs': 'UPVC PIPE 250MM SDR 33 CLASS 2',
+    'Pipe OD (mm) & Nominal Size': '250',
+    'Wall Thickness / SDR': 'SDR33',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '300 kg/hr',
+    'Primary Extruder Recommendation': 'L-06',
+    'Primary Target Rate Band (kg/hr)': '280 - 320 kg/hr'
+  }
+]);
+XLSX.utils.book_append_sheet(wbProvTest, wsProvTest, 'Unique Planning Catalog');
+
+const testFileName = 'AlManar_Master_v9.xlsb';
+parseUniquePlanningCatalogSheet(wbProvTest, { fileName: testFileName });
+const item350 = getProductByCode('350');
+assert.ok(item350, 'Item 350 should exist after ingestion');
+assert.strictEqual(item350.source_origin, 'planning_catalog', 'Origin must be planning_catalog');
+assert.strictEqual(item350.source_file, testFileName, 'Source file must match options.fileName');
+assert.strictEqual(item350.source_sheet, 'Unique Planning Catalog', 'Source sheet must match sheetName');
+assert.ok(item350.last_updated_at, 'last_updated_at must be set');
+
+// 16.3 Manual override provenance
+const manualItem = saveProduct({
+  itemCode: '999',
+  description: 'EXPERIMENTAL SPECIAL PROFILE 50MM',
+  unitWeight: 1.25,
+  pipeLength: 6.0,
+  source_origin: 'manual_override',
+  source_file: 'manual_floor_input',
+  source_sheet: 'Shift 1 Calibration'
+}, { syncServer: false });
+
+assert.strictEqual(manualItem.source_origin, 'manual_override');
+assert.strictEqual(manualItem.source_file, 'manual_floor_input');
+assert.strictEqual(manualItem.source_sheet, 'Shift 1 Calibration');
+assert.ok(manualItem.last_updated_at);
+
+// 16.4 Daily production log discovery provenance
+const dailyDiscovered = autoRegisterPendingProduct('777', 'AUTOMATIC DISCOVERED 75MM', {
+  unitWeight: 2.1,
+  source_origin: 'daily_log',
+  source_file: 'Daily_Production_2026_10_18.xlsx',
+  source_sheet: 'Daily Production Log'
+});
+
+assert.strictEqual(dailyDiscovered.source_origin, 'daily_log');
+assert.strictEqual(dailyDiscovered.source_file, 'Daily_Production_2026_10_18.xlsx');
+assert.strictEqual(dailyDiscovered.source_sheet, 'Daily Production Log');
+
+// 16.5 Provenance label and badge theme helpers
+assert.strictEqual(formatSourceOriginLabel('planning_catalog'), 'Excel Planning Catalog');
+assert.strictEqual(formatSourceOriginLabel('daily_log'), 'Daily Production Log');
+assert.strictEqual(formatSourceOriginLabel('manual_override'), 'Manual Floor Override');
+assert.strictEqual(formatSourceOriginLabel('preset_seed'), 'System Default Seed');
+
+const catalogTheme = getSourceOriginBadgeTheme('planning_catalog');
+assert.strictEqual(catalogTheme.label, 'Excel Planning Catalog');
+assert.strictEqual(catalogTheme.tag, 'From Catalog: Unique Planning Catalog');
+
+const overrideTheme = getSourceOriginBadgeTheme('manual_override');
+assert.strictEqual(overrideTheme.label, 'Manual Floor Override');
+assert.strictEqual(overrideTheme.tag, 'Calibrated Floor Override');
+
+console.log('Test 16 Passed: Data provenance tracking & source attribution metadata integrity verified.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (16/16) ---');
+
 
 

@@ -98,7 +98,7 @@ export default function ExcelUploader({
   const processBuffer = (buffer, name) => {
     try {
       setLoading(true);
-      const res = parseExcelWorkbook(buffer);
+      const res = parseExcelWorkbook(buffer, name);
       setFileName(name);
       setSheetName(res.sheetName);
       setLocalRecords(res.rows);

@@ -70,6 +70,7 @@ function getInitialSeedCatalog() {
       const targetPcsH = preset.targetPcsH !== undefined && preset.targetPcsH !== null
         ? Number(preset.targetPcsH)
         : (uWeight > 0 && !preset.isCompounding ? Math.round(200 / uWeight) : null);
+      const nowIso = new Date().toISOString();
       catalog[code] = {
         itemCode: String(preset.itemCode).trim(),
         description: preset.description || '',
@@ -87,13 +88,18 @@ function getInitialSeedCatalog() {
         isCompounding: Boolean(preset.isCompounding),
         isPending: false,
         source: 'factory_preset',
-        updatedAt: new Date().toISOString()
+        source_origin: 'preset_seed',
+        source_file: 'System Defaults',
+        source_sheet: 'Factory Presets',
+        last_updated_at: nowIso,
+        updatedAt: nowIso
       };
     });
   }
 
   // Explicitly ensure item 188 is guaranteed in seed catalog
   if (!catalog['188']) {
+    const seedIso = new Date().toISOString();
     catalog['188'] = {
       itemCode: '188',
       description: 'MANARCO UPVC PIPE 3" SDR26 ASTM',
@@ -111,7 +117,11 @@ function getInitialSeedCatalog() {
       isCompounding: false,
       isPending: false,
       source: 'factory_preset',
-      updatedAt: new Date().toISOString()
+      source_origin: 'preset_seed',
+      source_file: 'System Defaults',
+      source_sheet: 'Factory Presets',
+      last_updated_at: seedIso,
+      updatedAt: seedIso
     };
   }
 
@@ -281,6 +291,10 @@ export function saveProduct(productData, options = { syncServer: true }) {
 
   const existing = getProductByCode(rawCode);
 
+  const nowIso = new Date().toISOString();
+  const sourceOrigin = productData.source_origin ||
+    (Boolean(productData.isPending) ? 'daily_log' : (existing?.source_origin || 'manual_override'));
+
   const product = {
     ...(existing || {}),
     itemCode: rawCode,
@@ -298,8 +312,12 @@ export function saveProduct(productData, options = { syncServer: true }) {
     historicalRateKgH: productData.historicalRateKgH || existing?.historicalRateKgH || null,
     isCompounding: Boolean(productData.isCompounding ?? existing?.isCompounding),
     isPending: Boolean(productData.isPending ?? false),
-    source: productData.source || existing?.source || 'manual',
-    updatedAt: new Date().toISOString()
+    source: productData.source || existing?.source || (sourceOrigin === 'manual_override' ? 'manual' : 'auto_discovery'),
+    source_origin: sourceOrigin,
+    source_file: productData.source_file || existing?.source_file || (sourceOrigin === 'manual_override' ? 'manual_input' : 'Daily Production Log'),
+    source_sheet: productData.source_sheet || existing?.source_sheet || (sourceOrigin === 'manual_override' ? 'Floor Override' : 'Production Log'),
+    last_updated_at: productData.last_updated_at || nowIso,
+    updatedAt: nowIso
   };
 
   const registry = { ...getProductCatalogRegistry(), [normalizedCode]: product };
@@ -506,6 +524,10 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
       // If previously verified (isPending === false), keep verified status
       isPending: existing ? Boolean(existing.isPending && (item.isPending ?? true)) : Boolean(item.isPending ?? false),
       source: existing?.source === 'manual' ? 'manual' : (item.source || options.source || 'excel'),
+      source_origin: item.source_origin || options.source_origin || (existing?.source_origin || 'planning_catalog'),
+      source_file: item.source_file || options.source_file || existing?.source_file || 'Excel Workbook',
+      source_sheet: item.source_sheet || options.source_sheet || existing?.source_sheet || 'Unique Planning Catalog',
+      last_updated_at: item.last_updated_at || options.last_updated_at || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -563,6 +585,7 @@ export function autoRegisterPendingProduct(itemCode, description = '', specs = {
 
   const desc = String(description || '').trim() || `Product Code ${itemCode}`;
   const resolvedWeight = Number(specs.unitWeight || specs.stdWeight) || resolveStdWeightFromSpecs({ itemCode, description: desc }, 6.0) || 0;
+  const nowIso = new Date().toISOString();
 
   return saveProduct({
     itemCode: String(itemCode).trim(),
@@ -572,6 +595,10 @@ export function autoRegisterPendingProduct(itemCode, description = '', specs = {
     pipeLength: Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0,
     isPending: true,
     source: 'auto_discovery',
+    source_origin: specs.source_origin || 'daily_log',
+    source_file: specs.source_file || 'Daily Production Log',
+    source_sheet: specs.source_sheet || 'Production Log',
+    last_updated_at: specs.last_updated_at || nowIso,
     ...specs
   }, { syncServer: true });
 }
@@ -579,9 +606,10 @@ export function autoRegisterPendingProduct(itemCode, description = '', specs = {
 /**
  * Parse and ingest the dedicated "Unique Planning Catalog" worksheet from an Excel workbook
  * @param {Object} wb SheetJS workbook instance
+ * @param {Object} [options] Ingestion options (e.g. { fileName: '...' })
  * @returns {Object} { success: boolean, count: number, sheetFound: boolean }
  */
-export function parseUniquePlanningCatalogSheet(wb) {
+export function parseUniquePlanningCatalogSheet(wb, options = {}) {
   if (!wb || !wb.SheetNames || !Array.isArray(wb.SheetNames)) {
     return {
       success: false,
@@ -657,6 +685,7 @@ export function parseUniquePlanningCatalogSheet(wb) {
     };
   }
 
+  const fileName = options.fileName || wb._fileName || wb.fileName || 'Unique_Planning_Catalog.xlsx';
   const ingestedItems = [];
 
   for (const row of tableRows) {
@@ -860,6 +889,7 @@ export function parseUniquePlanningCatalogSheet(wb) {
       altLines.push({ lineId: alt2Line, rate: alt2PcsH });
     }
 
+    const nowIso = new Date().toISOString();
     ingestedItems.push({
       itemCode: rawCode,
       description: desc || `uPVC Pipe ${rawOd} ${rawWt}`.trim(),
@@ -875,14 +905,22 @@ export function parseUniquePlanningCatalogSheet(wb) {
       targetPcsH: (histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null,
       alternativeLines: altLines,
       isPending: false,
-      source: 'excel_catalog'
+      source: 'excel_catalog',
+      source_origin: 'planning_catalog',
+      source_file: fileName,
+      source_sheet: sheetName,
+      last_updated_at: nowIso
     });
   }
 
   const batchResult = upsertBatchProducts(ingestedItems, {
     syncServer: true,
     source: 'excel_catalog',
-    protectBaselines: true
+    source_origin: 'planning_catalog',
+    source_file: fileName,
+    source_sheet: sheetName,
+    protectBaselines: true,
+    ...options
   });
 
   return {
@@ -1080,3 +1118,68 @@ export async function syncProductsWithServer() {
     return { success: false, offline: true, error: err?.message };
   }
 }
+
+/**
+ * Format human-readable provenance label for product origin
+ * @param {string} origin ('planning_catalog' | 'daily_log' | 'manual_override' | 'preset_seed')
+ * @returns {string} Human-readable source description
+ */
+export function formatSourceOriginLabel(origin) {
+  switch (origin) {
+    case 'planning_catalog':
+      return 'Excel Planning Catalog';
+    case 'daily_log':
+      return 'Daily Production Log';
+    case 'manual_override':
+      return 'Manual Floor Override';
+    case 'preset_seed':
+      return 'System Default Seed';
+    default:
+      return 'System Standard';
+  }
+}
+
+/**
+ * Get color theme / CSS classes for provenance badge
+ * @param {string} origin
+ * @returns {Object} { label: string, classes: string, dotClass: string }
+ */
+export function getSourceOriginBadgeTheme(origin) {
+  const label = formatSourceOriginLabel(origin);
+  switch (origin) {
+    case 'planning_catalog':
+      return {
+        label,
+        tag: 'From Catalog: Unique Planning Catalog',
+        classes: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800',
+        dotClass: 'bg-emerald-500',
+        textColor: '#047857'
+      };
+    case 'manual_override':
+      return {
+        label,
+        tag: 'Calibrated Floor Override',
+        classes: 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800',
+        dotClass: 'bg-amber-500',
+        textColor: '#b45309'
+      };
+    case 'daily_log':
+      return {
+        label,
+        tag: 'From Log: Daily Production Log',
+        classes: 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800',
+        dotClass: 'bg-purple-500',
+        textColor: '#6d28d9'
+      };
+    case 'preset_seed':
+    default:
+      return {
+        label,
+        tag: 'System Default Seed',
+        classes: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+        dotClass: 'bg-slate-500',
+        textColor: '#475569'
+      };
+  }
+}
+

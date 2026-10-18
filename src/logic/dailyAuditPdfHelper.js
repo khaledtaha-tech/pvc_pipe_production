@@ -385,3 +385,135 @@ export function buildDailyAuditReportData({
     rows: lineRows
   };
 }
+
+/**
+ * Resolves the dynamic density preset and styling scale based on active row count
+ * @param {number} rowCount - Count of rendered/displayed machine rows
+ * @returns {Object} Preset tokens and CSS classes
+ */
+export function getAuditDensityPreset(rowCount) {
+  const count = Number(rowCount) || 0;
+  const mode = count <= 4 ? 'low' : count <= 7 ? 'medium' : 'compact';
+
+  if (mode === 'low') {
+    return {
+      mode: 'low',
+      // Table Rows & Fonts
+      cellPaddingClass: 'py-3.5 px-3',
+      tableTextClass: 'text-[13px]',
+      tableHeaderClass: 'text-[12px] py-2 px-3',
+      lineNameClass: 'text-[13px]',
+      badgeClass: 'text-[10.5px] px-2 py-0.5',
+      subtextClass: 'text-[10px]',
+      unitClass: 'text-[9.5px]',
+      summaryRowClass: 'text-[12px] py-2.5 px-3',
+
+      // KPI Cards
+      kpiCardPaddingClass: 'p-3',
+      kpiTitleClass: 'text-[10px]',
+      kpiMetricClass: 'text-[20px]',
+      kpiSecondaryMetricClass: 'text-[14px]',
+      kpiSubtextClass: 'text-[9.5px]',
+
+      // Downtime Section
+      downtimeHeaderClass: 'text-[12px]',
+      downtimeBadgeClass: 'text-[9.5px] px-2 py-0.5',
+      downtimeSubtextClass: 'text-[10px]',
+      downtimeCardPaddingClass: 'p-2 px-2.5',
+      downtimeLabelClass: 'text-[10px]',
+      downtimeMetricClass: 'text-[15px]',
+      downtimePctClass: 'text-[9.5px]',
+      downtimeBarClass: 'w-14 h-1.5',
+
+      // Overall Page Header & Footer
+      headerTitleClass: 'text-[18px]',
+      headerPlantClass: 'text-[12px]',
+      headerSubClass: 'text-[10px]',
+      ampBadgeClass: 'w-9 h-9 text-lg',
+      dateBadgeClass: 'px-3.5 py-1 text-sm',
+      signoffClass: 'text-[12px] pt-2.5',
+      fineprintClass: 'text-[8.5px] mt-1.5 pt-1'
+    };
+  }
+
+  if (mode === 'medium') {
+    return {
+      mode: 'medium',
+      // Table Rows & Fonts
+      cellPaddingClass: 'py-2 px-2.5',
+      tableTextClass: 'text-[11.5px]',
+      tableHeaderClass: 'text-[10px] py-1.5 px-2.5',
+      lineNameClass: 'text-[11.5px]',
+      badgeClass: 'text-[9.5px] px-1.5 py-0.5',
+      subtextClass: 'text-[9px]',
+      unitClass: 'text-[8.5px]',
+      summaryRowClass: 'text-[10.5px] py-1.5 px-2.5',
+
+      // KPI Cards
+      kpiCardPaddingClass: 'p-2 px-2.5',
+      kpiTitleClass: 'text-[9px]',
+      kpiMetricClass: 'text-[17px]',
+      kpiSecondaryMetricClass: 'text-[12.5px]',
+      kpiSubtextClass: 'text-[8.5px]',
+
+      // Downtime Section
+      downtimeHeaderClass: 'text-[10.5px]',
+      downtimeBadgeClass: 'text-[8.5px] px-1.5 py-0.2',
+      downtimeSubtextClass: 'text-[9px]',
+      downtimeCardPaddingClass: 'p-1.5 px-2',
+      downtimeLabelClass: 'text-[8.5px]',
+      downtimeMetricClass: 'text-[13px]',
+      downtimePctClass: 'text-[8.5px]',
+      downtimeBarClass: 'w-12 h-1',
+
+      // Overall Page Header & Footer
+      headerTitleClass: 'text-[16px]',
+      headerPlantClass: 'text-[11px]',
+      headerSubClass: 'text-[9.5px]',
+      ampBadgeClass: 'w-8 h-8 text-base',
+      dateBadgeClass: 'px-3 py-0.5 text-xs',
+      signoffClass: 'text-[11px] pt-2',
+      fineprintClass: 'text-[7.5px] mt-1 pt-0.5'
+    };
+  }
+
+  // Compact density (8+ rows / All lines)
+  return {
+    mode: 'compact',
+    // Table Rows & Fonts
+    cellPaddingClass: 'py-1 px-2',
+    tableTextClass: 'text-[10.5px]',
+    tableHeaderClass: 'text-[9px] py-1 px-2',
+    lineNameClass: 'text-[10px]',
+    badgeClass: 'text-[8.5px] px-1.5 py-0.2',
+    subtextClass: 'text-[8px]',
+    unitClass: 'text-[7.5px]',
+    summaryRowClass: 'text-[9.5px] py-1 px-2',
+
+    // KPI Cards
+    kpiCardPaddingClass: 'p-1.5 px-2',
+    kpiTitleClass: 'text-[8.5px]',
+    kpiMetricClass: 'text-[15px]',
+    kpiSecondaryMetricClass: 'text-[11.5px]',
+    kpiSubtextClass: 'text-[8px]',
+
+    // Downtime Section
+    downtimeHeaderClass: 'text-[9.5px]',
+    downtimeBadgeClass: 'text-[8px] px-1.5 py-0.2',
+    downtimeSubtextClass: 'text-[8px]',
+    downtimeCardPaddingClass: 'p-1 px-1.5',
+    downtimeLabelClass: 'text-[8px]',
+    downtimeMetricClass: 'text-[11.5px]',
+    downtimePctClass: 'text-[8px]',
+    downtimeBarClass: 'w-10 h-1',
+
+    // Overall Page Header & Footer
+    headerTitleClass: 'text-[15px]',
+    headerPlantClass: 'text-[10.5px]',
+    headerSubClass: 'text-[9px]',
+    ampBadgeClass: 'w-7 h-7 text-sm',
+    dateBadgeClass: 'px-2.5 py-0.5 text-xs',
+    signoffClass: 'text-[10px] pt-1.5',
+    fineprintClass: 'text-[7px] mt-0.5 pt-0.5'
+  };
+}

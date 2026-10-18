@@ -33,7 +33,8 @@ import {
   getYesterdayDate,
   findLatestRecordedDate,
   formatExecutiveAuditDate,
-  buildDailyAuditReportData
+  buildDailyAuditReportData,
+  getAuditDensityPreset
 } from '../../src/logic/dailyAuditPdfHelper.js';
 import { MACHINES } from '../../src/config/machines.js';
 import { saveBaselineRate, clearAllBaselines } from '../../src/logic/standardCatalogHelper.js';
@@ -234,6 +235,45 @@ console.log('--- Starting Daily Audit PDF Helper Unit Tests ---');
   });
 
   console.log('Test 6 Passed: Full machine names (e.g. L-06 - KTS 700) verified for prominent rendering.');
+}
+
+// Test 7: Dynamic density scale presets adapt based on active row count
+{
+  // 1 to 4 rows: Low density preset
+  const lowPreset1 = getAuditDensityPreset(1);
+  const lowPreset4 = getAuditDensityPreset(4);
+  assert.strictEqual(lowPreset1.mode, 'low');
+  assert.strictEqual(lowPreset4.mode, 'low');
+  assert.ok(lowPreset4.cellPaddingClass.includes('py-3'));
+  assert.strictEqual(lowPreset4.tableTextClass, 'text-[13px]');
+  assert.ok(lowPreset4.tableHeaderClass.includes('text-[12px]'));
+  assert.strictEqual(lowPreset4.kpiCardPaddingClass, 'p-3');
+  assert.strictEqual(lowPreset4.kpiMetricClass, 'text-[20px]');
+  assert.strictEqual(lowPreset4.downtimeMetricClass, 'text-[15px]');
+
+  // 5 to 7 rows: Medium density preset
+  const medPreset5 = getAuditDensityPreset(5);
+  const medPreset7 = getAuditDensityPreset(7);
+  assert.strictEqual(medPreset5.mode, 'medium');
+  assert.strictEqual(medPreset7.mode, 'medium');
+  assert.ok(medPreset5.cellPaddingClass.includes('py-2'));
+  assert.strictEqual(medPreset5.tableTextClass, 'text-[11.5px]');
+  assert.ok(medPreset5.tableHeaderClass.includes('text-[10px]'));
+  assert.ok(medPreset5.kpiCardPaddingClass.includes('p-2'));
+  assert.strictEqual(medPreset5.kpiMetricClass, 'text-[17px]');
+
+  // 8+ rows: Compact density preset
+  const compactPreset8 = getAuditDensityPreset(8);
+  const compactPresetAll = getAuditDensityPreset(15);
+  assert.strictEqual(compactPreset8.mode, 'compact');
+  assert.strictEqual(compactPresetAll.mode, 'compact');
+  assert.ok(compactPreset8.cellPaddingClass.includes('py-1'));
+  assert.strictEqual(compactPreset8.tableTextClass, 'text-[10.5px]');
+  assert.ok(compactPreset8.tableHeaderClass.includes('text-[9px]'));
+  assert.ok(compactPreset8.kpiCardPaddingClass.includes('p-1.5'));
+  assert.strictEqual(compactPreset8.kpiMetricClass, 'text-[15px]');
+
+  console.log('Test 7 Passed: Dynamic density scale presets adapt accurately across row counts.');
 }
 
 console.log('--- ALL DAILY AUDIT PDF HELPER UNIT TESTS PASSED SUCCESSFULLY! ---');

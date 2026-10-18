@@ -8881,13 +8881,13 @@ html:not(.light) .standards-catalog-count-note {
 
 /* ============ DAILY AUDIT EXECUTIVE PDF REPORT (A4 LANDSCAPE) ============ */
 .daily-audit-pdf-sheet {
-  width: 297mm;
-  max-width: 297mm;
-  height: 198mm;
-  max-height: 200mm;
-  min-height: 198mm;
+  width: 100%;
+  max-width: 281mm;
+  height: 194mm;
+  max-height: 194mm;
+  min-height: 194mm;
   margin: 0 auto;
-  padding: 5mm 8mm;
+  padding: 0;
   background-color: #ffffff !important;
   color: #0f172a !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -8928,13 +8928,17 @@ html:not(.light) .standards-catalog-count-note {
   max-width: 100%;
   aspect-ratio: 297 / 210;
   margin: 0 auto;
+  padding: 8mm;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Dedicated Single-Page A4 Landscape Print Styles */
 @media print {
   @page {
     size: A4 landscape;
-    margin: 5mm;
+    margin: 8mm;
   }
 
   body.print-daily-audit-active {
@@ -8990,22 +8994,27 @@ html:not(.light) .standards-catalog-count-note {
     width: 100% !important;
     max-width: 100% !important;
     aspect-ratio: auto !important;
+    height: 194mm !important;
+    max-height: 194mm !important;
   }
 
   body.print-daily-audit-active .daily-audit-pdf-sheet {
     width: 100% !important;
     max-width: 100% !important;
-    height: 198mm !important;
-    max-height: 200mm !important;
-    min-height: 198mm !important;
+    height: 194mm !important;
+    max-height: 194mm !important;
+    min-height: 194mm !important;
     margin: 0 auto !important;
-    padding: 5mm 8mm !important;
+    padding: 0 !important;
     box-shadow: none !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
   }
 
   body.print-daily-audit-active .no-print {

@@ -101,7 +101,7 @@ export default function DailyAuditPdfModal({
       pageStyle.id = 'daily-audit-page-style';
       document.head.appendChild(pageStyle);
     }
-    pageStyle.innerHTML = '@page { size: A4 landscape; margin: 5mm; }';
+    pageStyle.innerHTML = '@page { size: A4 landscape; margin: 8mm; }';
 
     if (onNotify) {
       onNotify(`Opening print dialog for Daily Audit Report (${auditDate})...`);
@@ -129,7 +129,7 @@ export default function DailyAuditPdfModal({
     const densitySuffix = densityMode === 'detailed' ? '_Detailed' : '_Executive';
     const filename = `Daily_Operational_Audit_Report_${auditDate}${filterSuffix}${densitySuffix}.pdf`;
     const opt = {
-      margin: 0,
+      margin: 8,
       filename,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {

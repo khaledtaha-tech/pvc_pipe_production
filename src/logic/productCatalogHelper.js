@@ -4,6 +4,7 @@
  * on-the-fly product creation, local cache, and central MySQL backend persistence.
  */
 
+import * as XLSX from 'xlsx';
 import { SOP_FACTORY_PRESETS, resolveStdWeightFromSpecs } from './legacySopHelper.js';
 import { parseDiameterToMm } from '../utils/masterProfiles.js';
 import { matchMachine } from '../config/machines.js';
@@ -66,20 +67,23 @@ function getInitialSeedCatalog() {
       if (!code) return;
       const uWeight = Number(preset.unitWeight || preset.stdWeight) || 0;
       const length = preset.pipeLength !== undefined ? Number(preset.pipeLength) : (preset.isCompounding ? 0 : 6.0);
+      const targetPcsH = preset.targetPcsH !== undefined && preset.targetPcsH !== null
+        ? Number(preset.targetPcsH)
+        : (uWeight > 0 && !preset.isCompounding ? Math.round(200 / uWeight) : null);
       catalog[code] = {
         itemCode: String(preset.itemCode).trim(),
         description: preset.description || '',
-        odMm: '',
-        wallThickness: '',
-        material: preset.isCompounding ? 'PVC Compound' : 'uPVC',
+        odMm: preset.odMm || '',
+        wallThickness: preset.wallThickness || '',
+        material: preset.isCompounding ? 'PVC Compound' : (preset.material || 'uPVC'),
         unitWeight: uWeight,
         stdWeight: uWeight,
         pipeLength: length,
-        nominalSpeed: null,
-        targetPcsH: uWeight > 0 && !preset.isCompounding ? Math.round(250 / uWeight) : null,
-        primaryExtruder: preset.isCompounding ? 'L-08' : '',
-        compatibleMachines: '',
-        historicalRateKgH: null,
+        nominalSpeed: preset.nominalSpeed || null,
+        targetPcsH,
+        primaryExtruder: preset.primaryExtruder || (preset.isCompounding ? 'L-08' : ''),
+        compatibleMachines: preset.compatibleMachines || '',
+        historicalRateKgH: preset.historicalRateKgH || null,
         isCompounding: Boolean(preset.isCompounding),
         isPending: false,
         source: 'factory_preset',
@@ -87,6 +91,30 @@ function getInitialSeedCatalog() {
       };
     });
   }
+
+  // Explicitly ensure item 188 is guaranteed in seed catalog
+  if (!catalog['188']) {
+    catalog['188'] = {
+      itemCode: '188',
+      description: 'MANARCO UPVC PIPE 3" SDR26 ASTM',
+      odMm: '88.9',
+      wallThickness: 'SDR26',
+      material: 'uPVC',
+      unitWeight: 7.85,
+      stdWeight: 7.85,
+      pipeLength: 6.0,
+      nominalSpeed: 2.5,
+      targetPcsH: 25,
+      primaryExtruder: 'L-05',
+      compatibleMachines: 'L-05, L-08',
+      historicalRateKgH: 200,
+      isCompounding: false,
+      isPending: false,
+      source: 'factory_preset',
+      updatedAt: new Date().toISOString()
+    };
+  }
+
   return catalog;
 }
 
@@ -103,6 +131,20 @@ export function getProductCatalogRegistry() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          // Fallback backfill: Ensure newly added seed presets (such as 188) are present
+          let mergedAny = false;
+          const seed = getInitialSeedCatalog();
+          for (const [code, val] of Object.entries(seed)) {
+            if (!parsed[code]) {
+              parsed[code] = val;
+              mergedAny = true;
+            }
+          }
+          if (mergedAny) {
+            try {
+              storage.setItem(PRODUCT_CATALOG_STORAGE_KEY, JSON.stringify(parsed));
+            } catch (_) {}
+          }
           inMemoryProductRegistry = parsed;
           return parsed;
         }
@@ -752,8 +794,17 @@ export function parseUniquePlanningCatalogSheet(wb) {
       resolvedWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, 6.0) || 0;
     }
     if (resolvedWeight <= 0 && odMmNum > 0) {
-      const wtMatch = rawWt.match(/\d+(?:\.\d+)?/);
-      const wtNum = wtMatch ? Number(wtMatch[0]) : 0;
+      const sdrMatch = rawWt.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
+      let wtNum = 0;
+      if (sdrMatch) {
+        const sdrVal = Number(sdrMatch[1]);
+        if (sdrVal > 0) {
+          wtNum = Math.round((odMmNum / sdrVal) * 100) / 100;
+        }
+      } else {
+        const wtMatch = rawWt.match(/\d+(?:\.\d+)?/);
+        wtNum = wtMatch ? Number(wtMatch[0]) : 0;
+      }
       if (wtNum > 0 && wtNum < odMmNum) {
         resolvedWeight = Math.round(Math.PI * (odMmNum - wtNum) * wtNum * 6.0 * 0.00142 * 100) / 100;
       }
@@ -766,9 +817,19 @@ export function parseUniquePlanningCatalogSheet(wb) {
       row['Target Pcs/h'] ??
       0
     );
+
+    let targetKgH = null;
+    const targetMatch = rawTargetRateBand.match(/\d+(?:\.\d+)?/g);
+    if (targetMatch && targetMatch.length > 0) {
+      const nums = targetMatch.map(Number);
+      targetKgH = nums.reduce((a, b) => a + b, 0) / nums.length;
+    } else if (histRateKgH && histRateKgH > 0) {
+      targetKgH = histRateKgH;
+    }
+
     const targetPcsH = (rawDirectPcsH > 0)
       ? Math.round(rawDirectPcsH)
-      : ((histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null);
+      : ((targetKgH && resolvedWeight > 0) ? Math.round(targetKgH / resolvedWeight) : ((histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null));
 
     const altLines = [];
     const alt1Line = resolveCanonicalLineId(rawAltMach1);

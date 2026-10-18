@@ -9,6 +9,7 @@ import {
   extractMachineSpecsFromRun,
   getAvailableProductsCatalog,
   calculateBenchmarkSpeedForProduct,
+  resolveSuggestedRate,
   buildMorningSopModel,
   isCompoundingLineOrProduct,
   resolveStdWeightFromSpecs,
@@ -16,6 +17,7 @@ import {
   addDays,
   buildMultiDayMorningSopModels
 } from '../../logic/legacySopHelper.js';
+export { resolveSuggestedRate };
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import {
   getBaselineRate,
@@ -61,77 +63,7 @@ function savePersistedSopConfig(configByMachineId) {
   }
 }
 
-/**
- * Derive suggested unapproved pace (pcs/h) for a machine and product from historical logs or physical specs.
- * Priority:
- * 1. Historical realized run rate from records
- * 2. Excel log actual or target rate (if present)
- * 3. Physical linear speed / pipe length (if speed > 0)
- * 4. Extruder melt capacity / standard unit weight benchmark
- */
-function resolveSuggestedRate(lineId, productCode, {
-  records = [],
-  excelLine = null,
-  specs = null,
-  matchedProduct = null,
-  pipeLength = 6.0,
-  unitWeight = 1.0,
-  speed = null,
-  nominalCapacity = 200,
-  machineMaster = MACHINES
-} = {}) {
-  // 1. Check historical records for exact machine + product code
-  if (productCode && Array.isArray(records) && records.length > 0) {
-    const hist = getLatestHistoricalRunDetails(lineId, productCode, records, { machineMaster });
-    if (hist && Number(hist.rate) > 0) {
-      return Math.round(Number(hist.rate));
-    }
-  }
 
-  // 2. Check latest excel line record
-  if (excelLine) {
-    if (Number(excelLine.actualRatePcsH) > 0) return Math.round(Number(excelLine.actualRatePcsH));
-    if (Number(excelLine.targetPcsH) > 0) return Math.round(Number(excelLine.targetPcsH));
-  }
-
-  // 3. Check extracted specs from previous run
-  if (specs) {
-    if (Number(specs.calculatedRate) > 0) return Math.round(Number(specs.calculatedRate));
-    if (Number(specs.actualRatePcsH) > 0) return Math.round(Number(specs.actualRatePcsH));
-    if (Number(specs.speed) > 0 && pipeLength > 0) {
-      return Math.round((Number(specs.speed) * 60) / pipeLength);
-    }
-  }
-
-  // 4. Physical speed / cut length
-  const numSpeed = Number(speed);
-  if (numSpeed > 0 && pipeLength > 0) {
-    return Math.round((numSpeed * 60) / pipeLength);
-  }
-
-  // 5. Benchmark calculation based on extruder capacity & unit weight
-  const uWeight = Number(unitWeight) > 0 ? Number(unitWeight) : 1.0;
-  const pLen = Number(pipeLength) > 0 ? Number(pipeLength) : 6.0;
-  if (matchedProduct || uWeight > 0) {
-    const benchmark = calculateBenchmarkSpeedForProduct(
-      matchedProduct || { unitWeight: uWeight },
-      lineId,
-      machineMaster,
-      pLen
-    );
-    if (benchmark && Number(benchmark.calculatedRate) > 0) {
-      return Math.round(Number(benchmark.calculatedRate));
-    }
-  }
-
-  // 6. Direct melt capacity / unit weight fallback
-  const nomCap = Number(nominalCapacity) > 0 ? Number(nominalCapacity) : 200;
-  if (nomCap > 0 && uWeight > 0) {
-    return Math.round(nomCap / uWeight);
-  }
-
-  return 100;
-}
 
 /**
  * Intelligent Morning Blank SOP (DOC-Ext.-03) Print & Export Configuration Modal
@@ -245,8 +177,16 @@ export default function PrintSopModal({
   const distinctCodes = useMemo(() => {
     const set = new Set();
     productCatalog.forEach((p) => {
-      if (p.itemCode) set.add(p.itemCode);
+      if (p.itemCode) set.add(String(p.itemCode).trim());
     });
+    try {
+      const allReg = getAllProducts();
+      if (Array.isArray(allReg)) {
+        allReg.forEach((p) => {
+          if (p.itemCode) set.add(String(p.itemCode).trim());
+        });
+      }
+    } catch (_) {}
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [productCatalog]);
 
@@ -603,8 +543,12 @@ export default function PrintSopModal({
           };
         }
 
-        const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
-        const unitWeight = resolveStdWeightFromSpecs(matchedProduct, pipeLen) || matchedProduct?.unitWeight || matchedProduct?.stdWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
+        const pipeLen = (matchedProduct?.pipeLength !== undefined && Number(matchedProduct.pipeLength) >= 0)
+          ? Number(matchedProduct.pipeLength)
+          : (Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0);
+        const unitWeight = (Number(matchedProduct?.unitWeight || matchedProduct?.stdWeight) > 0)
+          ? Number(matchedProduct.unitWeight || matchedProduct.stdWeight)
+          : (resolveStdWeightFromSpecs(matchedProduct, pipeLen) || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0));
 
         const benchmark = calculateBenchmarkSpeedForProduct(
           { unitWeight },
@@ -723,8 +667,12 @@ export default function PrintSopModal({
           };
         }
 
-        const pipeLen = Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0;
-        const unitWeight = resolveStdWeightFromSpecs(matchedProduct, pipeLen) || matchedProduct?.unitWeight || matchedProduct?.stdWeight || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0);
+        const pipeLen = (matchedProduct?.pipeLength !== undefined && Number(matchedProduct.pipeLength) >= 0)
+          ? Number(matchedProduct.pipeLength)
+          : (Number(item.pipeLength) > 0 ? Number(item.pipeLength) : 6.0);
+        const unitWeight = (Number(matchedProduct?.unitWeight || matchedProduct?.stdWeight) > 0)
+          ? Number(matchedProduct.unitWeight || matchedProduct.stdWeight)
+          : (resolveStdWeightFromSpecs(matchedProduct, pipeLen) || (Number(item.unitWeight) > 0 ? item.unitWeight : 1.0));
 
         const benchmark = calculateBenchmarkSpeedForProduct(
           { unitWeight },
@@ -1442,10 +1390,10 @@ export default function PrintSopModal({
                                 </option>
                               )}
                               {displayedCodes.map((code) => {
-                                const p = productCatalog.find((x) => x.itemCode === code) || getProductByCode(code);
+                                const p = productCatalog.find((x) => String(x.itemCode).trim().toUpperCase() === String(code).trim().toUpperCase()) || getProductByCode(code);
                                 return (
                                   <option key={code} value={code}>
-                                    {code} {p?.description ? `— ${p.description.slice(0, 26)}` : ''}
+                                    {code}{p?.description ? ` — ${p.description}` : ''}
                                   </option>
                                 );
                               })}

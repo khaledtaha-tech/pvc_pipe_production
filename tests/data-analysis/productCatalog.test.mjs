@@ -29,7 +29,7 @@ import {
   getBaselineEntry,
   hasBaselineRate
 } from '../../src/logic/standardCatalogHelper.js';
-import { getAvailableProductsCatalog, resolveStdWeightFromSpecs } from '../../src/logic/legacySopHelper.js';
+import { getAvailableProductsCatalog, resolveStdWeightFromSpecs, resolveSuggestedRate } from '../../src/logic/legacySopHelper.js';
 import { parseExcelWorkbook } from '../../src/logic/excelParser.js';
 
 console.log('--- Starting Dynamic Product Catalog Unit Tests ---');
@@ -52,12 +52,17 @@ const code249 = getProductByCode('249');
 assert.ok(code249, 'Factory preset code 249 should exist');
 assert.strictEqual(code249.itemCode, '249');
 assert.strictEqual(code249.unitWeight, 2.65);
+
+const code188 = getProductByCode('188');
+assert.ok(code188, 'Factory preset code 188 should exist in initial seed');
+assert.strictEqual(code188.itemCode, '188');
+assert.strictEqual(code188.unitWeight, 7.85);
 console.log('Test 1 Passed: Initial catalog successfully bootstrapped.');
 
-// 2. On-the-Fly Creation Test (e.g. Item Code 188)
-console.log('Test 2: On-the-fly product creation (Item Code 188)');
-const newProduct188 = saveProduct({
-  itemCode: '188',
+// 2. On-the-Fly Creation Test (e.g. Item Code 189)
+console.log('Test 2: On-the-fly product creation (Item Code 189)');
+const newProduct189 = saveProduct({
+  itemCode: '189',
   description: 'uPVC PIPE 160MM SDR 26 PN-10 SASO-ISO 1452',
   odMm: '160',
   wallThickness: '4.0mm',
@@ -68,19 +73,23 @@ const newProduct188 = saveProduct({
   source: 'manual'
 }, { syncServer: false });
 
-assert.strictEqual(newProduct188.itemCode, '188');
-assert.strictEqual(newProduct188.unitWeight, 3.45);
-assert.strictEqual(newProduct188.targetPcsH, 25);
+assert.strictEqual(newProduct189.itemCode, '189');
+assert.strictEqual(newProduct189.unitWeight, 3.45);
+assert.strictEqual(newProduct189.targetPcsH, 25);
 
 // Immediate lookup by code
-const fetched188 = getProductByCode('188');
-assert.ok(fetched188, 'Code 188 should be immediately retrievable');
-assert.strictEqual(fetched188.description, 'uPVC PIPE 160MM SDR 26 PN-10 SASO-ISO 1452');
-assert.strictEqual(fetched188.unitWeight, 3.45);
-console.log('Test 2 Passed: Code 188 created and retrieved on-the-fly.');
+const fetched189 = getProductByCode('189');
+assert.ok(fetched189, 'Code 189 should be immediately retrievable');
+assert.strictEqual(fetched189.description, 'uPVC PIPE 160MM SDR 26 PN-10 SASO-ISO 1452');
+assert.strictEqual(fetched189.unitWeight, 3.45);
+console.log('Test 2 Passed: Code 189 created and retrieved on-the-fly.');
 
 // 3. Leading Zero Tolerance & Case-Insensitive Lookup
 console.log('Test 3: Leading zero tolerance & case-insensitivity');
+const fetched0189 = getProductByCode('0189');
+assert.ok(fetched0189, 'Leading zero variant 0189 should resolve to 189');
+assert.strictEqual(fetched0189.itemCode, '189');
+
 const fetched0188 = getProductByCode('0188');
 assert.ok(fetched0188, 'Leading zero variant 0188 should resolve to 188');
 assert.strictEqual(fetched0188.itemCode, '188');
@@ -197,14 +206,21 @@ console.log('Test 7: getAvailableProductsCatalog dynamic integration');
 const dynamicCatalog = getAvailableProductsCatalog([], []);
 const found188InCatalog = dynamicCatalog.find((p) => p.itemCode === '188');
 assert.ok(found188InCatalog, 'Item 188 must be present in dynamic catalog');
-assert.strictEqual(found188InCatalog.unitWeight, 3.45);
+assert.strictEqual(found188InCatalog.unitWeight, 7.85);
+
+const found189InCatalog = dynamicCatalog.find((p) => p.itemCode === '189');
+assert.ok(found189InCatalog, 'On-the-fly created Item 189 must be present in dynamic catalog');
+assert.strictEqual(found189InCatalog.unitWeight, 3.45);
 
 const found350InCatalog = dynamicCatalog.find((p) => p.itemCode === '350');
 assert.ok(found350InCatalog, 'Excel ingested Item 350 must be present in dynamic catalog');
 
 // Verify resolveStdWeightFromSpecs resolves newly created products
 const resolvedWeight188 = resolveStdWeightFromSpecs({ itemCode: '188' }, 6.0);
-assert.strictEqual(resolvedWeight188, 3.45, 'resolveStdWeightFromSpecs should dynamically resolve weight for code 188');
+assert.strictEqual(resolvedWeight188, 7.85, 'resolveStdWeightFromSpecs should dynamically resolve weight for code 188');
+
+const resolvedWeight189 = resolveStdWeightFromSpecs({ itemCode: '189' }, 6.0);
+assert.strictEqual(resolvedWeight189, 3.45, 'resolveStdWeightFromSpecs should dynamically resolve weight for code 189');
 console.log('Test 7 Passed: getAvailableProductsCatalog and weight resolver dynamically reflect new items.');
 
 // 8. Bidirectional Server Sync Test
@@ -466,5 +482,76 @@ assert.strictEqual(preservedLog.scrapKg, 12, 'Historical scrap must be immutable
 assert.strictEqual(preservedLog.operatingHours, 24, 'Historical operating hours must be immutable');
 console.log('Test 12 Passed: Historical logs and archives remain 100% untouched and immutable.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (12/12) ---');
+// 13. Fallback Seed Registration of Item 188
+console.log('Test 13: Fallback seed registration of item 188');
+const p188 = getProductByCode('188');
+assert.ok(p188, 'Item 188 must be present in default seed catalog');
+assert.strictEqual(p188.itemCode, '188');
+assert.strictEqual(p188.description, 'MANARCO UPVC PIPE 3" SDR26 ASTM');
+assert.strictEqual(p188.unitWeight, 7.85);
+assert.strictEqual(p188.stdWeight, 7.85);
+assert.strictEqual(p188.pipeLength, 6.0);
+assert.strictEqual(p188.targetPcsH, 25);
+assert.strictEqual(p188.primaryExtruder, 'L-05');
+assert.strictEqual(p188.material, 'uPVC');
+console.log('Test 13 Passed: Item 188 fallback seed registration verified.');
+
+// 14. Dynamic SOP Dropdown Formatting & Nominal Specs Auto-Population
+console.log('Test 14: Dynamic SOP dropdown option formatting & spec auto-population for item 188');
+const availableCatalog = getAvailableProductsCatalog([]);
+const foundInCatalog = availableCatalog.find((x) => x.itemCode === '188');
+assert.ok(foundInCatalog, 'Item 188 must be present in getAvailableProductsCatalog');
+assert.strictEqual(foundInCatalog.description, 'MANARCO UPVC PIPE 3" SDR26 ASTM');
+
+// Verify dropdown label formatting strictly without truncation
+const dropdownLabel = `${foundInCatalog.itemCode}${foundInCatalog.description ? ` — ${foundInCatalog.description}` : ''}`;
+assert.strictEqual(dropdownLabel, '188 — MANARCO UPVC PIPE 3" SDR26 ASTM');
+
+// Verify auto-population of nominal specs when 188 is selected
+const resolvedLength = foundInCatalog.pipeLength !== undefined ? Number(foundInCatalog.pipeLength) : 6.0;
+assert.strictEqual(resolvedLength, 6.0, 'Length must resolve to 6.0m');
+
+const resolvedStdWeight = Number(foundInCatalog.unitWeight || foundInCatalog.stdWeight);
+assert.strictEqual(resolvedStdWeight, 7.85, 'Standard weight must resolve to 7.85 kg');
+
+const suggestedPace = resolveSuggestedRate('L-05', '188', {
+  matchedProduct: foundInCatalog,
+  pipeLength: resolvedLength,
+  unitWeight: resolvedStdWeight,
+  nominalCapacity: 200
+});
+assert.strictEqual(suggestedPace, 25, 'Suggested pace must resolve to 25 pcs/h');
+console.log('Test 14 Passed: SOP dropdown formatting and spec auto-population verified.');
+
+// 15. Dynamic Workbook Ingestion of "Unique Planning Catalog" with SDR26 Wall Thickness
+console.log('Test 15: Ingestion of Unique Planning Catalog worksheet with SDR26 wall thickness');
+const wbSdrTest = XLSX.utils.book_new();
+const wsSdrTest = XLSX.utils.json_to_sheet([
+  {
+    'Item Code': '188',
+    'Product Description & Specs': 'MANARCO UPVC PIPE 3" SDR26 ASTM',
+    'Pipe OD (mm) & Nominal Size': '88.9 mm (3")',
+    'Wall Thickness / SDR': 'SDR26',
+    'Material': 'uPVC',
+    'Evaluated Historical Output Rate (Average/Typical kg/hr)': '200 kg/hr',
+    'Primary Extruder Recommendation': 'L-05',
+    'Primary Target Rate Band (kg/hr)': '200 - 240 kg/hr'
+  }
+]);
+XLSX.utils.book_append_sheet(wbSdrTest, wsSdrTest, 'Unique Planning Catalog');
+
+const sdrIngestResult = parseUniquePlanningCatalogSheet(wbSdrTest);
+assert.strictEqual(sdrIngestResult.success, true);
+assert.strictEqual(sdrIngestResult.sheetFound, true);
+
+const ingested188 = getProductByCode('188');
+assert.ok(ingested188, 'Ingested 188 must exist in registry');
+assert.strictEqual(ingested188.odMm, '88.9');
+assert.strictEqual(ingested188.wallThickness, 'SDR26');
+// Theoretical weight for 88.9mm OD x SDR26 (3.42mm wall) x 6m is 7.82-7.85 kg
+assert.ok(ingested188.unitWeight >= 7.8 && ingested188.unitWeight <= 7.9, `Unit weight ${ingested188.unitWeight} should be ~7.85 kg`);
+console.log('Test 15 Passed: Unique Planning Catalog ingestion with SDR26 verified.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (15/15) ---');
+
 

@@ -407,7 +407,7 @@ export default function ExcelUploader({
             type="file"
             ref={fileInputRef}
             style={{ display: 'none' }}
-            accept=".xlsx, .xls"
+            accept=".xlsx, .xls, .xlsb, .xlsm"
             onChange={handleFileChange}
           />
           <div className="drop-icon">
@@ -423,7 +423,7 @@ export default function ExcelUploader({
               ? 'Parsing Excel workbook & Machine_Master...'
               : fileName
               ? `Loaded: ${fileName} (Sheet: ${sheetName})`
-              : 'Drag & Drop Master_Upload.xlsx here, or click to browse'}
+              : 'Drag & Drop Master_Upload.xlsx / .xlsb here, or click to browse'}
           </div>
           <div className="drop-sub">
             Reads Date, Line ID, Item Code, Specs, Production Qty, Total Weight, Scrap kg, Operating Hours, and Reason of Stop

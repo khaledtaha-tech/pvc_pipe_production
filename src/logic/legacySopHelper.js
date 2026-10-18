@@ -209,6 +209,7 @@ export const SOP_FACTORY_PRESETS = [
   { itemCode: '197', description: 'PVC 1" PIPE SCH40 ASTMD 2241', unitWeight: 0.50, stdWeight: 0.50, pipeLength: 6.0 },
   { itemCode: '230', description: 'PVC PIPE 160MM EN1452 PN7.5 4.7MM GRAY R/R', unitWeight: 3.80, stdWeight: 3.80, pipeLength: 6.0 },
   { itemCode: '259', description: 'PVC PIPE 160X11.8MM PN20', unitWeight: 50.0, stdWeight: 50.0, pipeLength: 6.0 },
+  { itemCode: '188', description: 'MANARCO UPVC PIPE 3" SDR26 ASTM', unitWeight: 7.85, stdWeight: 7.85, pipeLength: 6.0, targetPcsH: 25, primaryExtruder: 'L-05', odMm: '88.9', wallThickness: 'SDR26' },
   { itemCode: '500', description: 'BLACK MANARCO ELECTRICAL UPVC PIPE CONDUIT 20X1.6mm', unitWeight: 0.55, stdWeight: 0.55, pipeLength: 6.0 },
   { itemCode: '549', description: 'MANARCO ELECTRICAL UPVC PIPE CONDUIT 25X1.9mm', unitWeight: 0.65, stdWeight: 0.65, pipeLength: 6.0 }
 ];
@@ -980,15 +981,19 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
     if (Array.isArray(allRegistered)) {
       for (const prod of allRegistered) {
         if (!prod) continue;
-        const key = (prod.description || prod.itemCode || '').toUpperCase();
-        if (!key) continue;
+        const rawCode = prod.itemCode ? String(prod.itemCode).trim() : '';
+        const rawDesc = String(prod.description || '').trim();
+        const key = rawCode ? `CODE:${rawCode.toUpperCase()}` : `DESC:${rawDesc.toUpperCase()}`;
+        if (!key || key === 'CODE:' || key === 'DESC:') continue;
         const uWeight = Number(prod.unitWeight || prod.stdWeight) || 0;
         map.set(key, {
           ...prod,
+          itemCode: rawCode,
+          description: rawDesc,
           unitWeight: uWeight,
           stdWeight: uWeight,
           pipeLength: prod.pipeLength !== undefined ? Number(prod.pipeLength) : (prod.isCompounding ? 0 : 6.0),
-          label: prod.itemCode ? `[${prod.itemCode}] ${prod.description}` : prod.description
+          label: rawCode ? `[${rawCode}] ${rawDesc}` : rawDesc
         });
       }
     }
@@ -997,11 +1002,15 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
   // 2. Fallback to factory standard presets if catalog was empty
   if (map.size === 0) {
     for (const preset of SOP_FACTORY_PRESETS) {
-      const key = preset.description.toUpperCase();
+      const rawCode = preset.itemCode ? String(preset.itemCode).trim() : '';
+      const rawDesc = String(preset.description || '').trim();
+      const key = rawCode ? `CODE:${rawCode.toUpperCase()}` : `DESC:${rawDesc.toUpperCase()}`;
       map.set(key, {
         ...preset,
+        itemCode: rawCode,
+        description: rawDesc,
         stdWeight: preset.unitWeight,
-        label: preset.itemCode ? `[${preset.itemCode}] ${preset.description}` : preset.description
+        label: rawCode ? `[${rawCode}] ${rawDesc}` : rawDesc
       });
     }
   }
@@ -1016,7 +1025,7 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
         if (!desc) continue;
         const rawCode = item.itemCode ? String(item.itemCode).trim() : '';
         const itemCode = rawCode || extractEmbeddedItemCode(desc) || '';
-        const key = desc.toUpperCase();
+        const key = itemCode ? `CODE:${itemCode.toUpperCase()}` : `DESC:${desc.toUpperCase()}`;
 
         if (!map.has(key)) {
           const unitWeight = resolveStdWeightFromSpecs(item, 6.0) || (Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0);
@@ -1088,6 +1097,86 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
     unitWeight,
     stdWeight: unitWeight
   };
+}
+
+/**
+ * Intelligent rate suggestion resolver for a machine line and product.
+ * Multi-tier priority:
+ * 1. Historical Realized Run (exact match on same machine)
+ * 1.5 Catalog standard target pace (matched product targetPcsH)
+ * 2. Excel line record
+ * 3. Previous run specs
+ * 4. Physical speed / cut length
+ * 5. Benchmark extruder capacity / unit weight
+ * 6. Direct melt capacity fallback
+ */
+export function resolveSuggestedRate(lineId, productCode, {
+  records = [],
+  matchedProduct = null,
+  excelLine = null,
+  specs = null,
+  speed = null,
+  pipeLength = 6.0,
+  unitWeight = null,
+  nominalCapacity = 200,
+  machineMaster = MACHINES
+} = {}) {
+  // 1. Check historical records for exact machine + product code
+  if (productCode && Array.isArray(records) && records.length > 0) {
+    const hist = getLatestHistoricalRunDetails(lineId, productCode, records, { machineMaster });
+    if (hist && Number(hist.rate) > 0) {
+      return Math.round(Number(hist.rate));
+    }
+  }
+
+  // 1.5 Check catalog standard target pace if defined on matched product
+  if (matchedProduct && Number(matchedProduct.targetPcsH) > 0) {
+    return Math.round(Number(matchedProduct.targetPcsH));
+  }
+
+  // 2. Check latest excel line record
+  if (excelLine) {
+    if (Number(excelLine.actualRatePcsH) > 0) return Math.round(Number(excelLine.actualRatePcsH));
+    if (Number(excelLine.targetPcsH) > 0) return Math.round(Number(excelLine.targetPcsH));
+  }
+
+  // 3. Check extracted specs from previous run
+  if (specs) {
+    if (Number(specs.calculatedRate) > 0) return Math.round(Number(specs.calculatedRate));
+    if (Number(specs.actualRatePcsH) > 0) return Math.round(Number(specs.actualRatePcsH));
+    if (Number(specs.speed) > 0 && pipeLength > 0) {
+      return Math.round((Number(specs.speed) * 60) / pipeLength);
+    }
+  }
+
+  // 4. Physical speed / cut length
+  const numSpeed = Number(speed);
+  if (numSpeed > 0 && pipeLength > 0) {
+    return Math.round((numSpeed * 60) / pipeLength);
+  }
+
+  // 5. Benchmark calculation based on extruder capacity & unit weight
+  const uWeight = Number(unitWeight) > 0 ? Number(unitWeight) : 1.0;
+  const pLen = Number(pipeLength) > 0 ? Number(pipeLength) : 6.0;
+  if (matchedProduct || uWeight > 0) {
+    const benchmark = calculateBenchmarkSpeedForProduct(
+      matchedProduct || { unitWeight: uWeight },
+      lineId,
+      machineMaster,
+      pLen
+    );
+    if (benchmark && Number(benchmark.calculatedRate) > 0) {
+      return Math.round(Number(benchmark.calculatedRate));
+    }
+  }
+
+  // 6. Direct melt capacity / unit weight fallback
+  const nomCap = Number(nominalCapacity) > 0 ? Number(nominalCapacity) : 200;
+  if (nomCap > 0 && uWeight > 0) {
+    return Math.round(nomCap / uWeight);
+  }
+
+  return 100;
 }
 
 /**

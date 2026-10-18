@@ -32,6 +32,7 @@ import {
 } from './engine.js';
 import { newId } from '../data/store.js';
 import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
+import { parseUniquePlanningCatalogSheet, autoRegisterPendingProduct } from './productCatalogHelper.js';
 
 /**
  * Format and normalize Excel date (Date object, serial number, or date string) into YYYY-MM-DD
@@ -567,6 +568,15 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES) {
     // Skip completely empty rows
     if (!description && !itemCode && qty === 0) continue;
 
+    // Resilient fallback: auto-register unrecorded item codes into central product catalog
+    if (itemCode) {
+      try {
+        autoRegisterPendingProduct(itemCode, description, {
+          unitWeight: unitWeight > 0 ? unitWeight : 0
+        });
+      } catch (_) {}
+    }
+
     const matchedMachine = matchMachine(machineRaw, dynamicMaster);
     const machineId = matchedMachine ? matchedMachine.id : machineRaw || 'L-01';
     const machineName = matchedMachine ? `${matchedMachine.id} - ${matchedMachine.name}` : machineRaw;
@@ -774,10 +784,17 @@ export function consolidateDailyMachineRecords(rows, dynamicMaster = MACHINES, o
 export function parseExcelWorkbook(fileBuffer) {
   const wb = XLSX.read(fileBuffer, { type: 'array', cellDates: true });
 
-  // 1. Parse dynamic Machine Master from workbook (or fallback to defaults)
+  // 1. Dynamic Catalog Ingestion: Check for "Unique Planning Catalog" and ingest products
+  try {
+    parseUniquePlanningCatalogSheet(wb);
+  } catch (err) {
+    console.warn('Failed to parse Unique Planning Catalog sheet:', err);
+  }
+
+  // 2. Parse dynamic Machine Master from workbook (or fallback to defaults)
   const machineMaster = parseMachineMaster(wb);
 
-  // 2. Parse daily log rows using matched sheet and dynamic master
+  // 3. Parse daily log rows using matched sheet and dynamic master
   return parseDailyLog(wb, machineMaster);
 }
 

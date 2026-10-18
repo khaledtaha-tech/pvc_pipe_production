@@ -7,6 +7,20 @@ import { getLatestHistoricalRealRate, getLatestHistoricalRunDetails } from './hi
 export { getLatestHistoricalRealRate, getLatestHistoricalRunDetails };
 import { getBaselineRate, getBaselineEntry, saveBaselineRate, getAllBaselines } from './standardCatalogHelper.js';
 export { getBaselineRate, getBaselineEntry, saveBaselineRate, getAllBaselines };
+import {
+  getAllProducts,
+  getProductByCode,
+  saveProduct,
+  autoRegisterPendingProduct,
+  PRODUCT_CATALOG_UPDATED_EVENT
+} from './productCatalogHelper.js';
+export {
+  getAllProducts,
+  getProductByCode,
+  saveProduct,
+  autoRegisterPendingProduct,
+  PRODUCT_CATALOG_UPDATED_EVENT
+};
 
 /**
  * Helper logic for Legacy Plant SOP (DOC-Ext.-03: PRODUCTION PIECES / Production follow)
@@ -260,6 +274,18 @@ export function resolveStdWeightFromSpecs(source, cutLength = 6.0) {
       return Math.round((matched.unitWeight / 6.0) * len * 100) / 100;
     }
     return matched.unitWeight;
+  }
+
+  // 5. Dynamic central catalog lookup for on-the-fly created or ingested items
+  if (itemCode) {
+    const dynProd = getProductByCode(itemCode);
+    if (dynProd && Number(dynProd.unitWeight || dynProd.stdWeight) > 0) {
+      const uWeight = Number(dynProd.unitWeight || dynProd.stdWeight);
+      if (len !== 6.0 && (dynProd.pipeLength === 6.0 || !dynProd.pipeLength) && !dynProd.isCompounding) {
+        return Math.round((uWeight / 6.0) * len * 100) / 100;
+      }
+      return uWeight;
+    }
   }
 
   return 0;
@@ -942,23 +968,45 @@ export function extractMachineSpecsFromRun(record, lineId, machineMaster = MACHI
 }
 
 /**
- * Collect distinct available products from historical records and factory presets.
- * Returns catalog items containing: { itemCode, description, unitWeight, pipeLength, label }.
+ * Collect distinct available products from dynamic central catalog, historical records, and factory presets.
+ * Returns catalog items containing: { itemCode, description, unitWeight, stdWeight, pipeLength, label }.
  */
 export function getAvailableProductsCatalog(records = [], machineMaster = MACHINES) {
   const map = new Map();
 
-  // 1. Factory Standard Presets with official item codes
-  for (const preset of SOP_FACTORY_PRESETS) {
-    const key = preset.description.toUpperCase();
-    map.set(key, {
-      ...preset,
-      stdWeight: preset.unitWeight,
-      label: preset.itemCode ? `[${preset.itemCode}] ${preset.description}` : preset.description
-    });
+  // 1. Dynamic Central Product Registry (includes factory presets, ingested Excel catalogs, and on-the-fly created items)
+  try {
+    const allRegistered = getAllProducts();
+    if (Array.isArray(allRegistered)) {
+      for (const prod of allRegistered) {
+        if (!prod) continue;
+        const key = (prod.description || prod.itemCode || '').toUpperCase();
+        if (!key) continue;
+        const uWeight = Number(prod.unitWeight || prod.stdWeight) || 0;
+        map.set(key, {
+          ...prod,
+          unitWeight: uWeight,
+          stdWeight: uWeight,
+          pipeLength: prod.pipeLength !== undefined ? Number(prod.pipeLength) : (prod.isCompounding ? 0 : 6.0),
+          label: prod.itemCode ? `[${prod.itemCode}] ${prod.description}` : prod.description
+        });
+      }
+    }
+  } catch (_) {}
+
+  // 2. Fallback to factory standard presets if catalog was empty
+  if (map.size === 0) {
+    for (const preset of SOP_FACTORY_PRESETS) {
+      const key = preset.description.toUpperCase();
+      map.set(key, {
+        ...preset,
+        stdWeight: preset.unitWeight,
+        label: preset.itemCode ? `[${preset.itemCode}] ${preset.description}` : preset.description
+      });
+    }
   }
 
-  // 2. Discover products from uploaded historical records
+  // 3. Discover and auto-register products from uploaded historical records
   if (Array.isArray(records)) {
     for (const r of records) {
       if (!r) continue;
@@ -972,16 +1020,22 @@ export function getAvailableProductsCatalog(records = [], machineMaster = MACHIN
 
         if (!map.has(key)) {
           const unitWeight = resolveStdWeightFromSpecs(item, 6.0) || (Number(item.unitWeight) > 0 ? Number(item.unitWeight) : 1.0);
-          map.set(key, {
+          const newItem = {
             itemCode,
             description: desc,
             unitWeight,
             stdWeight: unitWeight,
             pipeLength: 6.0,
             label: itemCode ? `[${itemCode}] ${desc}` : desc
-          });
+          };
+          map.set(key, newItem);
+          if (itemCode) {
+            try {
+              autoRegisterPendingProduct(itemCode, desc, { unitWeight, stdWeight: unitWeight });
+            } catch (_) {}
+          }
         } else if (itemCode && !map.get(key).itemCode) {
-          // Augment existing preset with discovered code if missing
+          // Augment existing entry with discovered code if missing
           const existing = map.get(key);
           existing.itemCode = itemCode;
           existing.label = `[${itemCode}] ${existing.description}`;

@@ -29,6 +29,13 @@ import {
   loadLatestExcelLoggedRun,
   getNextDay
 } from '../../logic/excelLogParser.js';
+import RegisterProductModal from './RegisterProductModal.jsx';
+import {
+  PRODUCT_CATALOG_UPDATED_EVENT,
+  syncProductsWithServer,
+  getProductByCode,
+  getAllProducts
+} from '../../logic/productCatalogHelper.js';
 
 const SOP_CONFIG_STORAGE_KEY = 'sop_operational_config';
 
@@ -164,6 +171,11 @@ export default function PrintSopModal({
   const [linesState, setLinesState] = useState([]);
   const [historicalFeedback, setHistoricalFeedback] = useState({});
   const [printAheadDays, setPrintAheadDays] = useState(1);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [registerTargetLineId, setRegisterTargetLineId] = useState('');
+  const [registerInitialCode, setRegisterInitialCode] = useState('');
+  const [productSearch, setProductSearch] = useState({});
 
   const daysCount = Math.max(1, Math.min(14, parseInt(printAheadDays, 10) || 1));
   const endDate = useMemo(() => {
@@ -227,7 +239,7 @@ export default function PrintSopModal({
   // Catalog of distinct products from history and factory standards
   const productCatalog = useMemo(() => {
     return getAvailableProductsCatalog(records, machineMaster);
-  }, [records, machineMaster]);
+  }, [records, machineMaster, catalogVersion]);
 
   // Distinct unique list of product codes for dropdown
   const distinctCodes = useMemo(() => {
@@ -257,10 +269,19 @@ export default function PrintSopModal({
     }
   }, []);
 
-  // Fetch and merge fresh standards from central MySQL database when modal opens
+  useEffect(() => {
+    const handleProductCatalogChanged = () => setCatalogVersion((v) => v + 1);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener(PRODUCT_CATALOG_UPDATED_EVENT, handleProductCatalogChanged);
+      return () => window.removeEventListener(PRODUCT_CATALOG_UPDATED_EVENT, handleProductCatalogChanged);
+    }
+  }, []);
+
+  // Fetch and merge fresh standards & product catalog from central MySQL database when modal opens
   useEffect(() => {
     if (isOpen) {
       syncBaselinesWithServer().catch(() => {});
+      syncProductsWithServer().catch(() => {});
     }
   }, [isOpen]);
 
@@ -502,8 +523,27 @@ export default function PrintSopModal({
     );
   };
 
+  // Product Registration Modal Handlers
+  const handleOpenRegister = (machineId, initialCodeVal = '') => {
+    setRegisterTargetLineId(machineId || '');
+    setRegisterInitialCode(initialCodeVal || (machineId ? productSearch[machineId] : '') || '');
+    setIsRegisterModalOpen(true);
+  };
+
+  const handleApplyNewProductToLine = (savedProduct, targetLineId) => {
+    if (!savedProduct) return;
+    setCatalogVersion((v) => v + 1);
+    if (targetLineId) {
+      handleProductCodeChange(targetLineId, savedProduct.itemCode);
+    }
+  };
+
   // Change product code and auto-resolve description, benchmark speed & standard pcs/h
   const handleProductCodeChange = (machineId, newCode) => {
+    if (newCode === '__REGISTER_NEW__') {
+      handleOpenRegister(machineId);
+      return;
+    }
     setHistoricalFeedback((prev) => {
       if (!prev[machineId]) return prev;
       const next = { ...prev };
@@ -532,7 +572,7 @@ export default function PrintSopModal({
 
         const matchedProduct = productCatalog.find(
           (p) => String(p.itemCode).trim().toUpperCase() === String(newCode).trim().toUpperCase()
-        );
+        ) || getProductByCode(newCode);
 
         const newDesc = matchedProduct?.description || item.productDescription;
         const isComp = Boolean(
@@ -621,6 +661,10 @@ export default function PrintSopModal({
 
   // Change product description and auto-synchronize item code, benchmark speed & pcs/h
   const handleProductChange = (machineId, newDesc) => {
+    if (newDesc === '__REGISTER_NEW__') {
+      handleOpenRegister(machineId);
+      return;
+    }
     setHistoricalFeedback((prev) => {
       if (!prev[machineId]) return prev;
       const next = { ...prev };
@@ -649,7 +693,7 @@ export default function PrintSopModal({
 
         const matchedProduct = productCatalog.find(
           (p) => p.description.toUpperCase() === newDesc.toUpperCase()
-        );
+        ) || getAllProducts().find((p) => p.description.toUpperCase() === newDesc.toUpperCase());
         const itemCode = matchedProduct?.itemCode || item.itemCode || '';
         const isComp = Boolean(
           matchedProduct?.isCompounding ||
@@ -1313,62 +1357,149 @@ export default function PrintSopModal({
                   </div>
 
                   <div className="print-sop-line-body">
-                    {/* Dual Product Selection: Product Code & Product Description */}
-                    <div className="print-sop-products-row">
-                      {/* 1. Product Code Dropdown */}
-                      <div className="print-sop-form-group print-sop-code-group">
-                        <label className="print-sop-label">
-                          Product Code:
-                        </label>
-                        <select
-                          className="print-sop-select print-sop-code-select"
-                          value={line.itemCode || ''}
-                          onChange={(e) => handleProductCodeChange(line.machineId, e.target.value)}
+                    {/* Quick Search & Register Action Bar */}
+                    <div className="print-sop-product-filter-bar">
+                      <div className="print-sop-filter-input-wrap">
+                        <input
+                          type="text"
+                          className="print-sop-input print-sop-filter-input"
+                          placeholder="Quick search code or spec (e.g. 188, 160mm)..."
+                          value={productSearch[line.machineId] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setProductSearch((prev) => ({ ...prev, [line.machineId]: val }));
+                          }}
                           disabled={isGenerating || !line.isSelected}
-                        >
-                          <option value="">-- No Product (Blank Sheet) --</option>
-                          {line.itemCode && !distinctCodes.some((c) => c === line.itemCode) && (
-                            <option value={line.itemCode}>
-                              {line.itemCode} (Current)
-                            </option>
-                          )}
-                          {distinctCodes.map((code) => {
-                            const p = productCatalog.find((x) => x.itemCode === code);
-                            return (
-                              <option key={code} value={code}>
-                                {code} {p?.description ? `— ${p.description.slice(0, 26)}` : ''}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        />
+                        {productSearch[line.machineId] && (
+                          <button
+                            type="button"
+                            className="print-sop-filter-clear-btn"
+                            onClick={() => setProductSearch((prev) => ({ ...prev, [line.machineId]: '' }))}
+                            title="Clear filter"
+                          >
+                            &times;
+                          </button>
+                        )}
                       </div>
-
-                      {/* 2. Product Specification Dropdown */}
-                      <div className="print-sop-form-group print-sop-desc-group">
-                        <label className="print-sop-label">
-                          Product Specification (Mold / Size):
-                        </label>
-                        <select
-                          className="print-sop-select"
-                          value={line.productDescription || ''}
-                          onChange={(e) => handleProductChange(line.machineId, e.target.value)}
-                          disabled={isGenerating || !line.isSelected}
-                        >
-                          <option value="">-- Manual Pen Entry (Blank) --</option>
-                          {/* Ensure currently selected product is represented */}
-                          {line.productDescription && !productCatalog.some((p) => p.description === line.productDescription) && (
-                            <option value={line.productDescription}>
-                              {line.itemCode ? `[${line.itemCode}] ` : ''}{line.productDescription} (Recorded)
-                            </option>
-                          )}
-                          {productCatalog.map((prod) => (
-                            <option key={`${prod.itemCode}_${prod.description}`} value={prod.description}>
-                              {prod.itemCode ? `[${prod.itemCode}] ` : ''}{prod.description}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <button
+                        type="button"
+                        className="print-sop-register-btn"
+                        onClick={() => handleOpenRegister(line.machineId, productSearch[line.machineId])}
+                        disabled={isGenerating || !line.isSelected}
+                        title="Register new product code / mold"
+                      >
+                        + Register New Product Code / Mold
+                      </button>
                     </div>
+
+                    {/* Dual Product Selection: Product Code & Product Description */}
+                    {(() => {
+                      const q = (productSearch[line.machineId] || '').trim().toLowerCase();
+                      const displayedProducts = q
+                        ? productCatalog.filter(
+                            (p) =>
+                              (p.itemCode && p.itemCode.toLowerCase().includes(q)) ||
+                              (p.description && p.description.toLowerCase().includes(q))
+                          )
+                        : productCatalog;
+
+                      const displayedCodes = q
+                        ? distinctCodes.filter((c) => {
+                            if (c.toLowerCase().includes(q)) return true;
+                            const p = productCatalog.find((x) => x.itemCode === c) || getProductByCode(c);
+                            return p?.description && p.description.toLowerCase().includes(q);
+                          })
+                        : distinctCodes;
+
+                      return (
+                        <div className="print-sop-products-row">
+                          {/* 1. Product Code Dropdown */}
+                          <div className="print-sop-form-group print-sop-code-group">
+                            <label className="print-sop-label">
+                              Product Code:
+                            </label>
+                            <select
+                              className="print-sop-select print-sop-code-select"
+                              value={line.itemCode || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '__REGISTER_NEW__') {
+                                  handleOpenRegister(line.machineId, productSearch[line.machineId]);
+                                } else {
+                                  handleProductCodeChange(line.machineId, val);
+                                }
+                              }}
+                              disabled={isGenerating || !line.isSelected}
+                            >
+                              <option value="">-- No Product (Blank Sheet) --</option>
+                              <option value="__REGISTER_NEW__" style={{ fontWeight: 700, color: '#10b981' }}>
+                                [+ Register New Product Code / Mold]
+                              </option>
+                              {line.itemCode && !displayedCodes.some((c) => c === line.itemCode) && (
+                                <option value={line.itemCode}>
+                                  {line.itemCode} (Current)
+                                </option>
+                              )}
+                              {displayedCodes.map((code) => {
+                                const p = productCatalog.find((x) => x.itemCode === code) || getProductByCode(code);
+                                return (
+                                  <option key={code} value={code}>
+                                    {code} {p?.description ? `— ${p.description.slice(0, 26)}` : ''}
+                                  </option>
+                                );
+                              })}
+                              {q && displayedCodes.length === 0 && (
+                                <option value="__REGISTER_NEW__">
+                                  + Not found? Register &quot;{productSearch[line.machineId]}&quot; now...
+                                </option>
+                              )}
+                            </select>
+                          </div>
+
+                          {/* 2. Product Specification Dropdown */}
+                          <div className="print-sop-form-group print-sop-desc-group">
+                            <label className="print-sop-label">
+                              Product Specification (Mold / Size):
+                            </label>
+                            <select
+                              className="print-sop-select"
+                              value={line.productDescription || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '__REGISTER_NEW__') {
+                                  handleOpenRegister(line.machineId, productSearch[line.machineId]);
+                                } else {
+                                  handleProductChange(line.machineId, val);
+                                }
+                              }}
+                              disabled={isGenerating || !line.isSelected}
+                            >
+                              <option value="">-- Manual Pen Entry (Blank) --</option>
+                              <option value="__REGISTER_NEW__" style={{ fontWeight: 700, color: '#10b981' }}>
+                                [+ Register New Product Code / Mold]
+                              </option>
+                              {/* Ensure currently selected product is represented */}
+                              {line.productDescription && !displayedProducts.some((p) => p.description === line.productDescription) && (
+                                <option value={line.productDescription}>
+                                  {line.itemCode ? `[${line.itemCode}] ` : ''}{line.productDescription} (Recorded)
+                                </option>
+                              )}
+                              {displayedProducts.map((prod) => (
+                                <option key={`${prod.itemCode}_${prod.description}`} value={prod.description}>
+                                  {prod.itemCode ? `[${prod.itemCode}] ` : ''}{prod.description}
+                                </option>
+                              ))}
+                              {q && displayedProducts.length === 0 && (
+                                <option value="__REGISTER_NEW__">
+                                  + Not found? Register &quot;{productSearch[line.machineId]}&quot; now...
+                                </option>
+                              )}
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Speed & Cut Length Controls OR Compounding Target Controls */}
                     {isLineComp ? (
@@ -1677,6 +1808,15 @@ export default function PrintSopModal({
           </div>
         </div>
       </div>
+
+      {/* On-The-Fly Product Code / Mold Registration Modal */}
+      <RegisterProductModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        targetLineId={registerTargetLineId}
+        initialCode={registerInitialCode}
+        onSaveProduct={handleApplyNewProductToLine}
+      />
     </div>
   );
 }

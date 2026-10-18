@@ -7817,6 +7817,89 @@ html:not(.light) .print-sop-target-caption {
   color: #94a3b8;
 }
 
+/* Product Search Filter Bar & Registration Button */
+.print-sop-product-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  width: 100%;
+}
+
+.print-sop-filter-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.print-sop-filter-input {
+  width: 100%;
+  font-size: 11px !important;
+  padding: 4px 22px 4px 8px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.print-sop-filter-clear-btn {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.print-sop-filter-clear-btn:hover {
+  color: #ef4444;
+}
+
+.print-sop-register-btn {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px dashed #10b981;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.print-sop-register-btn:hover:not(:disabled) {
+  background: #059669;
+  color: #ffffff;
+  border-style: solid;
+}
+
+html:not(.light) .print-sop-filter-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+html:not(.light) .print-sop-register-btn {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border-color: #059669;
+}
+
+html:not(.light) .print-sop-register-btn:hover:not(:disabled) {
+  background: #059669;
+  color: #ffffff;
+}
+
 /* 2026 Light Mode (.daily-eval-root inside light mode) */
 html.light .daily-eval-root {
   background-color: #f8fafc;

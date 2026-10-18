@@ -161,4 +161,25 @@ CREATE TABLE IF NOT EXISTS `pvc_baseline_standards` (
   PRIMARY KEY (`line_id`, `product_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `pvc_product_catalog` (
+  `item_code` VARCHAR(50) NOT NULL PRIMARY KEY,
+  `description` VARCHAR(255) NOT NULL,
+  `od_mm` VARCHAR(50) NULL,
+  `wall_thickness` VARCHAR(50) NULL,
+  `material` VARCHAR(50) DEFAULT 'uPVC',
+  `unit_weight` DECIMAL(10,3) DEFAULT NULL,
+  `pipe_length` DECIMAL(6,2) DEFAULT 6.00,
+  `nominal_speed` DECIMAL(6,2) DEFAULT NULL,
+  `target_pcs_h` INT DEFAULT NULL,
+  `primary_extruder` VARCHAR(50) DEFAULT NULL,
+  `compatible_machines` TEXT DEFAULT NULL,
+  `historical_rate_kgh` DECIMAL(10,2) DEFAULT NULL,
+  `is_pending` TINYINT(1) DEFAULT 0,
+  `source` VARCHAR(50) DEFAULT 'manual',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_prod_pending` (`is_pending`),
+  INDEX `idx_prod_primary` (`primary_extruder`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 

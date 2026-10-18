@@ -399,40 +399,38 @@ export function getAuditDensityPreset(rowCount) {
     return {
       mode: 'low',
       // Table Rows & Fonts
-      cellPaddingClass: 'py-3.5 px-3',
-      tableTextClass: 'text-[13px]',
-      tableHeaderClass: 'text-[12px] py-2 px-3',
-      lineNameClass: 'text-[13px]',
-      badgeClass: 'text-[10.5px] px-2 py-0.5',
-      subtextClass: 'text-[10px]',
-      unitClass: 'text-[9.5px]',
-      summaryRowClass: 'text-[12px] py-2.5 px-3',
+      cellPaddingClass: 'py-4 px-3.5',
+      tableTextClass: 'text-[13.5px]',
+      tableHeaderClass: 'text-[12px] py-2.5 px-3.5',
+      lineNameClass: 'text-[13.5px]',
+      badgeClass: 'text-[11px] px-2 py-0.5',
+      subtextClass: 'text-[10.5px]',
+      unitClass: 'text-[10px]',
+      summaryRowClass: 'text-[13px] py-3 px-3.5',
 
       // KPI Cards
-      kpiCardPaddingClass: 'p-3',
-      kpiTitleClass: 'text-[10px]',
-      kpiMetricClass: 'text-[20px]',
-      kpiSecondaryMetricClass: 'text-[14px]',
-      kpiSubtextClass: 'text-[9.5px]',
+      kpiCardPaddingClass: 'p-3.5 px-4',
+      kpiTitleClass: 'text-[11px]',
+      kpiMetricClass: 'text-[22px]',
+      kpiSecondaryMetricClass: 'text-[15px]',
+      kpiSubtextClass: 'text-[10px]',
 
       // Downtime Section
-      downtimeHeaderClass: 'text-[12px]',
-      downtimeBadgeClass: 'text-[9.5px] px-2 py-0.5',
-      downtimeSubtextClass: 'text-[10px]',
-      downtimeCardPaddingClass: 'p-2 px-2.5',
-      downtimeLabelClass: 'text-[10px]',
-      downtimeMetricClass: 'text-[15px]',
-      downtimePctClass: 'text-[9.5px]',
-      downtimeBarClass: 'w-14 h-1.5',
+      downtimeHeaderClass: 'text-[12.5px]',
+      downtimeBadgeClass: 'text-[10px] px-2 py-0.5',
+      downtimeSubtextClass: 'text-[10.5px]',
+      downtimeCardPaddingClass: 'p-2.5 px-3',
+      downtimeLabelClass: 'text-[10.5px]',
+      downtimeMetricClass: 'text-[16px]',
+      downtimePctClass: 'text-[10px]',
+      downtimeBarClass: 'w-16 h-2',
 
-      // Overall Page Header & Footer
+      // Overall Page Header
       headerTitleClass: 'text-[18px]',
       headerPlantClass: 'text-[12px]',
       headerSubClass: 'text-[10px]',
       ampBadgeClass: 'w-9 h-9 text-lg',
-      dateBadgeClass: 'px-3.5 py-1 text-sm',
-      signoffClass: 'text-[12px] pt-2.5',
-      fineprintClass: 'text-[8.5px] mt-1.5 pt-1'
+      dateBadgeClass: 'px-3.5 py-1 text-sm'
     };
   }
 
@@ -440,40 +438,38 @@ export function getAuditDensityPreset(rowCount) {
     return {
       mode: 'medium',
       // Table Rows & Fonts
-      cellPaddingClass: 'py-2 px-2.5',
-      tableTextClass: 'text-[11.5px]',
-      tableHeaderClass: 'text-[10px] py-1.5 px-2.5',
-      lineNameClass: 'text-[11.5px]',
-      badgeClass: 'text-[9.5px] px-1.5 py-0.5',
-      subtextClass: 'text-[9px]',
-      unitClass: 'text-[8.5px]',
-      summaryRowClass: 'text-[10.5px] py-1.5 px-2.5',
+      cellPaddingClass: 'py-2.5 px-2.5',
+      tableTextClass: 'text-[12px]',
+      tableHeaderClass: 'text-[10.5px] py-2 px-2.5',
+      lineNameClass: 'text-[12px]',
+      badgeClass: 'text-[10px] px-2 py-0.5',
+      subtextClass: 'text-[9.5px]',
+      unitClass: 'text-[9px]',
+      summaryRowClass: 'text-[11.5px] py-2 px-2.5',
 
       // KPI Cards
-      kpiCardPaddingClass: 'p-2 px-2.5',
-      kpiTitleClass: 'text-[9px]',
-      kpiMetricClass: 'text-[17px]',
-      kpiSecondaryMetricClass: 'text-[12.5px]',
-      kpiSubtextClass: 'text-[8.5px]',
+      kpiCardPaddingClass: 'p-2.5 px-3',
+      kpiTitleClass: 'text-[10px]',
+      kpiMetricClass: 'text-[18px]',
+      kpiSecondaryMetricClass: 'text-[13px]',
+      kpiSubtextClass: 'text-[9px]',
 
       // Downtime Section
-      downtimeHeaderClass: 'text-[10.5px]',
-      downtimeBadgeClass: 'text-[8.5px] px-1.5 py-0.2',
-      downtimeSubtextClass: 'text-[9px]',
-      downtimeCardPaddingClass: 'p-1.5 px-2',
-      downtimeLabelClass: 'text-[8.5px]',
-      downtimeMetricClass: 'text-[13px]',
-      downtimePctClass: 'text-[8.5px]',
-      downtimeBarClass: 'w-12 h-1',
+      downtimeHeaderClass: 'text-[11px]',
+      downtimeBadgeClass: 'text-[9px] px-1.5 py-0.5',
+      downtimeSubtextClass: 'text-[9.5px]',
+      downtimeCardPaddingClass: 'p-2 px-2.5',
+      downtimeLabelClass: 'text-[9px]',
+      downtimeMetricClass: 'text-[14px]',
+      downtimePctClass: 'text-[9px]',
+      downtimeBarClass: 'w-12 h-1.5',
 
-      // Overall Page Header & Footer
+      // Overall Page Header
       headerTitleClass: 'text-[16px]',
       headerPlantClass: 'text-[11px]',
       headerSubClass: 'text-[9.5px]',
       ampBadgeClass: 'w-8 h-8 text-base',
-      dateBadgeClass: 'px-3 py-0.5 text-xs',
-      signoffClass: 'text-[11px] pt-2',
-      fineprintClass: 'text-[7.5px] mt-1 pt-0.5'
+      dateBadgeClass: 'px-3 py-0.5 text-xs'
     };
   }
 
@@ -481,39 +477,37 @@ export function getAuditDensityPreset(rowCount) {
   return {
     mode: 'compact',
     // Table Rows & Fonts
-    cellPaddingClass: 'py-1 px-2',
+    cellPaddingClass: 'py-1.5 px-2',
     tableTextClass: 'text-[10.5px]',
-    tableHeaderClass: 'text-[9px] py-1 px-2',
-    lineNameClass: 'text-[10px]',
+    tableHeaderClass: 'text-[9.5px] py-1 px-2',
+    lineNameClass: 'text-[10.5px]',
     badgeClass: 'text-[8.5px] px-1.5 py-0.2',
     subtextClass: 'text-[8px]',
     unitClass: 'text-[7.5px]',
-    summaryRowClass: 'text-[9.5px] py-1 px-2',
+    summaryRowClass: 'text-[10px] py-1 px-2',
 
     // KPI Cards
-    kpiCardPaddingClass: 'p-1.5 px-2',
-    kpiTitleClass: 'text-[8.5px]',
-    kpiMetricClass: 'text-[15px]',
-    kpiSecondaryMetricClass: 'text-[11.5px]',
+    kpiCardPaddingClass: 'p-2 px-2',
+    kpiTitleClass: 'text-[9px]',
+    kpiMetricClass: 'text-[16px]',
+    kpiSecondaryMetricClass: 'text-[12px]',
     kpiSubtextClass: 'text-[8px]',
 
     // Downtime Section
-    downtimeHeaderClass: 'text-[9.5px]',
+    downtimeHeaderClass: 'text-[10px]',
     downtimeBadgeClass: 'text-[8px] px-1.5 py-0.2',
-    downtimeSubtextClass: 'text-[8px]',
-    downtimeCardPaddingClass: 'p-1 px-1.5',
+    downtimeSubtextClass: 'text-[8.5px]',
+    downtimeCardPaddingClass: 'p-1.5 px-2',
     downtimeLabelClass: 'text-[8px]',
-    downtimeMetricClass: 'text-[11.5px]',
+    downtimeMetricClass: 'text-[12px]',
     downtimePctClass: 'text-[8px]',
     downtimeBarClass: 'w-10 h-1',
 
-    // Overall Page Header & Footer
+    // Overall Page Header
     headerTitleClass: 'text-[15px]',
     headerPlantClass: 'text-[10.5px]',
     headerSubClass: 'text-[9px]',
     ampBadgeClass: 'w-7 h-7 text-sm',
-    dateBadgeClass: 'px-2.5 py-0.5 text-xs',
-    signoffClass: 'text-[10px] pt-1.5',
-    fineprintClass: 'text-[7px] mt-0.5 pt-0.5'
+    dateBadgeClass: 'px-2.5 py-0.5 text-xs'
   };
 }

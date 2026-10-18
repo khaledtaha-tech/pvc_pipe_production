@@ -42,132 +42,135 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         pageBreakInside: 'avoid'
       }}
     >
-      {/* 1. Header Section */}
-      <header className="audit-sheet-header flex-shrink-0 border-b-2 border-slate-900 pb-1 mb-1">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`${scale.ampBadgeClass} rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold tracking-wider shadow-sm flex-shrink-0`}>
-              AMP
+      {/* 1. Top Section: Header & Executive Summary KPI Cards */}
+      <div className="audit-top-group flex-shrink-0 w-full">
+        {/* Header Section */}
+        <header className="audit-sheet-header border-b-2 border-slate-900 pb-1 mb-1.5">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`${scale.ampBadgeClass} rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold tracking-wider shadow-sm flex-shrink-0`}>
+                AMP
+              </div>
+              <div>
+                <h1 className={`${scale.headerPlantClass} font-black tracking-wider uppercase text-slate-800 leading-tight`}>
+                  {meta.plantName}
+                </h1>
+                <h2 className={`${scale.headerTitleClass} font-extrabold tracking-tight text-blue-900 leading-tight`}>
+                  {meta.title}
+                </h2>
+                <div className={`${scale.headerSubClass} font-semibold text-slate-500 uppercase tracking-wider`}>
+                  Extrusion Operational Reconciliation &bull; 24-Hour Continuous Run
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className={`${scale.headerPlantClass} font-black tracking-wider uppercase text-slate-800 leading-tight`}>
-                {meta.plantName}
-              </h1>
-              <h2 className={`${scale.headerTitleClass} font-extrabold tracking-tight text-blue-900 leading-tight`}>
-                {meta.title}
-              </h2>
-              <div className={`${scale.headerSubClass} font-semibold text-slate-500 uppercase tracking-wider`}>
-                Extrusion Operational Reconciliation &bull; 24-Hour Continuous Run
+
+            <div className="text-right">
+              <div className={`inline-block bg-blue-50 border border-blue-200 text-blue-900 ${scale.dateBadgeClass} rounded font-bold`}>
+                {meta.targetDateFormatted}
+              </div>
+              <div className={`${scale.headerSubClass} text-slate-500 font-mono mt-0.5`}>
+                Ref: <span className="font-semibold text-slate-700">{meta.sopReference}</span> &bull; {meta.standardVersion}
+              </div>
+              <div className="text-[8px] text-slate-400 font-mono">
+                Generated: {meta.generatedTimestamp}
               </div>
             </div>
           </div>
+        </header>
 
-          <div className="text-right">
-            <div className={`inline-block bg-blue-50 border border-blue-200 text-blue-900 ${scale.dateBadgeClass} rounded font-bold`}>
-              {meta.targetDateFormatted}
+        {/* Executive Summary Cards (Top Row - 4 KPI Badges spread across wide canvas) */}
+        <section className="audit-kpi-grid grid grid-cols-4 gap-2">
+          {/* KPI 1: Total FG Output */}
+          <div className={`audit-kpi-card bg-emerald-50/70 border border-emerald-300 rounded-md ${scale.kpiCardPaddingClass}`}>
+            <div className={`${scale.kpiTitleClass} font-bold text-emerald-800 uppercase tracking-wider`}>
+              Total Finished Goods Output
             </div>
-            <div className={`${scale.headerSubClass} text-slate-500 font-mono mt-0.5`}>
-              Ref: <span className="font-semibold text-slate-700">{meta.sopReference}</span> &bull; {meta.standardVersion}
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`${scale.kpiMetricClass} font-black text-emerald-950 font-mono`}>
+                {kpis.totalActualPcs.toLocaleString()}
+              </span>
+              <span className={`${scale.unitClass} font-bold text-emerald-700`}>pcs</span>
+              <span className="text-slate-400 text-xs mx-1">&bull;</span>
+              <span className={`${scale.kpiSecondaryMetricClass} font-bold text-emerald-900 font-mono`}>
+                {kpis.totalActualMT} MT
+              </span>
             </div>
-            <div className="text-[8px] text-slate-400 font-mono">
-              Generated: {meta.generatedTimestamp}
+            <div className={`${scale.kpiSubtextClass} text-emerald-700 font-medium flex items-center justify-between mt-0.5`}>
+              <span>Target: {kpis.totalExpectedPcs.toLocaleString()} pcs</span>
+              <span className={`font-bold ${kpis.totalVariancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {kpis.totalVariancePcs >= 0 ? '+' : ''}{kpis.totalVariancePct}%
+              </span>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* 2. Executive Summary Cards (Top Row - 4 KPI Badges spread across wide canvas) */}
-      <section className="audit-kpi-grid flex-shrink-0 grid grid-cols-4 gap-2 mb-1">
-        {/* KPI 1: Total FG Output */}
-        <div className={`audit-kpi-card bg-emerald-50/70 border border-emerald-300 rounded-md ${scale.kpiCardPaddingClass}`}>
-          <div className={`${scale.kpiTitleClass} font-bold text-emerald-800 uppercase tracking-wider`}>
-            Total Finished Goods Output
+          {/* KPI 2: Lost Time & Downtime */}
+          <div className={`audit-kpi-card bg-amber-50/70 border border-amber-300 rounded-md ${scale.kpiCardPaddingClass}`}>
+            <div className={`${scale.kpiTitleClass} font-bold text-amber-800 uppercase tracking-wider`}>
+              Time Accounting &amp; Lost Hours
+            </div>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`${scale.kpiMetricClass} font-black text-amber-950 font-mono`}>
+                {kpis.totalLostHours.toFixed(1)}
+              </span>
+              <span className={`${scale.unitClass} font-bold text-amber-700`}>h lost</span>
+              <span className="text-slate-400 text-xs mx-1">&bull;</span>
+              <span className={`${scale.kpiSecondaryMetricClass} font-bold text-amber-900 font-mono`}>
+                {kpis.totalOperatingHours.toFixed(1)}h run
+              </span>
+            </div>
+            <div className={`${scale.kpiSubtextClass} text-amber-800 font-medium flex items-center justify-between mt-0.5`}>
+              <span>Downtime: {downtime.totalDowntimeHours.toFixed(1)}h</span>
+              <span className="font-bold text-rose-700">
+                Unjustified: {kpis.totalUnjustifiedHours.toFixed(1)}h
+              </span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className={`${scale.kpiMetricClass} font-black text-emerald-950 font-mono`}>
-              {kpis.totalActualPcs.toLocaleString()}
-            </span>
-            <span className={`${scale.unitClass} font-bold text-emerald-700`}>pcs</span>
-            <span className="text-slate-400 text-xs mx-1">&bull;</span>
-            <span className={`${scale.kpiSecondaryMetricClass} font-bold text-emerald-900 font-mono`}>
-              {kpis.totalActualMT} MT
-            </span>
-          </div>
-          <div className={`${scale.kpiSubtextClass} text-emerald-700 font-medium flex items-center justify-between mt-0.5`}>
-            <span>Target: {kpis.totalExpectedPcs.toLocaleString()} pcs</span>
-            <span className={`font-bold ${kpis.totalVariancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {kpis.totalVariancePcs >= 0 ? '+' : ''}{kpis.totalVariancePct}%
-            </span>
-          </div>
-        </div>
 
-        {/* KPI 2: Lost Time & Downtime */}
-        <div className={`audit-kpi-card bg-amber-50/70 border border-amber-300 rounded-md ${scale.kpiCardPaddingClass}`}>
-          <div className={`${scale.kpiTitleClass} font-bold text-amber-800 uppercase tracking-wider`}>
-            Time Accounting &amp; Lost Hours
+          {/* KPI 3: Overall Plant OEE */}
+          <div className={`audit-kpi-card bg-indigo-50/70 border border-indigo-300 rounded-md ${scale.kpiCardPaddingClass}`}>
+            <div className={`${scale.kpiTitleClass} font-bold text-indigo-800 uppercase tracking-wider`}>
+              Overall Plant OEE
+            </div>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`${scale.kpiMetricClass} font-black text-indigo-950 font-mono`}>
+                {kpis.plantOeePct.toFixed(1)}%
+              </span>
+              <span className={`${scale.unitClass} font-semibold text-indigo-700 ml-1`}>
+                ({kpis.activeLineCount}/{kpis.totalLineCount} lines active)
+              </span>
+            </div>
+            <div className={`${scale.kpiSubtextClass} text-indigo-800 font-mono flex items-center justify-between mt-0.5`}>
+              <span>A: {kpis.plantAvailabilityPct.toFixed(1)}%</span>
+              <span>P: {kpis.plantPerformancePct.toFixed(1)}%</span>
+              <span>Q: {kpis.plantQualityPct.toFixed(1)}%</span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className={`${scale.kpiMetricClass} font-black text-amber-950 font-mono`}>
-              {kpis.totalLostHours.toFixed(1)}
-            </span>
-            <span className={`${scale.unitClass} font-bold text-amber-700`}>h lost</span>
-            <span className="text-slate-400 text-xs mx-1">&bull;</span>
-            <span className={`${scale.kpiSecondaryMetricClass} font-bold text-amber-900 font-mono`}>
-              {kpis.totalOperatingHours.toFixed(1)}h run
-            </span>
-          </div>
-          <div className={`${scale.kpiSubtextClass} text-amber-800 font-medium flex items-center justify-between mt-0.5`}>
-            <span>Downtime: {downtime.totalDowntimeHours.toFixed(1)}h</span>
-            <span className="font-bold text-rose-700">
-              Unjustified: {kpis.totalUnjustifiedHours.toFixed(1)}h
-            </span>
-          </div>
-        </div>
 
-        {/* KPI 3: Overall Plant OEE */}
-        <div className={`audit-kpi-card bg-indigo-50/70 border border-indigo-300 rounded-md ${scale.kpiCardPaddingClass}`}>
-          <div className={`${scale.kpiTitleClass} font-bold text-indigo-800 uppercase tracking-wider`}>
-            Overall Plant OEE
+          {/* KPI 4: Scrap Output & Scrap Ratio */}
+          <div className={`audit-kpi-card bg-rose-50/70 border border-rose-300 rounded-md ${scale.kpiCardPaddingClass}`}>
+            <div className={`${scale.kpiTitleClass} font-bold text-rose-800 uppercase tracking-wider`}>
+              Scrap Output &amp; Quality Ratio
+            </div>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`${scale.kpiMetricClass} font-black text-rose-950 font-mono`}>
+                {kpis.totalScrapKg.toLocaleString()}
+              </span>
+              <span className={`${scale.unitClass} font-bold text-rose-700`}>kg scrap</span>
+              <span className="text-slate-400 text-xs mx-1">&bull;</span>
+              <span className={`${scale.kpiSecondaryMetricClass} font-black text-rose-900 font-mono`}>
+                {kpis.scrapRatioPct.toFixed(1)}%
+              </span>
+            </div>
+            <div className={`${scale.kpiSubtextClass} text-rose-800 font-medium flex items-center justify-between mt-0.5`}>
+              <span>Total Melt: {kpis.totalMeltKg.toLocaleString()} kg</span>
+              <span className="font-bold text-emerald-700">Good: {kpis.totalActualKg.toLocaleString()} kg</span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className={`${scale.kpiMetricClass} font-black text-indigo-950 font-mono`}>
-              {kpis.plantOeePct.toFixed(1)}%
-            </span>
-            <span className={`${scale.unitClass} font-semibold text-indigo-700 ml-1`}>
-              ({kpis.activeLineCount}/{kpis.totalLineCount} lines active)
-            </span>
-          </div>
-          <div className={`${scale.kpiSubtextClass} text-indigo-800 font-mono flex items-center justify-between mt-0.5`}>
-            <span>A: {kpis.plantAvailabilityPct.toFixed(1)}%</span>
-            <span>P: {kpis.plantPerformancePct.toFixed(1)}%</span>
-            <span>Q: {kpis.plantQualityPct.toFixed(1)}%</span>
-          </div>
-        </div>
+        </section>
+      </div>
 
-        {/* KPI 4: Scrap Output & Scrap Ratio */}
-        <div className={`audit-kpi-card bg-rose-50/70 border border-rose-300 rounded-md ${scale.kpiCardPaddingClass}`}>
-          <div className={`${scale.kpiTitleClass} font-bold text-rose-800 uppercase tracking-wider`}>
-            Scrap Output &amp; Quality Ratio
-          </div>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <span className={`${scale.kpiMetricClass} font-black text-rose-950 font-mono`}>
-              {kpis.totalScrapKg.toLocaleString()}
-            </span>
-            <span className={`${scale.unitClass} font-bold text-rose-700`}>kg scrap</span>
-            <span className="text-slate-400 text-xs mx-1">&bull;</span>
-            <span className={`${scale.kpiSecondaryMetricClass} font-black text-rose-900 font-mono`}>
-              {kpis.scrapRatioPct.toFixed(1)}%
-            </span>
-          </div>
-          <div className={`${scale.kpiSubtextClass} text-rose-800 font-medium flex items-center justify-between mt-0.5`}>
-            <span>Total Melt: {kpis.totalMeltKg.toLocaleString()} kg</span>
-            <span className="font-bold text-emerald-700">Good: {kpis.totalActualKg.toLocaleString()} kg</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Central Production Reconciliation Table */}
-      <section className="audit-table-section flex-1 flex flex-col justify-center my-auto min-h-0 mb-1">
+      {/* 2. Central Section: Production Reconciliation Table */}
+      <section className="audit-table-section flex-shrink-0 w-full my-auto">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <h3 className={`${scale.downtimeHeaderClass} font-extrabold uppercase tracking-wider text-slate-800`}>
@@ -408,8 +411,8 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         </table>
       </section>
 
-      {/* 4. Downtime Allocation & Time Accounting Bar */}
-      <section className="audit-downtime-section flex-shrink-0 mb-1">
+      {/* 3. Bottom Section: Downtime Allocation & Root Cause Accounting */}
+      <section className="audit-downtime-section flex-shrink-0 w-full pt-1 border-t border-slate-200">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <h3 className={`${scale.downtimeHeaderClass} font-extrabold uppercase tracking-wider text-slate-800`}>
@@ -467,20 +470,6 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
           })}
         </div>
       </section>
-
-      {/* 5. Executive Sign-Off Footer */}
-      <footer className="audit-signoff-footer flex-shrink-0 border-t border-slate-300 pt-1.5 mt-auto">
-        <div className={`flex justify-between items-center ${scale.signoffClass} text-slate-600 font-mono px-1`}>
-          <span>Shift Production Eng: __________________</span>
-          <span>Quality Assurance: __________________</span>
-          <span>Operations &amp; Plant Mgr: __________________</span>
-        </div>
-
-        <div className={`flex items-center justify-between ${scale.fineprintClass} text-slate-400 font-mono mt-1 pt-0.5 border-t border-slate-100`}>
-          <span>DOC-Ext.-03 &bull; Daily Production &amp; Operational Audit Form &bull; Confidential Internal Report</span>
-          <span>Single-Page Executive Landscape Audit Record &bull; Page 1 of 1</span>
-        </div>
-      </footer>
     </div>
   );
 });

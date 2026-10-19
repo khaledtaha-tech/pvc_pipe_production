@@ -157,7 +157,7 @@ if ($user) {
     $insert = $pdo->prepare('INSERT INTO `users` (
         `username`, `email`, `full_name`, `google_id`, `avatar_url`, `role`, `subscription_tier`, `is_active`, `status`, `must_change_password`
     ) VALUES (
-        :u, :e, :fn, :gid, :av, \'operator\', \'free\', 0, \'pending\', 0
+        :u, :e, :fn, :gid, :av, 'operator', 'basic', 0, 'pending', 0
     )');
     $insert->execute([
         ':u' => $uniqueUsername,

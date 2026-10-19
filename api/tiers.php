@@ -25,7 +25,7 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     if ($method === 'GET') {
-        $stmt = $pdo->query("SELECT tier_key, name, features_json, max_active_machines, max_monthly_reports, updated_at FROM `subscription_tiers` ORDER BY FIELD(tier_key, 'free', 'basic', 'premium') ASC");
+        $stmt = $pdo->query("SELECT tier_key, name, features_json, max_active_machines, max_monthly_reports, updated_at FROM `subscription_tiers` ORDER BY FIELD(tier_key, 'basic', 'pro', 'enterprise', 'premium') ASC");
         $tiers = $stmt->fetchAll();
 
         foreach ($tiers as &$tier) {

@@ -193,7 +193,7 @@ try {
     // Guarantee admin account always receives super_admin role and premium tier
     $isAdminAccount = strtolower($user['username']) === 'admin';
     $role = $isAdminAccount ? 'super_admin' : ($user['role'] ?? 'operator');
-    $tier = $isAdminAccount ? 'premium' : ($user['subscription_tier'] ?? 'free');
+    $tier = $isAdminAccount ? 'premium' : (($user['subscription_tier'] && $user['subscription_tier'] !== 'free') ? $user['subscription_tier'] : 'basic');
 
     if ($isAdminAccount && (($user['role'] ?? '') !== 'super_admin' || ($user['subscription_tier'] ?? '') !== 'premium')) {
         try {

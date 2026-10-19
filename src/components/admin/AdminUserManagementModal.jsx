@@ -45,11 +45,11 @@ function getAuthHeaders(extraHeaders = {}) {
   return headers;
 }
 
-function formatDateDisplay(dtString) {
-  if (!dtString) return 'Unlimited';
+function formatDateDisplay(dtString, isArabic = false) {
+  if (!dtString) return isArabic ? 'وصول دائم' : 'Unlimited';
   const d = new Date(dtString);
   if (Number.isNaN(d.getTime())) return dtString;
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(isArabic ? 'ar-EG' : undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -65,7 +65,117 @@ function isDateExpired(dtString) {
   return Date.now() > t;
 }
 
-export default function AdminUserManagementModal({ isOpen, onClose, currentUser, theme = 'dark' }) {
+export default function AdminUserManagementModal({ isOpen, onClose, currentUser, theme = 'dark', lang = 'en' }) {
+  const isArabic = lang === 'ar' || (typeof document !== 'undefined' && document.documentElement.dir === 'rtl');
+
+  const txt = {
+    title: isArabic ? 'إدارة المستخدمين وباقات الاشتراك (المشرف العام)' : 'Super Admin User & Tier Management',
+    badge: isArabic ? 'تحكم كامل بالصلاحيات والاشتراكات' : 'Full RBAC & Tiers',
+    subtitle: isArabic 
+      ? 'تفعيل أو إيقاف الحسابات، منح الأدوار والصلاحيات، تعيين باقات الاشتراك، وإدارة سياسات كلمات المرور.' 
+      : 'Allow or suspend accounts, grant roles, assign subscription tiers, and control password policies.',
+    refresh: isArabic ? 'تحديث' : 'Refresh',
+    registerUser: isArabic ? 'تسجيل مستخدم جديد' : 'Register New User',
+    closeForm: isArabic ? 'إغلاق النموذج' : 'Close Form',
+    closeModal: isArabic ? 'إغلاق النافذة' : 'Close modal',
+    accessRestricted: isArabic ? 'الوصول مقيّد' : 'Access Restricted',
+    accessRestrictedDesc: isArabic 
+      ? 'يقتصر الوصول إلى لوحة إدارة المستخدمين على المشرف العام ومدراء المنظومة فقط.' 
+      : 'Only users with Administrator or Super Administrator roles can access the User Management panel.',
+    allUsers: isArabic ? 'كافة المستخدمين' : 'All Users',
+    pendingApproval: isArabic ? 'بانتظار الموافقة' : 'Pending Approval',
+    active: isArabic ? 'نشط' : 'Active',
+    suspended: isArabic ? 'موقوف' : 'Suspended',
+    awaitingApproval: (n) => isArabic ? `${n} طلب تسجيل بانتظار موافقتك` : `${n} registration${n > 1 ? 's' : ''} awaiting your approval`,
+    userDetails: isArabic ? 'بيانات المستخدم' : 'User Details',
+    roleRbac: isArabic ? 'الدور والصلاحية' : 'Role (RBAC)',
+    subscriptionTier: isArabic ? 'باقة الاشتراك' : 'Subscription Tier',
+    accountStatus: isArabic ? 'حالة الحساب (تفعيل / إيقاف)' : 'Account Status (Allow / Suspend)',
+    firstTimeSetup: isArabic ? 'الإعداد الأولي' : 'First-Time Setup',
+    accessExpiration: isArabic ? 'صلاحية الوصول' : 'Access Expiration',
+    actions: isArabic ? 'الإجراءات' : 'Actions',
+    rootSuperAdmin: isArabic ? 'المشرف العام الأساسي' : 'Root Super Admin',
+    you: isArabic ? 'حسابك' : 'You',
+    newSignUp: isArabic ? 'تسجيل جديد' : 'New Sign-up',
+    noEmailAttached: isArabic ? 'لا يوجد بريد مسجل' : 'No email attached',
+    addEmail: isArabic ? '+ إضافة بريد' : '+ Add Email',
+    editProfileTitle: isArabic ? 'تعديل الملف الشخصي' : 'Edit User Profile',
+    editProfileDesc: (u) => isArabic ? `تحديث بيانات الاتصال والصلاحيات للمستخدم ${u}` : `Update contact details for ${u}`,
+    username: isArabic ? 'اسم المستخدم' : 'Username',
+    rootCannotRename: isArabic ? 'لا يمكن تعديل اسم المستخدم لحساب المشرف الأساسي.' : 'Root administrator username cannot be renamed.',
+    emailAddress: isArabic ? 'البريد الإلكتروني' : 'Email Address',
+    fullName: isArabic ? 'الاسم الكامل' : 'Full Name',
+    phoneNumber: isArabic ? 'رقم الهاتف' : 'Phone Number',
+    tempPassword: isArabic ? 'كلمة المرور المؤقتة *' : 'Temporary Password *',
+    accessDuration: isArabic ? 'مدة الصلاحية' : 'Access Duration',
+    initialStatus: isArabic ? 'الحالة الأولية' : 'Initial Status',
+    activeImmediate: isArabic ? 'نشط (وصول فوري كامل)' : 'Active (Immediate Full Access)',
+    pendingApprovalOption: isArabic ? 'معلق (بانتظار موافقة المشرف)' : 'Pending Administrator Approval',
+    forcePasswordOnFirstLogin: isArabic ? 'إلزام المستخدم بتغيير كلمة المرور وتحديث بياناته عند أول تسجيل دخول' : 'Force Password Update on First Login',
+    saveAndRegister: isArabic ? 'حفظ وتسجيل المستخدم' : 'Save & Register User',
+    registering: isArabic ? 'جاري التسجيل...' : 'Registering User...',
+    registerFormHeading: isArabic ? 'تسجيل مستخدم جديد في المنظومة (مع إلزام الإعداد الأولي)' : 'Register New System User (With First-Time Setup Enforcement)',
+    unlimited: isArabic ? 'وصول دائم' : 'Unlimited',
+    expired: isArabic ? '(منتهي)' : '(Expired)',
+    approve: isArabic ? 'موافقة' : 'Approve',
+    allowedActive: isArabic ? 'مفعل (نشط)' : 'Allowed (Active)',
+    suspendedBanned: isArabic ? 'موقوف (محظور)' : 'Suspended (Banned)',
+    required: isArabic ? 'مطلوب' : 'Required',
+    completed: isArabic ? 'مكتمل' : 'Completed',
+    save: isArabic ? 'حفظ' : 'Save',
+    cancel: isArabic ? 'إلغاء' : 'Cancel',
+    saveProfileChanges: isArabic ? 'حفظ تعديلات الملف' : 'Save Profile Changes',
+    saving: isArabic ? 'جاري الحفظ...' : 'Saving...',
+    resetPassword: isArabic ? 'إعادة تعيين كلمة المرور' : 'Reset Password',
+    deleteUser: isArabic ? 'حذف المستخدم' : 'Delete User',
+    newPasswordFor: (u) => isArabic ? `كلمة مرور جديدة لـ ${u}:` : `New Password for ${u}:`,
+    min4Chars: isArabic ? '4 خانات كحد أدنى' : 'Min 4 chars',
+    reset: isArabic ? 'تعيين' : 'Reset',
+    totalRegistered: (n) => isArabic ? `إجمالي الحسابات المسجلة: ${n}` : `Total Registered Accounts: ${n}`,
+    securityFooter: isArabic 
+      ? 'أمان وصلاحيات RBAC: تشفير Bcrypt · حماية المشرف العام · تفعيل حدود باقات الاشتراك' 
+      : 'Security & RBAC: Bcrypt · Super Admin Protected · Tier Feature Gating Active',
+    loadingUsers: isArabic ? 'جاري تحميل قاعدة بيانات المستخدمين...' : 'Loading user database...',
+    noPendingUsers: isArabic ? 'لا توجد طلبات تسجيل مستخدمين معلقة حالياً.' : 'No user registrations currently pending approval.',
+    noSuspendedUsers: isArabic ? 'لا توجد حسابات موقوفة.' : 'No suspended accounts found.',
+    noUsersFound: isArabic ? 'لم يتم العثور على مستخدمين يطابقون التصفية الحالية.' : 'No users found matching current filter.',
+    // Tiers
+    tierBasic: isArabic ? 'الأساسية' : 'Basic',
+    tierPro: isArabic ? 'الاحترافية' : 'Professional',
+    tierEnterprise: isArabic ? 'المؤسسات' : 'Enterprise',
+    tierPremium: isArabic ? 'الشاملة' : 'Premium',
+    // Form Tiers
+    tierFormBasic: isArabic ? 'الباقة الأساسية (حتى 3 خطوط إنتاج)' : 'Basic Tier (Up to 3 Lines)',
+    tierFormPro: isArabic ? 'الباقة الاحترافية (حتى 7 خطوط إنتاج)' : 'Professional Tier (Up to 7 Lines)',
+    tierFormEnterprise: isArabic ? 'باقة المؤسسات (تخطيط متقدم وربط ERP)' : 'Enterprise Tier (Multi-Hall & ERP)',
+    tierFormPremium: isArabic ? 'الباقة الشاملة (كافة مزايا المنظومة)' : 'Premium Tier (Full Factory Suite)',
+    // Roles
+    roleSuperAdmin: isArabic ? 'مشرف عام (Super Admin)' : 'Super Admin',
+    roleAdmin: isArabic ? 'مدير نظام (Admin)' : 'Admin',
+    roleSupervisor: isArabic ? 'مشرف وردية (Supervisor)' : 'Supervisor',
+    roleOperator: isArabic ? 'مشغل خط (Operator)' : 'Operator',
+    roleViewer: isArabic ? 'مشاهد فقط (Viewer)' : 'Viewer',
+    // Months
+    duration12MoPrompt: isArabic ? 'تحديد الصلاحية (1-12 شهر)...' : 'Duration (1-12 Mo)...',
+    mo1: isArabic ? '+ شهر واحد' : '+1 Month',
+    mo2: isArabic ? '+ شهرين' : '+2 Months',
+    mo3: isArabic ? '+ 3 أشهر' : '+3 Months',
+    mo4: isArabic ? '+ 4 أشهر' : '+4 Months',
+    mo5: isArabic ? '+ 5 أشهر' : '+5 Months',
+    mo6: isArabic ? '+ 6 أشهر' : '+6 Months',
+    mo7: isArabic ? '+ 7 أشهر' : '+7 Months',
+    mo8: isArabic ? '+ 8 أشهر' : '+8 Months',
+    mo9: isArabic ? '+ 9 أشهر' : '+9 Months',
+    mo10: isArabic ? '+ 10 أشهر' : '+10 Months',
+    mo11: isArabic ? '+ 11 شهراً' : '+11 Months',
+    mo12: isArabic ? '+ 12 شهراً (سنة)' : '+12 Months (1 Year)',
+    unlimitedInfinity: isArabic ? 'وصول دائم (&infin;)' : 'Unlimited (&infin;)',
+    pickCustomDate: isArabic ? 'تاريخ مخصص...' : 'Pick Custom Date...',
+    keepCurrent: (exp) => isArabic ? `الإبقاء على المدة الحالية (${exp})` : `Keep Current (${exp})`,
+    setMonthsFromNow: (m) => isArabic ? `تحديد المدة إلى ${m} شهر من الآن` : `Set to ${m} Month${m > 1 ? 's' : ''} from now`,
+    customDateTime: isArabic ? 'تاريخ ووقت مخصص' : 'Custom Date & Time',
+  };
+
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
@@ -79,7 +189,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [newFullName, setNewFullName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newRole, setNewRole] = useState('operator');
-  const [newTier, setNewTier] = useState('free');
+  const [newTier, setNewTier] = useState('basic');
   const [newStatus, setNewStatus] = useState('active');
   const [newIsActive, setNewIsActive] = useState(true);
   const [newMustChangePassword, setNewMustChangePassword] = useState(true); // Default to true per requirement
@@ -158,21 +268,21 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   // Access control safeguard
   if (!isAdmin) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4" dir={isArabic ? 'rtl' : 'ltr'}>
         <div className={`p-6 rounded-2xl max-w-sm w-full border ${theme === 'light' ? 'bg-white border-stone-200' : 'bg-slate-900 border-slate-800 text-white'}`}>
           <div className="flex items-center gap-3 text-rose-500 mb-3">
             <AlertCircle className="w-6 h-6" />
-            <h3 className="font-bold text-base">Access Restricted</h3>
+            <h3 className="font-bold text-base">{txt.accessRestricted}</h3>
           </div>
           <p className="text-xs text-slate-400 mb-4">
-            Only users with Administrator or Super Administrator roles can access the User Management panel.
+            {txt.accessRestrictedDesc}
           </p>
           <button
             type="button"
             onClick={onClose}
             className="w-full py-2 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 cursor-pointer"
           >
-            Close
+            {txt.closeModal}
           </button>
         </div>
       </div>
@@ -194,13 +304,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`User "${user.username}" approved and activated successfully!`);
+        showToast(
+          isArabic
+            ? `تمت الموافقة وتفعيل حساب "${user.username}" بنجاح!`
+            : `User "${user.username}" approved and activated successfully!`
+        );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to approve user', 'error');
+        showToast(data?.message || (isArabic ? 'فشلت الموافقة على المستخدم' : 'Failed to approve user'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error approving user', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة أثناء الموافقة' : 'Network error approving user'), 'error');
     }
   };
 
@@ -256,14 +370,18 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       const data = await resp.json().catch(() => null);
 
       if (resp.ok && data?.success) {
-        showToast(`User "${editingUser.username}" profile updated successfully!`);
+        showToast(
+          isArabic
+            ? `تم تحديث الملف الشخصي للمستخدم "${editingUser.username}" بنجاح!`
+            : `User "${editingUser.username}" profile updated successfully!`
+        );
         setEditingUser(null);
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update user profile', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث ملف المستخدم' : 'Failed to update user profile'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error updating user profile', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error updating user profile'), 'error');
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -272,13 +390,20 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   // Handle Quick Allow / Suspend (Ban) Toggle
   const handleToggleStatus = async (user) => {
     if (user.username === 'admin') {
-      showToast('The primary Super Admin account cannot be suspended.', 'error');
+      showToast(
+        isArabic
+          ? 'لا يمكن إيقاف حساب المشرف العام الأساسي.'
+          : 'The primary Super Admin account cannot be suspended.',
+        'error'
+      );
       return;
     }
 
     const currentStatus = user.status || (user.is_active ? 'active' : 'suspended');
     const nextStatus = currentStatus === 'active' ? 'suspended' : 'active';
-    const actionName = nextStatus === 'active' ? 'Allowed (Active)' : 'Suspended (Banned)';
+    const actionName = nextStatus === 'active' 
+      ? (isArabic ? 'مفعل (نشط)' : 'Allowed (Active)') 
+      : (isArabic ? 'موقوف (محظور)' : 'Suspended (Banned)');
 
     try {
       const resp = await fetch(getApiUrl('users.php'), {
@@ -292,13 +417,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`User ${user.username} is now ${actionName}`);
+        showToast(
+          isArabic
+            ? `حالة المستخدم ${user.username} الآن: ${actionName}`
+            : `User ${user.username} is now ${actionName}`
+        );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update user status', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث حالة المستخدم' : 'Failed to update user status'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error updating user', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error updating user'), 'error');
     }
   };
 
@@ -306,7 +435,12 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const handleRoleChange = async (user, newRoleValue) => {
     if (user.role === newRoleValue) return;
     if (user.username === 'admin' && newRoleValue !== 'super_admin') {
-      showToast('Primary Super Admin role cannot be demoted.', 'error');
+      showToast(
+        isArabic
+          ? 'لا يمكن خفض رتبة المشرف العام الأساسي.'
+          : 'Primary Super Admin role cannot be demoted.',
+        'error'
+      );
       return;
     }
 
@@ -321,13 +455,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`Updated role for ${user.username} to ${newRoleValue}`);
+        showToast(
+          isArabic
+            ? `تم تحديث دور ${user.username} بنجاح`
+            : `Updated role for ${user.username} to ${newRoleValue}`
+        );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update role', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث الدور' : 'Failed to update role'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error updating role', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error updating role'), 'error');
     }
   };
 
@@ -346,13 +484,21 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`Updated subscription tier for ${user.username} to ${newTierValue.toUpperCase()}`);
+        const tierName = newTierValue === 'premium' ? txt.tierPremium
+          : newTierValue === 'enterprise' ? txt.tierEnterprise
+          : newTierValue === 'pro' ? txt.tierPro
+          : txt.tierBasic;
+        showToast(
+          isArabic
+            ? `تم تحديث باقة اشتراك ${user.username} إلى ${tierName}`
+            : `Updated subscription tier for ${user.username} to ${newTierValue.toUpperCase()}`
+        );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update subscription tier', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث باقة الاشتراك' : 'Failed to update subscription tier'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error updating tier', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error updating tier'), 'error');
     }
   };
 
@@ -370,13 +516,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(nextFlag ? `Forced password change on next login for ${user.username}` : `Cleared password change requirement for ${user.username}`);
+        showToast(
+          nextFlag
+            ? (isArabic ? `تم إلزام ${user.username} بتغيير كلمة المرور وتحديث بياناته عند أول تسجيل دخول` : `Forced password change on next login for ${user.username}`)
+            : (isArabic ? `تم إعفاء ${user.username} من شرط الإعداد الأولي` : `Cleared password change requirement for ${user.username}`)
+        );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update password change flag', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث حالة الإعداد الأولي' : 'Failed to update password change flag'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error updating user', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error updating user'), 'error');
     }
   };
 
@@ -408,15 +558,15 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       if (resp.ok && data?.success) {
         showToast(
           formattedDate === null
-            ? `Set ${user.username} to Unlimited Access`
-            : `Set access for ${user.username} to +${months} month${parseInt(months, 10) > 1 ? 's' : ''}`
+            ? (isArabic ? `تم تعيين صلاحية وصول دائمة للمستخدم ${user.username}` : `Set ${user.username} to Unlimited Access`)
+            : (isArabic ? `تم تحديد صلاحية ${user.username} إلى +${months} شهر` : `Set access for ${user.username} to +${months} month${parseInt(months, 10) > 1 ? 's' : ''}`)
         );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update access duration', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث مدة الصلاحية' : 'Failed to update access duration'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error updating expiry', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error updating expiry'), 'error');
     }
   };
 
@@ -439,22 +589,31 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast('Access expiration updated successfully');
+        showToast(
+          isArabic
+            ? 'تم تحديث تاريخ انتهاء الصلاحية بنجاح'
+            : 'Access expiration updated successfully'
+        );
         setCustomExpiryUserId(null);
         setCustomExpiryValue('');
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to update custom expiry', 'error');
+        showToast(data?.message || (isArabic ? 'فشل تحديث التاريخ المخصص' : 'Failed to update custom expiry'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error'), 'error');
     }
   };
 
   // Handle Password Reset
   const handleResetPassword = async (userId) => {
     if (!newResetPassword || newResetPassword.trim().length < 4) {
-      showToast('Password must be at least 4 characters long', 'error');
+      showToast(
+        isArabic
+          ? 'يجب ألا تقل كلمة المرور عن 4 أحرف'
+          : 'Password must be at least 4 characters long',
+        'error'
+      );
       return;
     }
     setIsSubmittingReset(true);
@@ -469,14 +628,18 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast('Password reset successfully');
+        showToast(
+          isArabic
+            ? 'تمت إعادة تعيين كلمة المرور بنجاح'
+            : 'Password reset successfully'
+        );
         setPasswordResetUserId(null);
         setNewResetPassword('');
       } else {
-        showToast(data?.message || 'Failed to reset password', 'error');
+        showToast(data?.message || (isArabic ? 'فشلت إعادة تعيين كلمة المرور' : 'Failed to reset password'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error resetting password', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error resetting password'), 'error');
     } finally {
       setIsSubmittingReset(false);
     }
@@ -485,11 +648,20 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   // Handle User Deletion
   const handleDeleteUser = async (user) => {
     if (user.username === 'admin') {
-      showToast('Primary Super Admin account cannot be deleted.', 'error');
+      showToast(
+        isArabic
+          ? 'لا يمكن حذف حساب المشرف العام الأساسي.'
+          : 'Primary Super Admin account cannot be deleted.',
+        'error'
+      );
       return;
     }
 
-    const confirmed = window.confirm(`Are you sure you want to permanently delete user "${user.username}"? This cannot be undone.`);
+    const confirmed = window.confirm(
+      isArabic
+        ? `هل أنت متأكد من رغبتك في حذف المستخدم "${user.username}" نهائياً من قاعدة البيانات؟ لا يمكن التراجع عن هذا الإجراء.`
+        : `Are you sure you want to permanently delete user "${user.username}"? This cannot be undone.`
+    );
     if (!confirmed) return;
 
     try {
@@ -499,13 +671,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`User ${user.username} deleted successfully`);
+        showToast(
+          isArabic
+            ? `تم حذف المستخدم ${user.username} بنجاح`
+            : `User ${user.username} deleted successfully`
+        );
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to delete user', 'error');
+        showToast(data?.message || (isArabic ? 'فشل حذف المستخدم' : 'Failed to delete user'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error deleting user', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة' : 'Network error deleting user'), 'error');
     }
   };
 
@@ -514,11 +690,19 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     e.preventDefault();
     const cleanUsername = newUsername.trim();
     if (!cleanUsername) {
-      showToast('Username is required', 'error');
+      showToast(
+        isArabic ? 'اسم المستخدم مطلوب' : 'Username is required',
+        'error'
+      );
       return;
     }
     if (!newPassword || newPassword.length < 4) {
-      showToast('Password must be at least 4 characters long', 'error');
+      showToast(
+        isArabic
+          ? 'يجب ألا تقل كلمة المرور عن 4 أحرف'
+          : 'Password must be at least 4 characters long',
+        'error'
+      );
       return;
     }
 
@@ -557,14 +741,18 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`User ${cleanUsername} created successfully`);
+        showToast(
+          isArabic
+            ? `تم إنشاء المستخدم ${cleanUsername} بنجاح`
+            : `User ${cleanUsername} created successfully`
+        );
         setNewUsername('');
         setNewPassword('');
         setNewEmail('');
         setNewFullName('');
         setNewPhone('');
         setNewRole('operator');
-        setNewTier('free');
+        setNewTier('basic');
         setNewStatus('active');
         setNewIsActive(true);
         setNewMustChangePassword(true);
@@ -573,10 +761,10 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         setIsAddFormOpen(false);
         fetchUsers();
       } else {
-        showToast(data?.message || 'Failed to create user', 'error');
+        showToast(data?.message || (isArabic ? 'فشل إنشاء المستخدم' : 'Failed to create user'), 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Network error creating user', 'error');
+      showToast(err.message || (isArabic ? 'خطأ في الاتصال بالشبكة أثناء إنشاء المستخدم' : 'Network error creating user'), 'error');
     } finally {
       setIsSubmittingNew(false);
     }
@@ -597,6 +785,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
       <div
+        dir={isArabic ? 'rtl' : 'ltr'}
         className={`w-full max-w-6xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
           theme === 'light'
             ? 'bg-white border-stone-200 text-stone-900 shadow-stone-300'
@@ -619,13 +808,13 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold">Super Admin User &amp; Tier Management</h2>
+                <h2 className="text-base font-bold">{txt.title}</h2>
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60">
-                  Full RBAC &amp; Tiers
+                  {txt.badge}
                 </span>
               </div>
               <p className={`text-xs ${theme === 'light' ? 'text-stone-500' : 'text-slate-400'}`}>
-                Allow or suspend accounts, grant roles, assign Free/Basic/Premium subscription tiers, and control password policies.
+                {txt.subtitle}
               </p>
             </div>
           </div>
@@ -640,10 +829,10 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                   ? 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
-              title="Refresh User List"
+              title={txt.refresh}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden sm:inline">{txt.refresh}</span>
             </button>
 
             <button
@@ -652,7 +841,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
               className="px-3 py-1.5 brand-gradient text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>{isAddFormOpen ? 'Close Form' : 'Register New User'}</span>
+              <span>{isAddFormOpen ? txt.closeForm : txt.registerUser}</span>
             </button>
 
             <button
@@ -661,7 +850,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
               className={`p-1.5 rounded-lg transition cursor-pointer ${
                 theme === 'light' ? 'hover:bg-stone-200 text-stone-500' : 'hover:bg-slate-800 text-slate-400'
               }`}
-              title="Close modal"
+              title={txt.closeModal}
             >
               <X className="w-5 h-5" />
             </button>
@@ -695,13 +884,13 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
           >
             <div className="flex items-center gap-2 mb-3 text-xs font-bold text-emerald-400">
               <UserPlus className="w-4 h-4" />
-              <span>Register New System User (With First-Time Setup Enforcement)</span>
+              <span>{txt.registerFormHeading}</span>
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Username *</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.username} *</label>
                   <input
                     type="text"
                     required
@@ -717,7 +906,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Temporary Password *</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.tempPassword}</label>
                   <input
                     type="password"
                     required
@@ -733,7 +922,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Email Address</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.emailAddress}</label>
                   <input
                     type="email"
                     value={newEmail}
@@ -748,7 +937,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Full Name</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.fullName}</label>
                   <input
                     type="text"
                     value={newFullName}
@@ -765,7 +954,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Role (RBAC)</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.roleRbac}</label>
                   <select
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
@@ -775,16 +964,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
-                    <option value="operator">Operator (Line Data Entry)</option>
-                    <option value="supervisor">Supervisor (Shift Follow)</option>
-                    <option value="admin">Admin (Operational &amp; Data)</option>
-                    <option value="super_admin">Super Admin (Complete Privileges)</option>
-                    <option value="viewer">Viewer (Read Only)</option>
+                    <option value="operator">{txt.roleOperator}</option>
+                    <option value="supervisor">{txt.roleSupervisor}</option>
+                    <option value="admin">{txt.roleAdmin}</option>
+                    <option value="super_admin">{txt.roleSuperAdmin}</option>
+                    <option value="viewer">{txt.roleViewer}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Subscription Tier</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.subscriptionTier}</label>
                   <select
                     value={newTier}
                     onChange={(e) => setNewTier(e.target.value)}
@@ -794,14 +983,15 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
-                    <option value="free">Free Tier (2 Lines)</option>
-                    <option value="basic">Basic Tier (7 Lines)</option>
-                    <option value="premium">Premium Tier (Full Suite)</option>
+                    <option value="basic">{txt.tierFormBasic}</option>
+                    <option value="pro">{txt.tierFormPro}</option>
+                    <option value="enterprise">{txt.tierFormEnterprise}</option>
+                    <option value="premium">{txt.tierFormPremium}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Access Duration</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.accessDuration}</label>
                   <select
                     value={newExpiryPreset}
                     onChange={(e) => setNewExpiryPreset(e.target.value)}
@@ -811,20 +1001,20 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
-                    <option value="1month">1 Month</option>
-                    <option value="2months">2 Months</option>
-                    <option value="3months">3 Months (Quarterly)</option>
-                    <option value="4months">4 Months</option>
-                    <option value="5months">5 Months</option>
-                    <option value="6months">6 Months (Half Year)</option>
-                    <option value="7months">7 Months</option>
-                    <option value="8months">8 Months</option>
-                    <option value="9months">9 Months</option>
-                    <option value="10months">10 Months</option>
-                    <option value="11months">11 Months</option>
-                    <option value="12months">12 Months (1 Year)</option>
-                    <option value="unlimited">Unlimited / Permanent</option>
-                    <option value="custom">Custom Date &amp; Time</option>
+                    <option value="1month">{txt.mo1}</option>
+                    <option value="2months">{txt.mo2}</option>
+                    <option value="3months">{txt.mo3}</option>
+                    <option value="4months">{txt.mo4}</option>
+                    <option value="5months">{txt.mo5}</option>
+                    <option value="6months">{txt.mo6}</option>
+                    <option value="7months">{txt.mo7}</option>
+                    <option value="8months">{txt.mo8}</option>
+                    <option value="9months">{txt.mo9}</option>
+                    <option value="10months">{txt.mo10}</option>
+                    <option value="11months">{txt.mo11}</option>
+                    <option value="12months">{txt.mo12}</option>
+                    <option value="unlimited">{txt.unlimited}</option>
+                    <option value="custom">{txt.customDateTime}</option>
                   </select>
                   {newExpiryPreset === 'custom' && (
                     <input
@@ -842,7 +1032,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Initial Status</label>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">{txt.initialStatus}</label>
                   <select
                     value={newStatus}
                     onChange={(e) => {
@@ -855,8 +1045,8 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
-                    <option value="active">Active (Immediate Full Access)</option>
-                    <option value="pending">Pending Administrator Approval</option>
+                    <option value="active">{txt.activeImmediate}</option>
+                    <option value="pending">{txt.pendingApprovalOption}</option>
                   </select>
                 </div>
 
@@ -869,7 +1059,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
                     />
                     <span className="text-[11px] font-semibold text-emerald-400">
-                      Force Password Update on First Login
+                      {txt.forcePasswordOnFirstLogin}
                     </span>
                   </label>
                 </div>
@@ -881,7 +1071,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                   disabled={isSubmittingNew}
                   className="py-2 px-5 brand-gradient hover:opacity-90 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-500/20 cursor-pointer"
                 >
-                  {isSubmittingNew ? 'Registering User...' : 'Save & Register User'}
+                  {isSubmittingNew ? txt.registering : txt.saveAndRegister}
                 </button>
               </div>
             </form>
@@ -904,7 +1094,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              All Users ({users.length})
+              {txt.allUsers} ({users.length})
             </button>
 
             <button
@@ -919,7 +1109,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
               }`}
             >
               <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span>Pending Approval</span>
+              <span>{txt.pendingApproval}</span>
               {pendingCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-black font-black">
                   {pendingCount}
@@ -937,7 +1127,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Active ({activeCount})</span>
+              <span>{txt.active} ({activeCount})</span>
             </button>
 
             <button
@@ -950,14 +1140,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
               }`}
             >
               <Ban className="w-3.5 h-3.5 text-rose-400" />
-              <span>Suspended ({suspendedCount})</span>
+              <span>{txt.suspended} ({suspendedCount})</span>
             </button>
           </div>
 
           {pendingCount > 0 && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-950/50 px-3 py-1 rounded-lg border border-amber-800/60">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              <span>{pendingCount} registration{pendingCount > 1 ? 's' : ''} awaiting your approval</span>
+              <span>{txt.awaitingApproval(pendingCount)}</span>
             </div>
           )}
         </div>
@@ -965,16 +1155,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         {/* User Table Content */}
         <div className="flex-1 overflow-auto p-4 sm:p-6">
           <div className="w-full overflow-x-auto rounded-xl border border-slate-800">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className={`w-full ${isArabic ? 'text-right' : 'text-left'} border-collapse text-xs`}>
               <thead>
                 <tr className={`${theme === 'light' ? 'bg-stone-100 text-stone-700' : 'bg-slate-950 text-slate-300'} font-semibold border-b border-slate-800`}>
-                  <th className="py-3 px-4">User Details</th>
-                  <th className="py-3 px-4">Role (RBAC)</th>
-                  <th className="py-3 px-4">Subscription Tier</th>
-                  <th className="py-3 px-4">Account Status (Allow / Suspend)</th>
-                  <th className="py-3 px-4">First-Time Setup</th>
-                  <th className="py-3 px-4">Access Expiration</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{txt.userDetails}</th>
+                  <th className="py-3 px-4">{txt.roleRbac}</th>
+                  <th className="py-3 px-4">{txt.subscriptionTier}</th>
+                  <th className="py-3 px-4">{txt.accountStatus}</th>
+                  <th className="py-3 px-4">{txt.firstTimeSetup}</th>
+                  <th className="py-3 px-4">{txt.accessExpiration}</th>
+                  <th className={`py-3 px-4 ${isArabic ? 'text-left' : 'text-right'}`}>{txt.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -982,12 +1172,12 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-slate-500">
                       {isLoading 
-                        ? 'Loading user database...' 
+                        ? txt.loadingUsers 
                         : filterStatus === 'pending'
-                        ? 'No user registrations currently pending approval.'
+                        ? txt.noPendingUsers
                         : filterStatus === 'suspended'
-                        ? 'No suspended accounts found.'
-                        : 'No users found matching current filter.'}
+                        ? txt.noSuspendedUsers
+                        : txt.noUsersFound}
                     </td>
                   </tr>
                 ) : (
@@ -1017,17 +1207,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 <span>{u.username}</span>
                                 {isRoot && (
                                   <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                    Root Super Admin
+                                    {txt.rootSuperAdmin}
                                   </span>
                                 )}
                                 {isSelf && !isRoot && (
                                   <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-                                    You
+                                    {txt.you}
                                   </span>
                                 )}
                                 {isPending && (
                                   <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500 text-black animate-pulse">
-                                    New Sign-up
+                                    {txt.newSignUp}
                                   </span>
                                 )}
                               </div>
@@ -1042,10 +1232,10 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                     type="button"
                                     onClick={() => handleStartEdit(u)}
                                     className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
-                                    title="Click to add an email address"
+                                    title={isArabic ? 'انقر لإضافة بريد إلكتروني' : 'Click to add an email address'}
                                   >
                                     <Mail className="w-2.5 h-2.5" />
-                                    <span>+ Add Email</span>
+                                    <span>{txt.addEmail}</span>
                                   </button>
                                 )}
                                 {u.full_name && (
@@ -1074,30 +1264,33 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 : 'bg-slate-800 text-slate-300 border-slate-700'
                             }`}
                           >
-                            <option value="super_admin">Super Admin</option>
-                            <option value="admin">Admin</option>
-                            <option value="supervisor">Supervisor</option>
-                            <option value="operator">Operator</option>
-                            <option value="viewer">Viewer</option>
+                            <option value="super_admin">{txt.roleSuperAdmin}</option>
+                            <option value="admin">{txt.roleAdmin}</option>
+                            <option value="supervisor">{txt.roleSupervisor}</option>
+                            <option value="operator">{txt.roleOperator}</option>
+                            <option value="viewer">{txt.roleViewer}</option>
                           </select>
                         </td>
 
                         {/* Subscription Tier Selector */}
                         <td className="py-3 px-4">
                           <select
-                            value={u.subscription_tier || 'free'}
+                            value={u.subscription_tier || 'basic'}
                             onChange={(e) => handleTierChange(u, e.target.value)}
                             className={`text-xs px-2 py-1 rounded-md border font-semibold outline-none cursor-pointer ${
                               u.subscription_tier === 'premium'
-                                ? 'bg-purple-950/60 text-purple-300 border-purple-800'
-                                : u.subscription_tier === 'basic'
-                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
-                                : 'bg-slate-800 text-slate-300 border-slate-700'
+                                ? 'bg-purple-950/60 text-purple-300 border-purple-800 font-bold'
+                                : u.subscription_tier === 'enterprise'
+                                ? 'bg-indigo-950/60 text-indigo-300 border-indigo-800'
+                                : u.subscription_tier === 'pro'
+                                ? 'bg-teal-950/60 text-teal-300 border-teal-800'
+                                : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
                             }`}
                           >
-                            <option value="free">Free</option>
-                            <option value="basic">Basic</option>
-                            <option value="premium">Premium</option>
+                            <option value="basic">{txt.tierBasic}</option>
+                            <option value="pro">{txt.tierPro}</option>
+                            <option value="enterprise">{txt.tierEnterprise}</option>
+                            <option value="premium">{txt.tierPremium}</option>
                           </select>
                         </td>
 
@@ -1107,16 +1300,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-600/80 animate-pulse">
                                 <Clock className="w-3 h-3 text-amber-400" />
-                                <span>Pending Approval</span>
+                                <span>{txt.pendingApproval}</span>
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleApproveUser(u)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold brand-gradient text-white shadow-xs hover:opacity-95 transition cursor-pointer"
-                                title="Approve and activate this account immediately"
+                                title={isArabic ? 'الموافقة وتفعيل الحساب فوراً' : 'Approve and activate this account immediately'}
                               >
                                 <Check className="w-3.5 h-3.5" />
-                                <span>Approve</span>
+                                <span>{txt.approve}</span>
                               </button>
                             </div>
                           ) : (
@@ -1129,17 +1322,17 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   ? 'bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900/60'
                                   : 'bg-rose-950 text-rose-400 border border-rose-800 hover:bg-rose-900/60'
                               }`}
-                              title={isRoot ? 'Cannot suspend primary Super Admin' : (u.is_active ? 'Click to Suspend (Ban) this user' : 'Click to Allow (Reactivate) this user')}
+                              title={isRoot ? (isArabic ? 'لا يمكن إيقاف المشرف العام الأساسي' : 'Cannot suspend primary Super Admin') : (u.is_active ? (isArabic ? 'انقر لإيقاف (حظر) هذا الحساب' : 'Click to Suspend (Ban) this user') : (isArabic ? 'انقر لتفعيل هذا الحساب' : 'Click to Allow (Reactivate) this user'))}
                             >
                               {u.is_active ? (
                                 <>
                                   <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>Allowed (Active)</span>
+                                  <span>{txt.allowedActive}</span>
                                 </>
                               ) : (
                                 <>
                                   <Ban className="w-3.5 h-3.5" />
-                                  <span>Suspended (Banned)</span>
+                                  <span>{txt.suspendedBanned}</span>
                                 </>
                               )}
                             </button>
@@ -1156,9 +1349,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 ? 'bg-amber-950/50 text-amber-300 border-amber-800/60'
                                 : 'bg-slate-800/60 text-slate-400 border-slate-700'
                             }`}
-                            title="Click to toggle mandatory profile & password update requirement"
+                            title={isArabic ? 'انقر لتبديل إلزام المستخدم بتحديث الملف وكلمة المرور' : 'Click to toggle mandatory profile & password update requirement'}
                           >
-                            {u.must_change_password ? 'Required' : 'Completed'}
+                            {u.must_change_password ? txt.required : txt.completed}
                           </button>
                         </td>
 
@@ -1174,10 +1367,10 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   : 'text-slate-400'
                               }`}
                             >
-                              {formatDateDisplay(u.access_expires_at)}
+                              {formatDateDisplay(u.access_expires_at, isArabic)}
                               {isExpired && (
                                 <span className="ml-1 text-[10px] uppercase font-bold text-rose-500">
-                                  (Expired)
+                                  {txt.expired}
                                 </span>
                               )}
                             </span>
@@ -1201,23 +1394,23 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   e.target.value = '';
                                 }}
                                 className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 outline-none cursor-pointer"
-                                title="Set duration from 1 to 12 months"
+                                title={isArabic ? 'تحديد الصلاحية من شهر حتى 12 شهراً' : 'Set duration from 1 to 12 months'}
                               >
-                                <option value="" disabled>Duration (1-12 Mo)...</option>
-                                <option value="1">+1 Month</option>
-                                <option value="2">+2 Months</option>
-                                <option value="3">+3 Months</option>
-                                <option value="4">+4 Months</option>
-                                <option value="5">+5 Months</option>
-                                <option value="6">+6 Months</option>
-                                <option value="7">+7 Months</option>
-                                <option value="8">+8 Months</option>
-                                <option value="9">+9 Months</option>
-                                <option value="10">+10 Months</option>
-                                <option value="11">+11 Months</option>
-                                <option value="12">+12 Months (1 Year)</option>
-                                <option value="unlimited">Unlimited (&infin;)</option>
-                                <option value="custom">Pick Custom Date...</option>
+                                <option value="" disabled>{txt.duration12MoPrompt}</option>
+                                <option value="1">{txt.mo1}</option>
+                                <option value="2">{txt.mo2}</option>
+                                <option value="3">{txt.mo3}</option>
+                                <option value="4">{txt.mo4}</option>
+                                <option value="5">{txt.mo5}</option>
+                                <option value="6">{txt.mo6}</option>
+                                <option value="7">{txt.mo7}</option>
+                                <option value="8">{txt.mo8}</option>
+                                <option value="9">{txt.mo9}</option>
+                                <option value="10">{txt.mo10}</option>
+                                <option value="11">{txt.mo11}</option>
+                                <option value="12">{txt.mo12}</option>
+                                <option value="unlimited">{txt.unlimitedInfinity}</option>
+                                <option value="custom">{txt.pickCustomDate}</option>
                               </select>
 
                               {/* Quick 1-click Buttons */}
@@ -1225,7 +1418,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 type="button"
                                 onClick={() => handleSetMonthDuration(u, 1)}
                                 className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
-                                title="Add 1 Month"
+                                title={txt.mo1}
                               >
                                 +1m
                               </button>
@@ -1233,7 +1426,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 type="button"
                                 onClick={() => handleSetMonthDuration(u, 3)}
                                 className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
-                                title="Add 3 Months"
+                                title={txt.mo3}
                               >
                                 +3m
                               </button>
@@ -1241,7 +1434,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 type="button"
                                 onClick={() => handleSetMonthDuration(u, 6)}
                                 className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
-                                title="Add 6 Months"
+                                title={txt.mo6}
                               >
                                 +6m
                               </button>
@@ -1249,7 +1442,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 type="button"
                                 onClick={() => handleSetMonthDuration(u, 12)}
                                 className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
-                                title="Add 12 Months (1 Year)"
+                                title={txt.mo12}
                               >
                                 +12m
                               </button>
@@ -1257,7 +1450,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 type="button"
                                 onClick={() => handleSetMonthDuration(u, null)}
                                 className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
-                                title="Clear Expiry (Unlimited Access)"
+                                title={isArabic ? 'صلاحية دائمة (غير محدودة)' : 'Clear Expiry (Unlimited Access)'}
                               >
                                 &infin;
                               </button>
@@ -1268,7 +1461,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   setCustomExpiryValue(u.access_expires_at ? u.access_expires_at.slice(0, 16) : '');
                                 }}
                                 className="p-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
-                                title="Pick Custom Date &amp; Time"
+                                title={txt.customDateTime}
                               >
                                 <Calendar className="w-3 h-3 text-cyan-400" />
                               </button>
@@ -1288,14 +1481,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   onClick={() => handleSaveCustomExpiry(u.id)}
                                   className="px-2 py-0.5 text-[10px] bg-emerald-600 text-white rounded font-bold hover:bg-emerald-500 cursor-pointer"
                                 >
-                                  Save
+                                  {txt.save}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setCustomExpiryUserId(null)}
                                   className="text-[10px] text-slate-400 hover:text-white cursor-pointer"
                                 >
-                                  Cancel
+                                  {txt.cancel}
                                 </button>
                               </div>
                             )}
@@ -1303,14 +1496,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         </td>
 
                         {/* Actions */}
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className={`py-3 px-4 ${isArabic ? 'text-left' : 'text-right'}`}>
+                          <div className={`flex items-center ${isArabic ? 'justify-start' : 'justify-end'} gap-1.5`}>
                             {/* Edit User Profile (Email, Full Name, Phone) */}
                             <button
                               type="button"
                               onClick={() => handleStartEdit(u)}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
-                              title="Edit User Profile (Add/Update Email, Name, Phone)"
+                              title={txt.editProfileTitle}
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -1323,7 +1516,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 setNewResetPassword('');
                               }}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
-                              title="Reset Password"
+                              title={txt.resetPassword}
                             >
                               <KeyRound className="w-3.5 h-3.5 text-amber-400" />
                             </button>
@@ -1334,7 +1527,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                               onClick={() => handleDeleteUser(u)}
                               disabled={isRoot || isSelf}
                               className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                              title={isRoot ? 'Cannot delete Super Admin' : (isSelf ? 'Cannot delete your own account' : 'Delete User')}
+                              title={isRoot ? (isArabic ? 'لا يمكن حذف المشرف العام الأساسي' : 'Cannot delete Super Admin') : (isSelf ? (isArabic ? 'لا يمكنك حذف حسابك الشخصي' : 'Cannot delete your own account') : txt.deleteUser)}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1342,14 +1535,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
 
                           {/* Inline Password Reset Box */}
                           {passwordResetUserId === u.id && (
-                            <div className="mt-2 p-2 bg-slate-950 rounded-lg border border-slate-700 text-left">
+                            <div className={`mt-2 p-2 bg-slate-950 rounded-lg border border-slate-700 ${isArabic ? 'text-right' : 'text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
                               <label className="block text-[10px] text-slate-400 mb-1">
-                                New Password for {u.username}:
+                                {txt.newPasswordFor(u.username)}
                               </label>
                               <div className="flex items-center gap-1.5">
                                 <input
                                   type="password"
-                                  placeholder="Min 4 chars"
+                                  placeholder={txt.min4Chars}
                                   value={newResetPassword}
                                   onChange={(e) => setNewResetPassword(e.target.value)}
                                   className="text-[11px] px-2 py-1 rounded bg-slate-900 border border-slate-700 text-white w-28"
@@ -1360,7 +1553,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   onClick={() => handleResetPassword(u.id)}
                                   className="px-2 py-1 text-[10px] bg-amber-600 hover:bg-amber-500 text-white rounded font-bold cursor-pointer"
                                 >
-                                  {isSubmittingReset ? '...' : 'Reset'}
+                                  {isSubmittingReset ? '...' : txt.reset}
                                 </button>
                                 <button
                                   type="button"
@@ -1388,8 +1581,8 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
             theme === 'light' ? 'bg-stone-50 border-stone-200 text-stone-500' : 'bg-slate-950/60 border-slate-800 text-slate-400'
           }`}
         >
-          <span>Total Registered Accounts: {users.length}</span>
-          <span>Security &amp; RBAC: Bcrypt &middot; Super Admin Protected &middot; Tier Feature Gating Active</span>
+          <span>{txt.totalRegistered(users.length)}</span>
+          <span>{txt.securityFooter}</span>
         </div>
       </div>
 
@@ -1397,6 +1590,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       {editingUser && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
           <div
+            dir={isArabic ? 'rtl' : 'ltr'}
             className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden p-6 ${
               theme === 'light'
                 ? 'bg-white border-stone-200 text-stone-900 shadow-stone-300'
@@ -1419,9 +1613,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                   <Pencil className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Edit User Profile</h3>
+                  <h3 className="text-sm font-bold">{txt.editProfileTitle}</h3>
                   <p className={`text-[11px] ${theme === 'light' ? 'text-stone-500' : 'text-slate-400'}`}>
-                    Update contact details for <span className="font-semibold text-emerald-400">{editingUser.username}</span>
+                    {txt.editProfileDesc(editingUser.username)}
                   </p>
                 </div>
               </div>
@@ -1431,7 +1625,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 className={`p-1 rounded-lg transition cursor-pointer ${
                   theme === 'light' ? 'hover:bg-stone-100 text-stone-500' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
                 }`}
-                title="Cancel &amp; Close"
+                title={txt.cancel}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1440,7 +1634,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
             <form onSubmit={handleSaveEdit} className="space-y-3.5">
               <div>
                 <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
-                  Username
+                  {txt.username}
                 </label>
                 <input
                   type="text"
@@ -1455,23 +1649,23 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 />
                 {editingUser.username === 'admin' && (
                   <span className="text-[10px] text-amber-400/90 mt-1 block font-medium">
-                    Root administrator username cannot be renamed.
+                    {txt.rootCannotRename}
                   </span>
                 )}
               </div>
 
               <div>
                 <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
-                  Email Address
+                  {txt.emailAddress}
                 </label>
                 <div className="relative">
-                  <Mail className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <Mail className={`w-3.5 h-3.5 absolute ${isArabic ? 'right-3' : 'left-3'} top-2.5 text-slate-400 pointer-events-none`} />
                   <input
                     type="email"
                     placeholder="e.g. admin@polymerops.com"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                    className={`w-full text-xs ${isArabic ? 'pr-8 pl-3' : 'pl-8 pr-3'} py-2 rounded-lg border outline-none ${
                       theme === 'light'
                         ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
                         : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
@@ -1482,16 +1676,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
 
               <div>
                 <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
-                  Full Name
+                  {txt.fullName}
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <UserIcon className={`w-3.5 h-3.5 absolute ${isArabic ? 'right-3' : 'left-3'} top-2.5 text-slate-400 pointer-events-none`} />
                   <input
                     type="text"
                     placeholder="e.g. Eng. Khaled Taha"
                     value={editFullName}
                     onChange={(e) => setEditFullName(e.target.value)}
-                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                    className={`w-full text-xs ${isArabic ? 'pr-8 pl-3' : 'pl-8 pr-3'} py-2 rounded-lg border outline-none ${
                       theme === 'light'
                         ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
                         : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
@@ -1502,16 +1696,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
 
               <div>
                 <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
-                  Phone Number
+                  {txt.phoneNumber}
                 </label>
                 <div className="relative">
-                  <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <Phone className={`w-3.5 h-3.5 absolute ${isArabic ? 'right-3' : 'left-3'} top-2.5 text-slate-400 pointer-events-none`} />
                   <input
                     type="tel"
                     placeholder="e.g. +20 100 000 0000"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                    className={`w-full text-xs ${isArabic ? 'pr-8 pl-3' : 'pl-8 pr-3'} py-2 rounded-lg border outline-none ${
                       theme === 'light'
                         ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
                         : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
@@ -1522,34 +1716,34 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
 
               <div>
                 <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
-                  Access Duration &amp; Expiration
+                  {txt.accessDuration}
                 </label>
                 <div className="relative">
-                  <Clock className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <Clock className={`w-3.5 h-3.5 absolute ${isArabic ? 'right-3' : 'left-3'} top-2.5 text-slate-400 pointer-events-none`} />
                   <select
                     value={editDurationPreset}
                     onChange={(e) => setEditDurationPreset(e.target.value)}
-                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                    className={`w-full text-xs ${isArabic ? 'pr-8 pl-3' : 'pl-8 pr-3'} py-2 rounded-lg border outline-none ${
                       theme === 'light'
                         ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
                         : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
-                    <option value="unchanged">Keep Current ({formatDateDisplay(editingUser.access_expires_at)})</option>
-                    <option value="1month">Set to 1 Month from now</option>
-                    <option value="2months">Set to 2 Months from now</option>
-                    <option value="3months">Set to 3 Months from now</option>
-                    <option value="4months">Set to 4 Months from now</option>
-                    <option value="5months">Set to 5 Months from now</option>
-                    <option value="6months">Set to 6 Months from now</option>
-                    <option value="7months">Set to 7 Months from now</option>
-                    <option value="8months">Set to 8 Months from now</option>
-                    <option value="9months">Set to 9 Months from now</option>
-                    <option value="10months">Set to 10 Months from now</option>
-                    <option value="11months">Set to 11 Months from now</option>
-                    <option value="12months">Set to 12 Months (1 Year) from now</option>
-                    <option value="unlimited">Unlimited / Permanent Access</option>
-                    <option value="custom">Custom Date &amp; Time</option>
+                    <option value="unchanged">{txt.keepCurrent(formatDateDisplay(editingUser.access_expires_at, isArabic))}</option>
+                    <option value="1month">{txt.setMonthsFromNow(1)}</option>
+                    <option value="2months">{txt.setMonthsFromNow(2)}</option>
+                    <option value="3months">{txt.setMonthsFromNow(3)}</option>
+                    <option value="4months">{txt.setMonthsFromNow(4)}</option>
+                    <option value="5months">{txt.setMonthsFromNow(5)}</option>
+                    <option value="6months">{txt.setMonthsFromNow(6)}</option>
+                    <option value="7months">{txt.setMonthsFromNow(7)}</option>
+                    <option value="8months">{txt.setMonthsFromNow(8)}</option>
+                    <option value="9months">{txt.setMonthsFromNow(9)}</option>
+                    <option value="10months">{txt.setMonthsFromNow(10)}</option>
+                    <option value="11months">{txt.setMonthsFromNow(11)}</option>
+                    <option value="12months">{txt.setMonthsFromNow(12)}</option>
+                    <option value="unlimited">{txt.unlimitedInfinity}</option>
+                    <option value="custom">{txt.customDateTime}</option>
                   </select>
                 </div>
                 {editDurationPreset === 'custom' && (
@@ -1581,14 +1775,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                   }`}
                 >
-                  Cancel
+                  {txt.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
                   className="px-4 py-1.5 rounded-lg text-xs font-bold brand-gradient text-white shadow-md shadow-emerald-500/20 hover:opacity-95 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
                 >
-                  {isSubmittingEdit ? 'Saving...' : 'Save Profile Changes'}
+                  {isSubmittingEdit ? txt.saving : txt.saveProfileChanges}
                 </button>
               </div>
             </form>

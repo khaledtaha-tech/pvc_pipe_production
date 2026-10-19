@@ -489,6 +489,7 @@ function AppContent() {
           onClose={() => setIsAdminModalOpen(false)}
           currentUser={user}
           theme={theme}
+          lang={lang}
         />
       )}
 

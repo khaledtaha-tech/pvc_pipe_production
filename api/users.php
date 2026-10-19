@@ -65,7 +65,7 @@ try {
             $user['is_active'] = (int)$user['is_active'];
             $user['status'] = strtolower($user['status'] ?? ($user['is_active'] ? 'active' : 'suspended'));
             $user['must_change_password'] = (int)$user['must_change_password'];
-            $user['features'] = get_tier_features($pdo, $user['subscription_tier'] ?? 'free');
+            $user['features'] = get_tier_features($pdo, $user['subscription_tier'] ?? 'basic');
             json_response(['success' => true, 'user' => $user]);
         }
 
@@ -77,7 +77,7 @@ try {
             $u['is_active'] = (int)$u['is_active'];
             $u['status'] = strtolower($u['status'] ?? ($u['is_active'] ? 'active' : 'suspended'));
             $u['must_change_password'] = (int)$u['must_change_password'];
-            $u['features'] = get_tier_features($pdo, $u['subscription_tier'] ?? 'free');
+            $u['features'] = get_tier_features($pdo, $u['subscription_tier'] ?? 'basic');
         }
         unset($u);
 
@@ -100,7 +100,7 @@ try {
         $fullName = !empty($input['full_name']) ? trim($input['full_name']) : null;
         $phone = !empty($input['phone']) ? trim($input['phone']) : null;
         $role = trim($input['role'] ?? 'operator');
-        $tier = trim($input['subscription_tier'] ?? 'free');
+        $tier = trim($input['subscription_tier'] ?? 'basic');
         $isActive = isset($input['is_active']) ? ((int)$input['is_active'] ? 1 : 0) : 1;
         // Default must_change_password to 1 so registered users are prompted on first login
         $mustChangePassword = isset($input['must_change_password']) ? ((int)$input['must_change_password'] ? 1 : 0) : 1;
@@ -119,9 +119,9 @@ try {
             $role = 'operator';
         }
 
-        $validTiers = ['free', 'basic', 'premium'];
+        $validTiers = ['basic', 'pro', 'enterprise', 'premium'];
         if (!in_array($tier, $validTiers, true)) {
-            $tier = 'free';
+            $tier = 'basic';
         }
 
         // Check if username already exists
@@ -279,7 +279,7 @@ try {
 
         if (isset($input['subscription_tier'])) {
             $newTier = trim($input['subscription_tier']);
-            $validTiers = ['free', 'basic', 'premium'];
+            $validTiers = ['basic', 'pro', 'enterprise', 'premium'];
             if (in_array($newTier, $validTiers, true)) {
                 $updates[] = '`subscription_tier` = :subscription_tier';
                 $params[':subscription_tier'] = $newTier;
@@ -338,7 +338,7 @@ try {
         $updatedUser['is_active'] = (int)$updatedUser['is_active'];
         $updatedUser['status'] = strtolower($updatedUser['status'] ?? ($updatedUser['is_active'] ? 'active' : 'suspended'));
         $updatedUser['must_change_password'] = (int)$updatedUser['must_change_password'];
-        $updatedUser['features'] = get_tier_features($pdo, $updatedUser['subscription_tier'] ?? 'free');
+        $updatedUser['features'] = get_tier_features($pdo, $updatedUser['subscription_tier'] ?? 'basic');
 
         json_response([
             'success' => true,

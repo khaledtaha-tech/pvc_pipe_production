@@ -250,11 +250,18 @@ function ensure_auth_tables_exist($pdo) {
             $pdo->exec("ALTER TABLE `subscription_tiers` DROP COLUMN `price_usd_monthly`");
         }
 
+        // Migrate any users on 'free' to 'basic' and remove 'free' tier permanently
+        try {
+            $pdo->exec("UPDATE `users` SET `subscription_tier` = 'basic' WHERE `subscription_tier` = 'free' OR `subscription_tier` IS NULL OR `subscription_tier` = ''");
+            $pdo->exec("DELETE FROM `subscription_tiers` WHERE `tier_key` = 'free'");
+        } catch (Throwable $e) {}
+
         $pdo->exec("INSERT INTO `subscription_tiers` (`tier_key`, `name`, `features_json`, `max_active_machines`, `max_monthly_reports`) VALUES
-        ('free', 'Free Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"basic_excel_export\"]', 2, 30),
-        ('basic', 'Basic Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"daily_reconciliation\", \"manual_entry\", \"auto_reconcile\", \"basic_excel_export\", \"save_database\"]', 7, 200),
-        ('premium', 'Premium Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"daily_reconciliation\", \"manual_entry\", \"auto_reconcile\", \"basic_excel_export\", \"save_database\", \"master_planning\", \"erp_data_hub\", \"product_catalog_admin\", \"high_res_audit_pdf\", \"unlimited_machines\", \"unlimited_reports\", \"priority_support\"]', 50, 10000)
-        ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `features_json` = VALUES(`features_json`);");
+        ('basic', 'Basic Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"daily_reconciliation\", \"basic_excel_export\", \"save_database\"]', 3, 100),
+        ('pro', 'Professional Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"daily_reconciliation\", \"manual_entry\", \"auto_reconcile\", \"basic_excel_export\", \"save_database\", \"machine_settings\", \"shift_sop_pdf\"]', 7, 300),
+        ('enterprise', 'Enterprise Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"daily_reconciliation\", \"manual_entry\", \"auto_reconcile\", \"basic_excel_export\", \"save_database\", \"machine_settings\", \"shift_sop_pdf\", \"master_planning\", \"erp_data_hub\", \"unique_catalog_matrix\", \"high_res_audit_pdf\"]', 15, 1500),
+        ('premium', 'Premium Tier', '[\"dashboard_view\", \"daily_sheet_view\", \"daily_reconciliation\", \"manual_entry\", \"auto_reconcile\", \"basic_excel_export\", \"save_database\", \"machine_settings\", \"shift_sop_pdf\", \"master_planning\", \"erp_data_hub\", \"unique_catalog_matrix\", \"high_res_audit_pdf\", \"product_catalog_admin\", \"unlimited_machines\", \"unlimited_reports\", \"user_rbac_management\", \"priority_support\"]', 50, 10000)
+        ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `features_json` = VALUES(`features_json`), `max_active_machines` = VALUES(`max_active_machines`), `max_monthly_reports` = VALUES(`max_monthly_reports`);");
 
         // 4. Ensure bootstrap Super Admin exists
         $adminCheck = $pdo->prepare("SELECT id, role, subscription_tier FROM `users` WHERE `username` = 'admin' LIMIT 1");
@@ -349,7 +356,11 @@ function require_authenticated_user($pdo) {
  * @param string $tierKey
  * @return array
  */
-function get_tier_features($pdo, $tierKey = 'free') {
+function get_tier_features($pdo, $tierKey = 'basic') {
+    if (empty($tierKey) || $tierKey === 'free') {
+        $tierKey = 'basic';
+    }
+
     try {
         $stmt = $pdo->prepare("SELECT features_json FROM `subscription_tiers` WHERE `tier_key` = :tier LIMIT 1");
         $stmt->execute([':tier' => $tierKey]);
@@ -364,11 +375,13 @@ function get_tier_features($pdo, $tierKey = 'free') {
 
     // Fallback defaults
     if ($tierKey === 'premium') {
-        return ['dashboard_view', 'daily_sheet_view', 'daily_reconciliation', 'manual_entry', 'auto_reconcile', 'basic_excel_export', 'save_database', 'master_planning', 'erp_data_hub', 'product_catalog_admin', 'high_res_audit_pdf', 'unlimited_machines', 'unlimited_reports', 'priority_support'];
-    } elseif ($tierKey === 'basic') {
-        return ['dashboard_view', 'daily_sheet_view', 'daily_reconciliation', 'manual_entry', 'auto_reconcile', 'basic_excel_export', 'save_database'];
+        return ['dashboard_view', 'daily_sheet_view', 'daily_reconciliation', 'manual_entry', 'auto_reconcile', 'basic_excel_export', 'save_database', 'machine_settings', 'shift_sop_pdf', 'master_planning', 'erp_data_hub', 'unique_catalog_matrix', 'high_res_audit_pdf', 'product_catalog_admin', 'unlimited_machines', 'unlimited_reports', 'user_rbac_management', 'priority_support'];
+    } elseif ($tierKey === 'enterprise') {
+        return ['dashboard_view', 'daily_sheet_view', 'daily_reconciliation', 'manual_entry', 'auto_reconcile', 'basic_excel_export', 'save_database', 'machine_settings', 'shift_sop_pdf', 'master_planning', 'erp_data_hub', 'unique_catalog_matrix', 'high_res_audit_pdf'];
+    } elseif ($tierKey === 'pro') {
+        return ['dashboard_view', 'daily_sheet_view', 'daily_reconciliation', 'manual_entry', 'auto_reconcile', 'basic_excel_export', 'save_database', 'machine_settings', 'shift_sop_pdf'];
     }
-    return ['dashboard_view', 'daily_sheet_view', 'basic_excel_export'];
+    return ['dashboard_view', 'daily_sheet_view', 'daily_reconciliation', 'basic_excel_export', 'save_database'];
 }
 
 /**

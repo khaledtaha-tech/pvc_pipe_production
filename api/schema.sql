@@ -135,7 +135,6 @@ CREATE TABLE IF NOT EXISTS `password_resets` (
 CREATE TABLE IF NOT EXISTS `subscription_tiers` (
   `tier_key` VARCHAR(50) NOT NULL PRIMARY KEY,
   `name` VARCHAR(100) NOT NULL,
-  `price_usd_monthly` DECIMAL(8,2) DEFAULT 0.00,
   `features_json` LONGTEXT NOT NULL,
   `max_active_machines` INT DEFAULT 7,
   `max_monthly_reports` INT DEFAULT 100,
@@ -143,11 +142,11 @@ CREATE TABLE IF NOT EXISTS `subscription_tiers` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Seed default subscription tiers
-INSERT INTO `subscription_tiers` (`tier_key`, `name`, `price_usd_monthly`, `features_json`, `max_active_machines`, `max_monthly_reports`) VALUES
-('free', 'Free Tier', 0.00, '["dashboard_view", "daily_sheet_view", "basic_excel_export"]', 2, 30),
-('basic', 'Basic Tier', 49.00, '["dashboard_view", "daily_sheet_view", "daily_reconciliation", "manual_entry", "auto_reconcile", "basic_excel_export", "save_database"]', 7, 200),
-('premium', 'Premium Tier', 149.00, '["dashboard_view", "daily_sheet_view", "daily_reconciliation", "manual_entry", "auto_reconcile", "basic_excel_export", "save_database", "master_planning", "erp_data_hub", "product_catalog_admin", "high_res_audit_pdf", "unlimited_machines", "unlimited_reports", "priority_support"]', 50, 10000)
+-- Seed default subscription tiers (Price-free feature tiers)
+INSERT INTO `subscription_tiers` (`tier_key`, `name`, `features_json`, `max_active_machines`, `max_monthly_reports`) VALUES
+('free', 'Free Tier', '["dashboard_view", "daily_sheet_view", "basic_excel_export"]', 2, 30),
+('basic', 'Basic Tier', '["dashboard_view", "daily_sheet_view", "daily_reconciliation", "manual_entry", "auto_reconcile", "basic_excel_export", "save_database"]', 7, 200),
+('premium', 'Premium Tier', '["dashboard_view", "daily_sheet_view", "daily_reconciliation", "manual_entry", "auto_reconcile", "basic_excel_export", "save_database", "master_planning", "erp_data_hub", "product_catalog_admin", "high_res_audit_pdf", "unlimited_machines", "unlimited_reports", "priority_support"]', 50, 10000)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `features_json` = VALUES(`features_json`);
 
 -- ==============================================================================

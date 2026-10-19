@@ -25,11 +25,10 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     if ($method === 'GET') {
-        $stmt = $pdo->query("SELECT tier_key, name, price_usd_monthly, features_json, max_active_machines, max_monthly_reports, updated_at FROM `subscription_tiers` ORDER BY price_usd_monthly ASC");
+        $stmt = $pdo->query("SELECT tier_key, name, features_json, max_active_machines, max_monthly_reports, updated_at FROM `subscription_tiers` ORDER BY FIELD(tier_key, 'free', 'basic', 'premium') ASC");
         $tiers = $stmt->fetchAll();
 
         foreach ($tiers as &$tier) {
-            $tier['price_usd_monthly'] = (float)$tier['price_usd_monthly'];
             $tier['max_active_machines'] = (int)$tier['max_active_machines'];
             $tier['max_monthly_reports'] = (int)$tier['max_monthly_reports'];
             $tier['features'] = json_decode($tier['features_json'], true) ?: [];
@@ -71,7 +70,6 @@ try {
 
         $tierKey = trim($data['tier_key']);
         $name = trim($data['name'] ?? '');
-        $price = isset($data['price_usd_monthly']) ? (float)$data['price_usd_monthly'] : null;
         $features = isset($data['features']) && is_array($data['features']) ? json_encode($data['features']) : null;
         $maxMachines = isset($data['max_active_machines']) ? (int)$data['max_active_machines'] : null;
         $maxReports = isset($data['max_monthly_reports']) ? (int)$data['max_monthly_reports'] : null;
@@ -82,10 +80,6 @@ try {
         if ($name !== '') {
             $updates[] = '`name` = :name';
             $params[':name'] = $name;
-        }
-        if ($price !== null) {
-            $updates[] = '`price_usd_monthly` = :price';
-            $params[':price'] = $price;
         }
         if ($features !== null) {
             $updates[] = '`features_json` = :features';

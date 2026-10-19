@@ -81,14 +81,31 @@ $picture = trim($googleData['picture'] ?? '');
 $pdo = get_db_connection();
 
 // Check if user already exists by google_id OR email
-$stmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at FROM `users` WHERE `google_id` = :sub OR `email` = :email LIMIT 1');
+$stmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, status, must_change_password, avatar_url, access_expires_at FROM `users` WHERE `google_id` = :sub OR `email` = :email LIMIT 1');
 $stmt->execute([':sub' => $googleSub, ':email' => $email]);
 $user = $stmt->fetch();
 
 if ($user) {
+    $accountStatus = strtolower($user['status'] ?? ((int)$user['is_active'] === 1 ? 'active' : 'suspended'));
+
+    // Check if account is pending approval
+    if ($accountStatus === 'pending') {
+        json_response([
+            'success' => false,
+            'code' => 'ACCOUNT_PENDING',
+            'status' => 'pending',
+            'message' => 'Your Google account registration was received and is currently pending administrator approval. Please wait for the admin to approve and activate your account.'
+        ], 403);
+    }
+
     // Check if account is suspended
-    if ((int)$user['is_active'] !== 1) {
-        json_response(['success' => false, 'message' => 'Your account has been suspended by an administrator.'], 403);
+    if ($accountStatus === 'suspended' || (int)$user['is_active'] !== 1) {
+        json_response([
+            'success' => false,
+            'code' => 'ACCOUNT_SUSPENDED',
+            'status' => 'suspended',
+            'message' => 'Your account has been suspended by an administrator.'
+        ], 403);
     }
 
     // Check expiration
@@ -121,7 +138,7 @@ if ($user) {
         $pdo->prepare('UPDATE `users` SET ' . implode(', ', $updateFields) . ' WHERE `id` = :id')->execute($updateParams);
     }
 } else {
-    // Auto-provision new Google authenticated user
+    // Auto-provision new Google authenticated user with status 'pending'
     // Generate clean unique username from email
     $baseUsername = preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]);
     if (strlen($baseUsername) < 3) $baseUsername = 'user_' . substr($googleSub, -5);
@@ -137,7 +154,11 @@ if ($user) {
         $uniqueUsername = $baseUsername . '_' . $counter++;
     }
 
-    $insert = $pdo->prepare('INSERT INTO `users` (`username`, `email`, `full_name`, `google_id`, `avatar_url`, `role`, `subscription_tier`, `is_active`, `must_change_password`) VALUES (:u, :e, :fn, :gid, :av, \'operator\', \'free\', 1, 0)');
+    $insert = $pdo->prepare('INSERT INTO `users` (
+        `username`, `email`, `full_name`, `google_id`, `avatar_url`, `role`, `subscription_tier`, `is_active`, `status`, `must_change_password`
+    ) VALUES (
+        :u, :e, :fn, :gid, :av, \'operator\', \'free\', 0, \'pending\', 0
+    )');
     $insert->execute([
         ':u' => $uniqueUsername,
         ':e' => $email,
@@ -146,20 +167,12 @@ if ($user) {
         ':av' => $picture ?: null
     ]);
 
-    $newId = (int)$pdo->lastInsertId();
-    $user = [
-        'id' => $newId,
-        'username' => $uniqueUsername,
-        'email' => $email,
-        'full_name' => $name ?: $uniqueUsername,
-        'phone' => null,
-        'role' => 'operator',
-        'subscription_tier' => 'free',
-        'is_active' => 1,
-        'must_change_password' => 0,
-        'avatar_url' => $picture ?: null,
-        'access_expires_at' => null
-    ];
+    json_response([
+        'success' => false,
+        'code' => 'ACCOUNT_PENDING',
+        'status' => 'pending',
+        'message' => 'Your Google account has been registered successfully! Your membership is currently pending administrator approval. You will receive access once approved by the administrator.'
+    ], 403);
 }
 
 $token = 'pvc_user_' . $user['id'] . '_' . bin2hex(random_bytes(24));

@@ -134,6 +134,7 @@ function ensure_auth_tables_exist($pdo) {
             `role` VARCHAR(50) NOT NULL DEFAULT 'operator',
             `subscription_tier` VARCHAR(50) NOT NULL DEFAULT 'free',
             `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'active',
             `must_change_password` TINYINT(1) NOT NULL DEFAULT 0,
             `google_id` VARCHAR(100) NULL UNIQUE,
             `avatar_url` VARCHAR(255) NULL,
@@ -144,6 +145,7 @@ function ensure_auth_tables_exist($pdo) {
             INDEX `idx_email` (`email`),
             INDEX `idx_role` (`role`),
             INDEX `idx_tier` (`subscription_tier`),
+            INDEX `idx_status` (`status`),
             INDEX `idx_google_id` (`google_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
@@ -163,8 +165,12 @@ function ensure_auth_tables_exist($pdo) {
         if (!isset($colMap['subscription_tier'])) {
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `subscription_tier` VARCHAR(50) NOT NULL DEFAULT 'free' AFTER `role`");
         }
+        if (!isset($colMap['status'])) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active' AFTER `is_active`");
+            $pdo->exec("UPDATE `users` SET `status` = IF(`is_active` = 1, 'active', 'suspended') WHERE `status` IS NULL OR `status` = ''");
+        }
         if (!isset($colMap['must_change_password'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_active`");
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`");
         }
         if (!isset($colMap['google_id'])) {
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `google_id` VARCHAR(100) NULL UNIQUE AFTER `must_change_password`");

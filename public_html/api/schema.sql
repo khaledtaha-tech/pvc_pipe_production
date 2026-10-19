@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `role` VARCHAR(50) NOT NULL DEFAULT 'operator',
   `subscription_tier` VARCHAR(50) NOT NULL DEFAULT 'free',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'active',
   `must_change_password` TINYINT(1) NOT NULL DEFAULT 0,
   `google_id` VARCHAR(100) NULL UNIQUE,
   `avatar_url` VARCHAR(255) NULL,
@@ -116,6 +117,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   INDEX `idx_email` (`email`),
   INDEX `idx_role` (`role`),
   INDEX `idx_tier` (`subscription_tier`),
+  INDEX `idx_status` (`status`),
   INDEX `idx_google_id` (`google_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

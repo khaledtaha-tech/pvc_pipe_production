@@ -68,6 +68,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'pending' | 'active' | 'suspended'
 
   // New user form state
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
@@ -78,6 +79,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [newPhone, setNewPhone] = useState('');
   const [newRole, setNewRole] = useState('operator');
   const [newTier, setNewTier] = useState('free');
+  const [newStatus, setNewStatus] = useState('active');
   const [newIsActive, setNewIsActive] = useState(true);
   const [newMustChangePassword, setNewMustChangePassword] = useState(true); // Default to true per requirement
   const [newExpiryPreset, setNewExpiryPreset] = useState('unlimited');
@@ -166,6 +168,31 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     );
   }
 
+  // Handle 1-Click User Approval (Active & Allowed)
+  const handleApproveUser = async (user) => {
+    try {
+      const resp = await fetch(getApiUrl('users.php'), {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          id: user.id,
+          action: 'approve',
+          status: 'active',
+          is_active: 1
+        })
+      });
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success) {
+        showToast(`User "${user.username}" approved and activated successfully!`);
+        fetchUsers();
+      } else {
+        showToast(data?.message || 'Failed to approve user', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Network error approving user', 'error');
+    }
+  };
+
   // Handle Quick Allow / Suspend (Ban) Toggle
   const handleToggleStatus = async (user) => {
     if (user.username === 'admin') {
@@ -173,8 +200,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       return;
     }
 
-    const nextStatus = user.is_active ? 0 : 1;
-    const actionName = nextStatus ? 'Allowed' : 'Suspended';
+    const currentStatus = user.status || (user.is_active ? 'active' : 'suspended');
+    const nextStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const actionName = nextStatus === 'active' ? 'Allowed (Active)' : 'Suspended (Banned)';
 
     try {
       const resp = await fetch(getApiUrl('users.php'), {
@@ -182,7 +210,8 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: user.id,
-          is_active: nextStatus
+          status: nextStatus,
+          is_active: nextStatus === 'active' ? 1 : 0
         })
       });
       const data = await resp.json().catch(() => null);
@@ -428,7 +457,8 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
           phone: newPhone.trim() || null,
           role: newRole,
           subscription_tier: newTier,
-          is_active: newIsActive ? 1 : 0,
+          status: newStatus,
+          is_active: newStatus === 'active' ? 1 : 0,
           must_change_password: newMustChangePassword ? 1 : 0,
           access_expires_at: accessExpiresAt
         })
@@ -443,6 +473,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         setNewPhone('');
         setNewRole('operator');
         setNewTier('free');
+        setNewStatus('active');
         setNewIsActive(true);
         setNewMustChangePassword(true);
         setNewExpiryPreset('unlimited');
@@ -458,6 +489,18 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       setIsSubmittingNew(false);
     }
   };
+
+  const pendingCount = users.filter((u) => u.status === 'pending').length;
+  const activeCount = users.filter((u) => u.status === 'active' || (!u.status && u.is_active)).length;
+  const suspendedCount = users.filter((u) => u.status === 'suspended' || (!u.status && !u.is_active)).length;
+
+  const filteredUsers = users.filter((u) => {
+    const s = u.status || (u.is_active ? 'active' : 'suspended');
+    if (filterStatus === 'pending') return s === 'pending';
+    if (filterStatus === 'active') return s === 'active';
+    if (filterStatus === 'suspended') return s === 'suspended';
+    return true;
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
@@ -683,7 +726,26 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                   </select>
                 </div>
 
-                <div className="flex items-center gap-3 pt-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Initial Status</label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => {
+                      setNewStatus(e.target.value);
+                      setNewIsActive(e.target.value === 'active');
+                    }}
+                    className={`w-full text-xs px-2.5 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  >
+                    <option value="active">Active (Immediate Full Access)</option>
+                    <option value="pending">Pending Administrator Approval</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-3 pt-4 sm:col-span-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -711,6 +773,80 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
           </div>
         )}
 
+        {/* Status Filter Tabs & Counters Bar */}
+        <div
+          className={`px-6 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap ${
+            theme === 'light' ? 'bg-stone-100/70 border-stone-200' : 'bg-slate-950/70 border-slate-800'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setFilterStatus('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                filterStatus === 'all'
+                  ? 'bg-slate-800 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All Users ({users.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterStatus('pending')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === 'pending'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : pendingCount > 0
+                  ? 'bg-amber-950/70 text-amber-300 border border-amber-700/80 hover:bg-amber-900/60'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Pending Approval</span>
+              {pendingCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-black font-black">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterStatus('active')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === 'active'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Active ({activeCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterStatus('suspended')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === 'suspended'
+                  ? 'bg-rose-700 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Ban className="w-3.5 h-3.5 text-rose-400" />
+              <span>Suspended ({suspendedCount})</span>
+            </button>
+          </div>
+
+          {pendingCount > 0 && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-950/50 px-3 py-1 rounded-lg border border-amber-800/60">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>{pendingCount} registration{pendingCount > 1 ? 's' : ''} awaiting your approval</span>
+            </div>
+          )}
+        </div>
+
         {/* User Table Content */}
         <div className="flex-1 overflow-auto p-4 sm:p-6">
           <div className="w-full overflow-x-auto rounded-xl border border-slate-800">
@@ -727,25 +863,32 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {users.length === 0 ? (
+                {filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-slate-500">
-                      {isLoading ? 'Loading user database...' : 'No users found in database.'}
+                      {isLoading 
+                        ? 'Loading user database...' 
+                        : filterStatus === 'pending'
+                        ? 'No user registrations currently pending approval.'
+                        : filterStatus === 'suspended'
+                        ? 'No suspended accounts found.'
+                        : 'No users found matching current filter.'}
                     </td>
                   </tr>
                 ) : (
-                  users.map((u) => {
+                  filteredUsers.map((u) => {
                     const isExpired = isDateExpired(u.access_expires_at);
                     const isSelf = u.id === currentUser?.id;
                     const isRoot = u.username === 'admin';
+                    const isPending = u.status === 'pending';
 
                     return (
                       <tr
                         key={u.id}
                         className={`transition-colors ${
-                          theme === 'light'
-                            ? 'hover:bg-stone-50 text-stone-800'
-                            : 'hover:bg-slate-800/40 text-slate-200'
+                          isPending 
+                            ? (theme === 'light' ? 'bg-amber-50/70 hover:bg-amber-100/60 text-stone-900' : 'bg-amber-950/20 hover:bg-amber-950/40 text-slate-100')
+                            : (theme === 'light' ? 'hover:bg-stone-50 text-stone-800' : 'hover:bg-slate-800/40 text-slate-200')
                         }`}
                       >
                         {/* User Details */}
@@ -765,6 +908,11 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 {isSelf && !isRoot && (
                                   <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
                                     You
+                                  </span>
+                                )}
+                                {isPending && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500 text-black animate-pulse">
+                                    New Sign-up
                                   </span>
                                 )}
                               </div>
@@ -818,31 +966,49 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                           </select>
                         </td>
 
-                        {/* Account Status (Allow / Suspend Toggle) */}
+                        {/* Account Status (Allow / Suspend / Pending Approval) */}
                         <td className="py-3 px-4">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatus(u)}
-                            disabled={isRoot}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                              u.is_active
-                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900/60'
-                                : 'bg-rose-950 text-rose-400 border border-rose-800 hover:bg-rose-900/60'
-                            }`}
-                            title={isRoot ? 'Cannot suspend primary Super Admin' : (u.is_active ? 'Click to Suspend (Ban) this user' : 'Click to Allow (Reactivate) this user')}
-                          >
-                            {u.is_active ? (
-                              <>
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Allowed (Active)</span>
-                              </>
-                            ) : (
-                              <>
-                                <Ban className="w-3.5 h-3.5" />
-                                <span>Suspended (Banned)</span>
-                              </>
-                            )}
-                          </button>
+                          {isPending ? (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-600/80 animate-pulse">
+                                <Clock className="w-3 h-3 text-amber-400" />
+                                <span>Pending Approval</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveUser(u)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold brand-gradient text-white shadow-xs hover:opacity-95 transition cursor-pointer"
+                                title="Approve and activate this account immediately"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(u)}
+                              disabled={isRoot}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                                u.is_active
+                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900/60'
+                                  : 'bg-rose-950 text-rose-400 border border-rose-800 hover:bg-rose-900/60'
+                              }`}
+                              title={isRoot ? 'Cannot suspend primary Super Admin' : (u.is_active ? 'Click to Suspend (Ban) this user' : 'Click to Allow (Reactivate) this user')}
+                            >
+                              {u.is_active ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Allowed (Active)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Ban className="w-3.5 h-3.5" />
+                                  <span>Suspended (Banned)</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </td>
 
                         {/* First-Time Setup Flag Toggle */}

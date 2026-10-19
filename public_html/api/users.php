@@ -55,7 +55,7 @@ try {
     if ($method === 'GET') {
         // If specific ID requested
         if (!empty($_GET['id'])) {
-            $stmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` WHERE id = :id LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, status, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` WHERE id = :id LIMIT 1');
             $stmt->execute([':id' => (int)$_GET['id']]);
             $user = $stmt->fetch();
             if (!$user) {
@@ -63,17 +63,19 @@ try {
             }
             $user['id'] = (int)$user['id'];
             $user['is_active'] = (int)$user['is_active'];
+            $user['status'] = strtolower($user['status'] ?? ($user['is_active'] ? 'active' : 'suspended'));
             $user['must_change_password'] = (int)$user['must_change_password'];
             $user['features'] = get_tier_features($pdo, $user['subscription_tier'] ?? 'free');
             json_response(['success' => true, 'user' => $user]);
         }
 
-        $stmt = $pdo->query('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` ORDER BY id ASC');
+        $stmt = $pdo->query('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, status, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` ORDER BY id ASC');
         $users = $stmt->fetchAll();
 
         foreach ($users as &$u) {
             $u['id'] = (int)$u['id'];
             $u['is_active'] = (int)$u['is_active'];
+            $u['status'] = strtolower($u['status'] ?? ($u['is_active'] ? 'active' : 'suspended'));
             $u['must_change_password'] = (int)$u['must_change_password'];
             $u['features'] = get_tier_features($pdo, $u['subscription_tier'] ?? 'free');
         }
@@ -139,8 +141,9 @@ try {
         }
 
         $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+        $status = trim($input['status'] ?? ($isActive ? 'active' : 'pending'));
 
-        $insertStmt = $pdo->prepare('INSERT INTO `users` (username, email, full_name, phone, password_hash, role, subscription_tier, is_active, must_change_password, access_expires_at) VALUES (:username, :email, :full_name, :phone, :password_hash, :role, :subscription_tier, :is_active, :must_change_password, :access_expires_at)');
+        $insertStmt = $pdo->prepare('INSERT INTO `users` (username, email, full_name, phone, password_hash, role, subscription_tier, is_active, status, must_change_password, access_expires_at) VALUES (:username, :email, :full_name, :phone, :password_hash, :role, :subscription_tier, :is_active, :status, :must_change_password, :access_expires_at)');
         $insertStmt->execute([
             ':username' => $username,
             ':email' => $email,
@@ -150,6 +153,7 @@ try {
             ':role' => $role,
             ':subscription_tier' => $tier,
             ':is_active' => $isActive,
+            ':status' => $status,
             ':must_change_password' => $mustChangePassword,
             ':access_expires_at' => $accessExpiresAt
         ]);
@@ -168,6 +172,7 @@ try {
                 'role' => $role,
                 'subscription_tier' => $tier,
                 'is_active' => $isActive,
+                'status' => $status,
                 'must_change_password' => $mustChangePassword,
                 'access_expires_at' => $accessExpiresAt,
                 'features' => get_tier_features($pdo, $tier)
@@ -187,7 +192,7 @@ try {
         }
 
         // Fetch existing record
-        $fetchStmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at FROM `users` WHERE id = :id LIMIT 1');
+        $fetchStmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, status, must_change_password, avatar_url, access_expires_at FROM `users` WHERE id = :id LIMIT 1');
         $fetchStmt->execute([':id' => $id]);
         $existing = $fetchStmt->fetch();
 
@@ -200,8 +205,8 @@ try {
 
         // Protection: Prevent suspending or demoting the root 'admin'
         if ($isRootAdmin) {
-            if (isset($input['is_active']) && (int)$input['is_active'] === 0) {
-                json_response(['success' => false, 'message' => 'Primary Super Admin account cannot be suspended.'], 400);
+            if ((isset($input['is_active']) && (int)$input['is_active'] === 0) || (isset($input['status']) && $input['status'] !== 'active')) {
+                json_response(['success' => false, 'message' => 'Primary Super Admin account cannot be suspended or set to pending.'], 400);
             }
             if (isset($input['role']) && trim($input['role']) !== 'super_admin') {
                 json_response(['success' => false, 'message' => 'Primary Super Admin role cannot be demoted.'], 400);
@@ -281,9 +286,27 @@ try {
             }
         }
 
-        if (isset($input['is_active'])) {
+        if (isset($input['action']) && $input['action'] === 'approve') {
+            $updates[] = '`status` = :approved_status';
+            $params[':approved_status'] = 'active';
+            $updates[] = '`is_active` = 1';
+        } elseif (isset($input['status'])) {
+            $newStatus = strtolower(trim($input['status']));
+            if (in_array($newStatus, ['active', 'pending', 'suspended'], true)) {
+                $updates[] = '`status` = :status';
+                $params[':status'] = $newStatus;
+                if ($newStatus === 'active') {
+                    $updates[] = '`is_active` = 1';
+                } else {
+                    $updates[] = '`is_active` = 0';
+                }
+            }
+        } elseif (isset($input['is_active'])) {
+            $activeVal = (int)$input['is_active'] ? 1 : 0;
             $updates[] = '`is_active` = :is_active';
-            $params[':is_active'] = (int)$input['is_active'] ? 1 : 0;
+            $params[':is_active'] = $activeVal;
+            $updates[] = '`status` = :derived_status';
+            $params[':derived_status'] = $activeVal ? 'active' : 'suspended';
         }
 
         if (isset($input['must_change_password'])) {
@@ -308,11 +331,12 @@ try {
         }
 
         // Fetch updated user
-        $refetchStmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` WHERE id = :id LIMIT 1');
+        $refetchStmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, status, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` WHERE id = :id LIMIT 1');
         $refetchStmt->execute([':id' => $id]);
         $updatedUser = $refetchStmt->fetch();
         $updatedUser['id'] = (int)$updatedUser['id'];
         $updatedUser['is_active'] = (int)$updatedUser['is_active'];
+        $updatedUser['status'] = strtolower($updatedUser['status'] ?? ($updatedUser['is_active'] ? 'active' : 'suspended'));
         $updatedUser['must_change_password'] = (int)$updatedUser['must_change_password'];
         $updatedUser['features'] = get_tier_features($pdo, $updatedUser['subscription_tier'] ?? 'free');
 

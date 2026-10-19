@@ -119,14 +119,19 @@ export function AuthProvider({ children }) {
       if (!response.ok || !data || !data.success) {
         const errorMsg = data?.message || `Authentication failed (HTTP ${response.status})`;
         setAuthError(errorMsg);
-        return { success: false, message: errorMsg };
+        return { 
+          success: false, 
+          code: data?.code || 'AUTH_FAILED',
+          status: data?.status,
+          message: errorMsg 
+        };
       }
 
       // Check client-side expiration safeguard
       if (isSessionExpired(data.user)) {
         const expiredMsg = 'Your account access has expired. Please contact an administrator.';
         setAuthError(expiredMsg);
-        return { success: false, message: expiredMsg };
+        return { success: false, code: 'SESSION_EXPIRED', message: expiredMsg };
       }
 
       // Persist session
@@ -148,7 +153,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       const netMsg = err.message || 'Network error connecting to login server';
       setAuthError(netMsg);
-      return { success: false, message: netMsg };
+      return { success: false, code: 'NETWORK_ERROR', message: netMsg };
     }
   };
 
@@ -170,7 +175,12 @@ export function AuthProvider({ children }) {
       if (!response.ok || !data || !data.success) {
         const errorMsg = data?.message || `Google sign-in failed (HTTP ${response.status})`;
         setAuthError(errorMsg);
-        return { success: false, message: errorMsg };
+        return { 
+          success: false, 
+          code: data?.code || 'GOOGLE_AUTH_FAILED',
+          status: data?.status,
+          message: errorMsg 
+        };
       }
 
       const userToken = data.token || 'pvc_user_' + data.user.id + '_' + Date.now();
@@ -191,7 +201,50 @@ export function AuthProvider({ children }) {
     } catch (err) {
       const netMsg = err.message || 'Network error during Google sign-in';
       setAuthError(netMsg);
-      return { success: false, message: netMsg };
+      return { success: false, code: 'NETWORK_ERROR', message: netMsg };
+    }
+  };
+
+  // Self-Registration (creates account with status 'pending')
+  const register = async ({ username, password, email, fullName, phone }) => {
+    try {
+      const response = await fetch(getApiEndpoint('register.php'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+          email: email.trim(),
+          full_name: (fullName || '').trim(),
+          phone: (phone || '').trim()
+        })
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data || !data.success) {
+        return {
+          success: false,
+          code: data?.code || 'REGISTER_FAILED',
+          message: data?.message || `Registration failed (HTTP ${response.status})`
+        };
+      }
+
+      return {
+        success: true,
+        code: data.code || 'REGISTER_PENDING_APPROVAL',
+        status: data.status || 'pending',
+        message: data.message
+      };
+    } catch (err) {
+      return {
+        success: false,
+        code: 'NETWORK_ERROR',
+        message: err.message || 'Network error during registration.'
+      };
     }
   };
 
@@ -343,6 +396,7 @@ export function AuthProvider({ children }) {
     setAuthError,
     login,
     loginWithGoogle,
+    register,
     forgotPassword,
     resetPassword,
     updateProfile,

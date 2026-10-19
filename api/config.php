@@ -185,29 +185,40 @@ function ensure_auth_tables_exist($pdo) {
         $colMap = array_flip($cols);
 
         if (!isset($colMap['email'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `email` VARCHAR(150) NULL UNIQUE AFTER `username`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `email` VARCHAR(150) NULL UNIQUE AFTER `username`"); } catch (Throwable $e) {}
         }
         if (!isset($colMap['full_name'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `full_name` VARCHAR(150) NULL AFTER `email`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `full_name` VARCHAR(150) NULL AFTER `email`"); } catch (Throwable $e) {}
         }
         if (!isset($colMap['phone'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `phone` VARCHAR(50) NULL AFTER `full_name`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `phone` VARCHAR(50) NULL AFTER `full_name`"); } catch (Throwable $e) {}
         }
         if (!isset($colMap['subscription_tier'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `subscription_tier` VARCHAR(50) NOT NULL DEFAULT 'free' AFTER `role`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `subscription_tier` VARCHAR(50) NOT NULL DEFAULT 'free' AFTER `role`"); } catch (Throwable $e) {}
+        }
+        if (!isset($colMap['is_active'])) {
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `is_active` TINYINT(1) NOT NULL DEFAULT 1 AFTER `subscription_tier`"); } catch (Throwable $e) {}
         }
         if (!isset($colMap['status'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active' AFTER `is_active`");
-            $pdo->exec("UPDATE `users` SET `status` = IF(`is_active` = 1, 'active', 'suspended') WHERE `status` IS NULL OR `status` = ''");
+            try { 
+                $pdo->exec("ALTER TABLE `users` ADD COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active' AFTER `is_active`"); 
+                $pdo->exec("UPDATE `users` SET `status` = IF(`is_active` = 1, 'active', 'suspended') WHERE `status` IS NULL OR `status` = ''");
+            } catch (Throwable $e) {}
         }
         if (!isset($colMap['must_change_password'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`"); } catch (Throwable $e) {}
         }
         if (!isset($colMap['google_id'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `google_id` VARCHAR(100) NULL UNIQUE AFTER `must_change_password`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `google_id` VARCHAR(100) NULL UNIQUE AFTER `must_change_password`"); } catch (Throwable $e) {}
         }
         if (!isset($colMap['avatar_url'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` VARCHAR(255) NULL AFTER `google_id`");
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` VARCHAR(255) NULL AFTER `google_id`"); } catch (Throwable $e) {}
+        }
+        if (!isset($colMap['access_expires_at'])) {
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `access_expires_at` DATETIME DEFAULT NULL AFTER `avatar_url`"); } catch (Throwable $e) {}
+        }
+        if (!isset($colMap['updated_at'])) {
+            try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER `created_at`"); } catch (Throwable $e) {}
         }
 
         // 2. Password Resets Table

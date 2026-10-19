@@ -190,9 +190,21 @@ try {
         }
     }
 
+    // Guarantee admin account always receives super_admin role and premium tier
+    $isAdminAccount = strtolower($user['username']) === 'admin';
+    $role = $isAdminAccount ? 'super_admin' : ($user['role'] ?? 'operator');
+    $tier = $isAdminAccount ? 'premium' : ($user['subscription_tier'] ?? 'free');
+
+    if ($isAdminAccount && (($user['role'] ?? '') !== 'super_admin' || ($user['subscription_tier'] ?? '') !== 'premium')) {
+        try {
+            $pdo->prepare("UPDATE `users` SET `role` = 'super_admin', `subscription_tier` = 'premium', `is_active` = 1, `status` = 'active' WHERE `id` = :id")
+                ->execute([':id' => $user['id']]);
+        } catch (Throwable $e) {}
+    }
+
     // Generate session token
     $token = 'pvc_user_' . $user['id'] . '_' . bin2hex(random_bytes(24));
-    $features = get_tier_features($pdo, $user['subscription_tier'] ?? 'free');
+    $features = get_tier_features($pdo, $tier);
 
     json_response([
         'success' => true,
@@ -203,8 +215,8 @@ try {
             'email' => $user['email'] ?? null,
             'full_name' => $user['full_name'] ?? $user['username'],
             'phone' => $user['phone'] ?? null,
-            'role' => $user['role'] ?? 'operator',
-            'subscription_tier' => $user['subscription_tier'] ?? 'free',
+            'role' => $role,
+            'subscription_tier' => $tier,
             'is_active' => isset($user['is_active']) ? (int)$user['is_active'] : 1,
             'status' => $accountStatus,
             'must_change_password' => isset($user['must_change_password']) ? (int)$user['must_change_password'] : 0,

@@ -156,7 +156,7 @@ export default function Header({
           )}
 
           {/* Admin User Management Button */}
-          {(user?.role === 'super_admin' || user?.role === 'admin') && onOpenAdminModal && (
+          {(user?.role === 'super_admin' || user?.role === 'admin' || user?.username === 'admin') && onOpenAdminModal && (
             <button
               type="button"
               onClick={onOpenAdminModal}

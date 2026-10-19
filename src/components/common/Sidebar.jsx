@@ -445,7 +445,7 @@ export default function Sidebar({
           </div>
 
           {/* Admin User Management */}
-          {(user?.role === 'super_admin' || user?.role === 'admin') && onOpenAdminModal && (
+          {(user?.role === 'super_admin' || user?.role === 'admin' || user?.username === 'admin') && onOpenAdminModal && (
             <button
               type="button"
               onClick={onOpenAdminModal}
@@ -480,7 +480,7 @@ export default function Sidebar({
                     </span>
                     <div className="flex items-center gap-1 mt-0.5">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                        {user.role === 'super_admin' ? 'Super Admin' : (user.role || 'operator')}
+                        {(user.role === 'super_admin' || user.username === 'admin') ? 'Super Admin' : (user.role || 'operator')}
                       </span>
                       <span className={`text-[8px] font-bold uppercase tracking-wider px-1 py-0.2 rounded ${
                         user.subscription_tier === 'premium'

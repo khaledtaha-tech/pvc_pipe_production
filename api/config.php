@@ -266,8 +266,8 @@ function ensure_auth_tables_exist($pdo) {
                 ->execute([':hash' => $hash]);
         } else {
             // Guarantee admin is Super Admin and has Premium Tier
-            if ($adminUser['role'] === 'admin') {
-                $pdo->prepare("UPDATE `users` SET `role` = 'super_admin', `subscription_tier` = 'premium' WHERE `id` = :id")
+            if ($adminUser['role'] !== 'super_admin' || $adminUser['subscription_tier'] !== 'premium') {
+                $pdo->prepare("UPDATE `users` SET `role` = 'super_admin', `subscription_tier` = 'premium', `is_active` = 1, `status` = 'active' WHERE `id` = :id")
                     ->execute([':id' => $adminUser['id']]);
             }
         }

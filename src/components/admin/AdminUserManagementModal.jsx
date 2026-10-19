@@ -22,7 +22,8 @@ import {
   Mail,
   Phone,
   User as UserIcon,
-  Crown
+  Crown,
+  Pencil
 } from 'lucide-react';
 
 function getApiUrl(endpoint = 'users.php') {
@@ -95,7 +96,15 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [newResetPassword, setNewResetPassword] = useState('');
   const [isSubmittingReset, setIsSubmittingReset] = useState(false);
 
-  const isSuperAdmin = currentUser?.role === 'super_admin';
+  // Edit user profile state (to add/update email, full name, phone)
+  const [editingUser, setEditingUser] = useState(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.username === 'admin';
   const isAdmin = isSuperAdmin || currentUser?.role === 'admin';
 
   const showToast = useCallback((message, type = 'success') => {
@@ -190,6 +199,50 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       }
     } catch (err) {
       showToast(err.message || 'Network error approving user', 'error');
+    }
+  };
+
+  // Handle Starting User Profile Edit
+  const handleStartEdit = (user) => {
+    setEditingUser(user);
+    setEditUsername(user.username || '');
+    setEditEmail(user.email || '');
+    setEditFullName(user.full_name || '');
+    setEditPhone(user.phone || '');
+  };
+
+  // Handle Saving User Profile Edit (Email, Name, Phone)
+  const handleSaveEdit = async (e) => {
+    if (e) e.preventDefault();
+    if (!editingUser) return;
+
+    setIsSubmittingEdit(true);
+    try {
+      const resp = await fetch(getApiUrl('users.php'), {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          id: editingUser.id,
+          username: editingUser.username === 'admin' ? undefined : editUsername.trim(),
+          email: editEmail.trim(),
+          full_name: editFullName.trim(),
+          phone: editPhone.trim()
+        })
+      });
+
+      const data = await resp.json().catch(() => null);
+
+      if (resp.ok && data?.success) {
+        showToast(`User "${editingUser.username}" profile updated successfully!`);
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        showToast(data?.message || 'Failed to update user profile', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Network error updating user profile', 'error');
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -702,9 +755,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
-                    <option value="free">Free Tier ($0/mo &middot; 2 Lines)</option>
-                    <option value="basic">Basic Tier ($49/mo &middot; 7 Lines)</option>
-                    <option value="premium">Premium Tier ($149/mo &middot; Full Suite)</option>
+                    <option value="free">Free Tier (2 Lines)</option>
+                    <option value="basic">Basic Tier (7 Lines)</option>
+                    <option value="premium">Premium Tier (Full Suite)</option>
                   </select>
                 </div>
 
@@ -916,8 +969,28 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-slate-400">
-                                {u.email || 'No email attached'} {u.full_name ? `(${u.full_name})` : ''}
+                              <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                {u.email ? (
+                                  <span className="flex items-center gap-1 text-slate-300">
+                                    <Mail className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                    <span>{u.email}</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEdit(u)}
+                                    className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 hover:underline cursor-pointer font-medium"
+                                    title="Click to add an email address"
+                                  >
+                                    <Mail className="w-2.5 h-2.5" />
+                                    <span>+ Add Email</span>
+                                  </button>
+                                )}
+                                {u.full_name && (
+                                  <span className="text-slate-400 font-normal">
+                                    &middot; {u.full_name}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -960,9 +1033,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 : 'bg-slate-800 text-slate-300 border-slate-700'
                             }`}
                           >
-                            <option value="free">Free ($0/mo)</option>
-                            <option value="basic">Basic ($49/mo)</option>
-                            <option value="premium">Premium ($149/mo)</option>
+                            <option value="free">Free</option>
+                            <option value="basic">Basic</option>
+                            <option value="premium">Premium</option>
                           </select>
                         </td>
 
@@ -1117,6 +1190,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         {/* Actions */}
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit User Profile (Email, Full Name, Phone) */}
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(u)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
+                              title="Edit User Profile (Add/Update Email, Name, Phone)"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
                             {/* Password Reset Trigger */}
                             <button
                               type="button"
@@ -1194,6 +1277,162 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
           <span>Security &amp; RBAC: Bcrypt &middot; Super Admin Protected &middot; Tier Feature Gating Active</span>
         </div>
       </div>
+
+      {/* Edit User Profile Modal Dialog */}
+      {editingUser && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
+          <div
+            className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden p-6 ${
+              theme === 'light'
+                ? 'bg-white border-stone-200 text-stone-900 shadow-stone-300'
+                : 'bg-slate-900 border-slate-800 text-slate-100 shadow-black'
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between pb-4 border-b mb-4 ${
+                theme === 'light' ? 'border-stone-200' : 'border-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`p-2 rounded-lg ${
+                    theme === 'light'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                  }`}
+                >
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Edit User Profile</h3>
+                  <p className={`text-[11px] ${theme === 'light' ? 'text-stone-500' : 'text-slate-400'}`}>
+                    Update contact details for <span className="font-semibold text-emerald-400">{editingUser.username}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className={`p-1 rounded-lg transition cursor-pointer ${
+                  theme === 'light' ? 'hover:bg-stone-100 text-stone-500' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Cancel &amp; Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3.5">
+              <div>
+                <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  disabled={editingUser.username === 'admin'}
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  className={`w-full text-xs px-3 py-2 rounded-lg border outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                    theme === 'light'
+                      ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
+                      : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
+                  }`}
+                />
+                {editingUser.username === 'admin' && (
+                  <span className="text-[10px] text-amber-400/90 mt-1 block font-medium">
+                    Root administrator username cannot be renamed.
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="email"
+                    placeholder="e.g. admin@polymerops.com"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
+                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
+                  Full Name
+                </label>
+                <div className="relative">
+                  <UserIcon className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Eng. Khaled Taha"
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
+                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="tel"
+                    placeholder="e.g. +20 100 000 0000"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
+                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div
+                className={`flex items-center justify-end gap-2 pt-3 border-t ${
+                  theme === 'light' ? 'border-stone-200' : 'border-slate-800'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    theme === 'light'
+                      ? 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold brand-gradient text-white shadow-md shadow-emerald-500/20 hover:opacity-95 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSubmittingEdit ? 'Saving...' : 'Save Profile Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,8 +31,14 @@ import {
   roundToSum
 } from './dailyReportEngine.js';
 import { newId } from '../data/store.js';
-import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
-import { parseUniquePlanningCatalogSheet, autoRegisterPendingProduct, isValidProductCode } from './productCatalogHelper.js';
+import {
+  parseUniquePlanningCatalogSheet,
+  autoRegisterPendingProduct,
+  isValidProductCode,
+  resolvePipeLinearWeight,
+  extractPipeLength,
+  extractProductDimensions
+} from './productCatalogHelper.js';
 
 /**
  * Format and normalize Excel date (Date object, serial number, or date string) into YYYY-MM-DD
@@ -571,8 +577,17 @@ export function parseDailyLog(wb, dynamicMaster = MACHINES, options = {}) {
     // Resilient fallback: auto-register unrecorded item codes into central product catalog
     if (itemCode && isValidProductCode(itemCode, description)) {
       try {
+        const pipeLen = extractPipeLength(description, 6.0);
+        const dims = extractProductDimensions({ description });
+        const linearWt = resolvePipeLinearWeight(unitWeight, dims.od_mm, dims.wall_thickness_mm, pipeLen, false);
+        const pieceWt = Number((linearWt * pipeLen).toFixed(2));
         autoRegisterPendingProduct(itemCode, description, {
-          unitWeight: unitWeight > 0 ? unitWeight : 0,
+          unitWeight: pieceWt > 0 ? pieceWt : (unitWeight > 0 ? unitWeight : 0),
+          stdWeight: pieceWt > 0 ? pieceWt : (unitWeight > 0 ? unitWeight : 0),
+          linear_weight_kg_m: linearWt,
+          pipe_length_m: pipeLen,
+          piece_weight_kg: pieceWt,
+          pipeLength: pipeLen,
           source_origin: 'daily_log',
           source_file: options.fileName || wb._fileName || 'Daily Production Log',
           source_sheet: targetSheetName || 'Daily Production Log'

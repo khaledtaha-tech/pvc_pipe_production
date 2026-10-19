@@ -259,6 +259,103 @@ export function extractProductDimensions(productOrOd, wallThickness = '', descri
 }
 
 /**
+ * Extracts pipe length in meters dynamically from description.
+ * Regex: (\d+(?:\.\d+)?)\s*(?:MTR|M\b|m\b) (e.g. "2.9MTR" -> 2.9, "5.8MTR" -> 5.8). Defaults to 6.0.
+ * @param {string} desc
+ * @param {number} [defaultLength=6.0]
+ * @returns {number}
+ */
+export function extractPipeLength(desc, defaultLength = 6.0) {
+  if (!desc || typeof desc !== 'string') return defaultLength;
+  const match = desc.match(/(?:^|[\s,;_\-/])(\d+(?:\.\d+)?)\s*(?:MTR|mtr|METER|meter|METERS|meters|M|m)(?![a-zA-Z])/);
+  if (match) {
+    const val = parseFloat(match[1]);
+    if (val >= 0.5 && val <= 18.0) {
+      return val;
+    }
+  }
+  return defaultLength;
+}
+
+/**
+ * Intelligent dual-mode weight classifier & resolver.
+ * Standardizes pipe weight to canonical Linear Weight per Meter (linear_weight_kg_m).
+ * Detects whether incoming weights are per-meter or per-piece:
+ * Theoretical uPVC weight: W_theo = 0.0045 * (odMm - wallThicknessMm) * wallThicknessMm
+ * @param {number|string} rawWeight
+ * @param {number|string|null} [odMm]
+ * @param {number|string|null} [wallThicknessMm]
+ * @param {number} [pipeLengthM=6.0]
+ * @param {boolean} [isCompounding=false]
+ * @returns {number} Canonical linear weight in kg/m (precision 3 decimals)
+ */
+export function resolvePipeLinearWeight(rawWeight, odMm = null, wallThicknessMm = null, pipeLengthM = 6.0, isCompounding = false) {
+  const w = Number(rawWeight);
+  if (isNaN(w) || w <= 0) return 0;
+  if (isCompounding) return Number(w.toFixed(3));
+
+  const len = Number(pipeLengthM) > 0 ? Number(pipeLengthM) : 6.0;
+
+  let od = null;
+  if (odMm !== null && odMm !== undefined && odMm !== '') {
+    const parsedOd = parseFloat(String(odMm).replace(/[^\d.]/g, ''));
+    if (!isNaN(parsedOd) && parsedOd > 0) od = parsedOd;
+  }
+
+  let wt = null;
+  if (wallThicknessMm !== null && wallThicknessMm !== undefined && wallThicknessMm !== '') {
+    const sdrMatch = String(wallThicknessMm).match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
+    if (sdrMatch && od > 0) {
+      const sdrVal = parseFloat(sdrMatch[1]);
+      if (sdrVal > 0) wt = od / sdrVal;
+    } else {
+      const parsedWt = parseFloat(String(wallThicknessMm).replace(/[^\d.]/g, ''));
+      if (!isNaN(parsedWt) && parsedWt > 0) wt = parsedWt;
+    }
+  }
+
+  let wTheo = null;
+  if (od > 0 && wt > 0 && od > wt) {
+    wTheo = 0.0045 * (od - wt) * wt;
+  }
+
+  let linearWeight = w;
+
+  if (wTheo !== null && wTheo > 0) {
+    const minMeter = 0.6 * wTheo;
+    const maxMeter = 1.4 * wTheo;
+    const pieceTheo = wTheo * len;
+
+    if (w >= minMeter && w <= maxMeter) {
+      linearWeight = w;
+    } else if (w >= 1.8 * wTheo || (od >= 50 && w > 2.0 * wTheo) || Math.abs(w - pieceTheo) < Math.abs(w - wTheo)) {
+      linearWeight = w / len;
+    } else if (Math.abs((w / len) - wTheo) < Math.abs(w - wTheo)) {
+      linearWeight = w / len;
+    } else {
+      linearWeight = w;
+    }
+  } else {
+    // Fallback if dimensions missing
+    if (od && od >= 75) {
+      if (w < 4.0) {
+        linearWeight = w;
+      } else {
+        linearWeight = w / len;
+      }
+    } else {
+      if (w > 4.0) {
+        linearWeight = w / len;
+      } else {
+        linearWeight = w;
+      }
+    }
+  }
+
+  return Number(linearWeight.toFixed(3));
+}
+
+/**
  * Normalizes pipe unit weight: converts kg/m linear weight to full piece weight (kg/pipe)
  * For standard 6m pipes where weight is suspiciously low for its OD (weight < 1.5 kg for OD >= 75mm),
  * multiplies by pipe length (default 6.0m).
@@ -373,22 +470,30 @@ function getInitialSeedCatalog() {
       const odMmStr = preset.odMm || (dims.od_mm ? String(dims.od_mm) : '');
       const wtStr = preset.wallThickness || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || ''));
 
+      const desc = preset.description || '';
       const rawWeight = Number(preset.unitWeight || preset.stdWeight) || 0;
-      const length = preset.pipeLength !== undefined ? Number(preset.pipeLength) : (preset.isCompounding ? 0 : 6.0);
+      const length = preset.isCompounding ? 0 : (preset.pipeLength !== undefined ? Number(preset.pipeLength) : extractPipeLength(desc, 6.0));
+      const linearWeight = resolvePipeLinearWeight(rawWeight, dims.od_mm, dims.wall_thickness_mm, length, preset.isCompounding);
+      const pieceWeight = preset.isCompounding ? rawWeight : Number((linearWeight * (length > 0 ? length : 6.0)).toFixed(2));
       const uWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, length, preset.isCompounding);
+      const finalPieceWeight = uWeight > 0 ? uWeight : pieceWeight;
 
       const targetPcsH = preset.targetPcsH !== undefined && preset.targetPcsH !== null
         ? Number(preset.targetPcsH)
-        : (uWeight > 0 && !preset.isCompounding ? Math.round(200 / uWeight) : null);
+        : (finalPieceWeight > 0 && !preset.isCompounding ? Math.round(200 / finalPieceWeight) : null);
       const nowIso = new Date().toISOString();
       catalog[code] = {
         itemCode: String(preset.itemCode).trim(),
-        description: preset.description || '',
+        description: desc,
         odMm: odMmStr,
         wallThickness: wtStr,
         material: preset.isCompounding ? 'PVC Compound' : (preset.material || 'uPVC'),
-        unitWeight: uWeight,
-        stdWeight: uWeight,
+        linear_weight_kg_m: linearWeight,
+        pipe_length_m: length,
+        piece_weight_kg: finalPieceWeight,
+        std_weight_kg: finalPieceWeight,
+        unitWeight: finalPieceWeight,
+        stdWeight: finalPieceWeight,
         pipeLength: length,
         nominalSpeed: preset.nominalSpeed || null,
         targetPcsH,
@@ -416,6 +521,10 @@ function getInitialSeedCatalog() {
       odMm: '88.9',
       wallThickness: 'SDR26',
       material: 'uPVC',
+      linear_weight_kg_m: 1.308,
+      pipe_length_m: 6.0,
+      piece_weight_kg: 7.85,
+      std_weight_kg: 7.85,
       unitWeight: 7.85,
       stdWeight: 7.85,
       pipeLength: 6.0,
@@ -620,16 +729,28 @@ export function saveProduct(productData, options = { syncServer: true }) {
 
   const pipeLength = productData.pipeLength !== undefined && productData.pipeLength !== null && productData.pipeLength !== ''
     ? Number(productData.pipeLength)
-    : 6.0;
+    : (productData.pipe_length_m !== undefined && productData.pipe_length_m !== null && productData.pipe_length_m !== ''
+        ? Number(productData.pipe_length_m)
+        : extractPipeLength(effectiveDesc, 6.0));
 
   const isCompounding = Boolean(productData.isCompounding ?? existing?.isCompounding);
   const dims = extractProductDimensions({ odMm: productData.odMm || existing?.odMm, wallThickness: productData.wallThickness || existing?.wallThickness, description: effectiveDesc });
 
-  let uWeight = Number(productData.unitWeight || productData.stdWeight);
-  if (isNaN(uWeight) || uWeight <= 0) {
-    uWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: effectiveDesc }, pipeLength) || (existing?.unitWeight || 0);
+  let rawWeight = Number(productData.unitWeight || productData.stdWeight || productData.piece_weight_kg || productData.std_weight_kg);
+  if (isNaN(rawWeight) || rawWeight <= 0) {
+    rawWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: effectiveDesc }, pipeLength) || (existing?.unitWeight || 0);
   }
-  uWeight = normalizePipeUnitWeight(uWeight, dims.od_mm, pipeLength, isCompounding);
+
+  const linearWeight = (productData.linear_weight_kg_m !== undefined && productData.linear_weight_kg_m !== null && Number(productData.linear_weight_kg_m) > 0)
+    ? Number(Number(productData.linear_weight_kg_m).toFixed(3))
+    : resolvePipeLinearWeight(rawWeight, dims.od_mm, dims.wall_thickness_mm, pipeLength, isCompounding);
+
+  const pieceWeight = isCompounding
+    ? Number((rawWeight || linearWeight).toFixed(2))
+    : Number((linearWeight * (pipeLength > 0 ? pipeLength : 6.0)).toFixed(2));
+
+  let uWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, pipeLength, isCompounding);
+  if (uWeight <= 0) uWeight = pieceWeight;
 
   let targetPcsH = productData.targetPcsH !== undefined && productData.targetPcsH !== null && productData.targetPcsH !== ''
     ? Math.round(Number(productData.targetPcsH))
@@ -681,9 +802,13 @@ export function saveProduct(productData, options = { syncServer: true }) {
     odMm: finalOdMm,
     wallThickness: finalWallThickness,
     material: productData.material || existing?.material || 'uPVC',
-    unitWeight: uWeight > 0 ? uWeight : (existing?.unitWeight || 0),
-    stdWeight: uWeight > 0 ? uWeight : (existing?.stdWeight || 0),
-    pipeLength: pipeLength > 0 ? pipeLength : 6.0,
+    linear_weight_kg_m: linearWeight,
+    pipe_length_m: isCompounding ? 0 : pipeLength,
+    piece_weight_kg: pieceWeight,
+    std_weight_kg: pieceWeight,
+    unitWeight: uWeight > 0 ? uWeight : (existing?.unitWeight || pieceWeight),
+    stdWeight: pieceWeight,
+    pipeLength: isCompounding ? 0 : (pipeLength > 0 ? pipeLength : 6.0),
     nominalSpeed: nominalSpeed || existing?.nominalSpeed || null,
     targetPcsH: targetPcsH || existing?.targetPcsH || null,
     primaryExtruder: productData.primaryExtruder || existing?.primaryExtruder || '',
@@ -808,20 +933,41 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
     const existing = registry[normCode];
     const effectiveDesc = desc || existing?.description || `Product Code ${rawCode}`;
 
-    const pipeLength = Number(item.pipeLength || existing?.pipeLength) > 0
-      ? Number(item.pipeLength || existing?.pipeLength)
-      : 6.0;
+    const pipeLength = Number(item.pipeLength || item.pipe_length_m || existing?.pipeLength || existing?.pipe_length_m) > 0
+      ? Number(item.pipeLength || item.pipe_length_m || existing?.pipeLength || existing?.pipe_length_m)
+      : extractPipeLength(effectiveDesc, 6.0);
 
     const isCompounding = Boolean(item.isCompounding ?? existing?.isCompounding);
     const dims = extractProductDimensions({ odMm: item.odMm || existing?.odMm, wallThickness: item.wallThickness || existing?.wallThickness, description: effectiveDesc });
 
-    let uWeight = Number(item.unitWeight || item.stdWeight || existing?.unitWeight);
-    if (isNaN(uWeight) || uWeight <= 0) {
-      uWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: effectiveDesc }, pipeLength) || 0;
+    let rawWeight = Number(item.unitWeight || item.stdWeight || item.piece_weight_kg || item.std_weight_kg || existing?.unitWeight);
+    if (isNaN(rawWeight) || rawWeight <= 0) {
+      rawWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: effectiveDesc }, pipeLength) || 0;
     }
-    uWeight = normalizePipeUnitWeight(uWeight, dims.od_mm, pipeLength, isCompounding);
+
+    const linearWeight = (item.linear_weight_kg_m !== undefined && item.linear_weight_kg_m !== null && Number(item.linear_weight_kg_m) > 0)
+      ? Number(Number(item.linear_weight_kg_m).toFixed(3))
+      : resolvePipeLinearWeight(rawWeight, dims.od_mm, dims.wall_thickness_mm, pipeLength, isCompounding);
+
+    const pieceWeight = isCompounding
+      ? Number((rawWeight || linearWeight).toFixed(2))
+      : Number((linearWeight * (pipeLength > 0 ? pipeLength : 6.0)).toFixed(2));
+
+    let uWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, pipeLength, isCompounding);
+    if (uWeight <= 0) uWeight = pieceWeight;
 
     let targetPcsH = item.targetPcsH != null ? Math.round(Number(item.targetPcsH)) : (existing?.targetPcsH || null);
+    if (targetPcsH > 0 && pieceWeight > 1.5 && !isCompounding && pipeLength > 1) {
+      const nom = 200;
+      if (targetPcsH > 60 && (dims.od_mm >= 75 || dims.od_mm == null)) {
+        const properPace = Math.round(nom / pieceWeight);
+        if (Math.abs(targetPcsH - Math.round(nom / linearWeight)) < Math.abs(targetPcsH - properPace)) {
+          targetPcsH = properPace;
+        } else if (targetPcsH * pieceWeight > 2.5 * nom) {
+          targetPcsH = properPace;
+        }
+      }
+    }
     let nominalSpeed = item.nominalSpeed != null ? Number(item.nominalSpeed) : (existing?.nominalSpeed || null);
 
     // Identify candidate machine lines
@@ -899,9 +1045,13 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
       odMm: finalOdMm,
       wallThickness: finalWallThickness,
       material: item.material || existing?.material || 'uPVC',
-      unitWeight: uWeight > 0 ? uWeight : 0,
-      stdWeight: uWeight > 0 ? uWeight : 0,
-      pipeLength,
+      linear_weight_kg_m: linearWeight,
+      pipe_length_m: isCompounding ? 0 : pipeLength,
+      piece_weight_kg: pieceWeight,
+      std_weight_kg: pieceWeight,
+      unitWeight: uWeight > 0 ? uWeight : pieceWeight,
+      stdWeight: pieceWeight,
+      pipeLength: isCompounding ? 0 : pipeLength,
       nominalSpeed,
       targetPcsH,
       primaryExtruder: item.primaryExtruder || existing?.primaryExtruder || '',
@@ -972,8 +1122,14 @@ export function autoRegisterPendingProduct(itemCode, description = '', specs = {
   }
 
   const dims = extractProductDimensions({ odMm: specs.odMm, wallThickness: specs.wallThickness, description: desc });
-  const rawWeight = Number(specs.unitWeight || specs.stdWeight) || resolveStdWeightFromSpecs({ itemCode, description: desc }, 6.0) || 0;
-  const resolvedWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, specs.pipeLength || 6.0, false);
+  const pipeLen = Number(specs.pipeLength || specs.pipe_length_m) > 0 ? Number(specs.pipeLength || specs.pipe_length_m) : extractPipeLength(desc, 6.0);
+  const isComp = Boolean(specs.isCompounding);
+  const rawWeight = Number(specs.unitWeight || specs.stdWeight || specs.piece_weight_kg) || resolveStdWeightFromSpecs({ itemCode, description: desc }, pipeLen) || 0;
+  const linearWeight = (specs.linear_weight_kg_m !== undefined && specs.linear_weight_kg_m !== null && Number(specs.linear_weight_kg_m) > 0)
+    ? Number(Number(specs.linear_weight_kg_m).toFixed(3))
+    : resolvePipeLinearWeight(rawWeight, dims.od_mm, dims.wall_thickness_mm, pipeLen, isComp);
+  const pieceWeight = isComp ? rawWeight : Number((linearWeight * pipeLen).toFixed(2));
+  const resolvedWeight = normalizePipeUnitWeight(rawWeight, dims.od_mm, pipeLen, isComp) || pieceWeight;
   const nowIso = new Date().toISOString();
 
   const sourceOrigin = specs.source_origin || 'daily_log';
@@ -994,9 +1150,13 @@ export function autoRegisterPendingProduct(itemCode, description = '', specs = {
     description: desc || `Product Code ${itemCode}`,
     odMm: specs.odMm || (dims.od_mm ? String(dims.od_mm) : ''),
     wallThickness: specs.wallThickness || (dims.wall_thickness_mm ? `${dims.wall_thickness_mm}mm` : (dims.sdr || '')),
+    linear_weight_kg_m: linearWeight,
+    pipe_length_m: isComp ? 0 : pipeLen,
+    piece_weight_kg: resolvedWeight,
+    std_weight_kg: resolvedWeight,
     unitWeight: resolvedWeight,
     stdWeight: resolvedWeight,
-    pipeLength: Number(specs.pipeLength) > 0 ? Number(specs.pipeLength) : 6.0,
+    pipeLength: isComp ? 0 : pipeLen,
     isPending: true,
     source: 'auto_discovery',
     source_origin: sourceOrigin,
@@ -1215,6 +1375,7 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
 
     const dims = extractProductDimensions({ odMm: rawOd, wallThickness: rawWt, description: desc });
     const odMmNum = dims.od_mm || parseDiameterToMm(rawOd) || (rawOd.match(/\d+(?:\.\d+)?/) ? Number(rawOd.match(/\d+(?:\.\d+)?/)[0]) : null);
+    const pipeLength = extractPipeLength(desc, 6.0);
 
     let resolvedWeight = Number(
       row['Unit Weight (kg)'] ??
@@ -1225,7 +1386,7 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
       0
     );
     if (isNaN(resolvedWeight) || resolvedWeight <= 0) {
-      resolvedWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, 6.0) || 0;
+      resolvedWeight = resolveStdWeightFromSpecs({ itemCode: rawCode, description: desc }, pipeLength) || 0;
     }
     if (resolvedWeight <= 0 && odMmNum > 0) {
       const sdrMatch = rawWt.match(/SDR\s*[-:]?\s*(\d+(?:\.\d+)?)/i);
@@ -1242,11 +1403,14 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
         }
       }
       if (wtNum > 0 && wtNum < odMmNum) {
-        resolvedWeight = Math.round(Math.PI * (odMmNum - wtNum) * wtNum * 6.0 * 0.00142 * 100) / 100;
+        resolvedWeight = Math.round(Math.PI * (odMmNum - wtNum) * wtNum * pipeLength * 0.00142 * 100) / 100;
       }
     }
 
-    resolvedWeight = normalizePipeUnitWeight(resolvedWeight, odMmNum || dims.od_mm, 6.0, false);
+    const linearWeight = resolvePipeLinearWeight(resolvedWeight, odMmNum || dims.od_mm, dims.wall_thickness_mm, pipeLength, false);
+    const pieceWeight = Number((linearWeight * pipeLength).toFixed(2));
+    resolvedWeight = normalizePipeUnitWeight(resolvedWeight, odMmNum || dims.od_mm, pipeLength, false);
+    if (resolvedWeight <= 0) resolvedWeight = pieceWeight;
 
     const rawDirectPcsH = Number(
       row['Target Pace (pcs/hr)'] ??
@@ -1265,9 +1429,25 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
       targetKgH = histRateKgH;
     }
 
-    const targetPcsH = (rawDirectPcsH > 0)
-      ? Math.round(rawDirectPcsH)
-      : ((targetKgH && resolvedWeight > 0) ? Math.round(targetKgH / resolvedWeight) : ((histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null));
+    const effectivePieceWeight = pieceWeight > 0 ? pieceWeight : resolvedWeight;
+    let targetPcsH = null;
+    if (rawDirectPcsH > 0) {
+      targetPcsH = Math.round(rawDirectPcsH);
+      // Guard against unrealistic speeds (e.g. 151 pcs/h for 110mm pipe when target was divided by linear weight)
+      if (effectivePieceWeight > 1.5 && (odMmNum >= 75 || dims.od_mm >= 75) && pipeLength > 1 && targetPcsH > 60) {
+        const refKgH = histRateKgH || targetKgH || 200;
+        const properPace = Math.round(refKgH / effectivePieceWeight);
+        if (Math.abs(targetPcsH - Math.round(refKgH / linearWeight)) < Math.abs(targetPcsH - properPace)) {
+          targetPcsH = properPace;
+        } else if (targetPcsH * effectivePieceWeight > 2.5 * refKgH) {
+          targetPcsH = properPace;
+        }
+      }
+    } else if (histRateKgH && effectivePieceWeight > 0) {
+      targetPcsH = Math.round(histRateKgH / effectivePieceWeight);
+    } else if (targetKgH && effectivePieceWeight > 0) {
+      targetPcsH = Math.round(targetKgH / effectivePieceWeight);
+    }
 
     const altLines = [];
     const alt1Line = resolveCanonicalLineId(rawAltMach1);
@@ -1278,8 +1458,8 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
         const nums = alt1Match.map(Number);
         alt1RateKgH = nums.reduce((a, b) => a + b, 0) / nums.length;
       }
-      const alt1PcsH = (alt1RateKgH && resolvedWeight > 0)
-        ? Math.round(alt1RateKgH / resolvedWeight)
+      const alt1PcsH = (alt1RateKgH && effectivePieceWeight > 0)
+        ? Math.round(alt1RateKgH / effectivePieceWeight)
         : (targetPcsH || null);
       altLines.push({ lineId: alt1Line, rate: alt1PcsH });
     }
@@ -1292,8 +1472,8 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
         const nums = alt2Match.map(Number);
         alt2RateKgH = nums.reduce((a, b) => a + b, 0) / nums.length;
       }
-      const alt2PcsH = (alt2RateKgH && resolvedWeight > 0)
-        ? Math.round(alt2RateKgH / resolvedWeight)
+      const alt2PcsH = (alt2RateKgH && effectivePieceWeight > 0)
+        ? Math.round(alt2RateKgH / effectivePieceWeight)
         : (targetPcsH || null);
       altLines.push({ lineId: alt2Line, rate: alt2PcsH });
     }
@@ -1308,13 +1488,17 @@ export function parseUniquePlanningCatalogSheet(wb, options = {}) {
       odMm: odValStr,
       wallThickness: wtValStr,
       material: rawMat || 'uPVC',
+      linear_weight_kg_m: linearWeight,
+      pipe_length_m: pipeLength,
+      piece_weight_kg: resolvedWeight,
+      std_weight_kg: resolvedWeight,
       unitWeight: resolvedWeight,
       stdWeight: resolvedWeight,
-      pipeLength: 6.0,
+      pipeLength: pipeLength,
       historicalRateKgH: histRateKgH,
       primaryExtruder: rawPrimaryMach && rawPrimaryMach !== '-' ? rawPrimaryMach : '',
       compatibleMachines,
-      targetPcsH: (histRateKgH && resolvedWeight > 0) ? Math.round(histRateKgH / resolvedWeight) : null,
+      targetPcsH,
       alternativeLines: altLines,
       isPending: false,
       source: 'excel_catalog',
@@ -1612,10 +1796,21 @@ export function transformProductToProvenanceAuditItem(item) {
   const sdr = dims.sdr;
   const wall_thickness_mm = dims.wall_thickness_mm;
 
-  // Std weight in kg (normalized)
-  const rawWeight = Number(item.unitWeight || item.stdWeight || 0);
-  const normalizedWeight = normalizePipeUnitWeight(rawWeight, od_mm, item.pipeLength || 6.0, item.isCompounding);
-  const std_weight_kg = normalizedWeight > 0 ? Number(normalizedWeight.toFixed(2)) : 0;
+  // Std weight in kg (normalized) and canonical linear weight
+  const pipe_length_m = item.isCompounding
+    ? 0
+    : (Number(item.pipe_length_m || item.pipeLength) > 0 ? Number(item.pipe_length_m || item.pipeLength) : extractPipeLength(desc, 6.0));
+  const rawWeight = Number(item.unitWeight || item.stdWeight || item.piece_weight_kg || 0);
+  const linear_weight_kg_m = (item.linear_weight_kg_m !== undefined && item.linear_weight_kg_m !== null && Number(item.linear_weight_kg_m) > 0)
+    ? Number(Number(item.linear_weight_kg_m).toFixed(3))
+    : resolvePipeLinearWeight(rawWeight, od_mm, wall_thickness_mm, pipe_length_m, item.isCompounding);
+
+  const piece_weight_kg = item.isCompounding
+    ? (rawWeight > 0 ? Number(rawWeight.toFixed(2)) : Number(linear_weight_kg_m.toFixed(2)))
+    : (item.piece_weight_kg !== undefined && item.piece_weight_kg !== null && Number(item.piece_weight_kg) > 0
+        ? Number(Number(item.piece_weight_kg).toFixed(2))
+        : Number((linear_weight_kg_m * (pipe_length_m > 0 ? pipe_length_m : 6.0)).toFixed(2)));
+  const std_weight_kg = piece_weight_kg;
 
   // Suggested pace in pcs/h
   const suggested_pace_pcs_h = (item.targetPcsH !== undefined && item.targetPcsH !== null && Number(item.targetPcsH) > 0)
@@ -1651,6 +1846,9 @@ export function transformProductToProvenanceAuditItem(item) {
     od_mm,
     sdr,
     wall_thickness_mm,
+    linear_weight_kg_m,
+    pipe_length_m,
+    piece_weight_kg,
     std_weight_kg,
     suggested_pace_pcs_h,
     source_origin,
@@ -1747,6 +1945,9 @@ export function convertProvenanceSnapshotToCsv(snapshot = []) {
     'od_mm',
     'sdr',
     'wall_thickness_mm',
+    'linear_weight_kg_m',
+    'pipe_length_m',
+    'piece_weight_kg',
     'std_weight_kg',
     'suggested_pace_pcs_h',
     'source_origin',

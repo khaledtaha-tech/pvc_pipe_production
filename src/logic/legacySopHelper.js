@@ -227,9 +227,13 @@ export function resolveStdWeightFromSpecs(source, cutLength = 6.0) {
 
   // 1. Direct explicit numeric weight properties on source
   const directCandidates = [
+    source.unitWeight,
     source.stdWeight,
     source.stdWeightKg,
-    source.unitWeight,
+    source.piece_weight_kg,
+    source.pieceWeightKg,
+    source.pieceWeight,
+    source.std_weight_kg,
     source.weightPerPipe,
     source.weightPerPc,
     source.weightKg
@@ -243,6 +247,8 @@ export function resolveStdWeightFromSpecs(source, cutLength = 6.0) {
 
   // 2. Linear weight per meter multiplied by cut length
   const perMeterCandidates = [
+    source.linear_weight_kg_m,
+    source.linearWeightKgM,
     source.weightPerMeter,
     source.weightPerM,
     source.linearWeight,
@@ -280,12 +286,18 @@ export function resolveStdWeightFromSpecs(source, cutLength = 6.0) {
   // 5. Dynamic central catalog lookup for on-the-fly created or ingested items
   if (itemCode) {
     const dynProd = getProductByCode(itemCode);
-    if (dynProd && Number(dynProd.unitWeight || dynProd.stdWeight) > 0) {
-      const uWeight = Number(dynProd.unitWeight || dynProd.stdWeight);
-      if (len !== 6.0 && (dynProd.pipeLength === 6.0 || !dynProd.pipeLength) && !dynProd.isCompounding) {
-        return Math.round((uWeight / 6.0) * len * 100) / 100;
+    if (dynProd) {
+      const uWeight = Number(dynProd.unitWeight || dynProd.stdWeight || dynProd.piece_weight_kg);
+      const pLen = Number(dynProd.pipe_length_m || dynProd.pipeLength) || 6.0;
+      if (uWeight > 0) {
+        if (len !== pLen && !dynProd.isCompounding) {
+          return Math.round((uWeight / pLen) * len * 100) / 100;
+        }
+        return uWeight;
       }
-      return uWeight;
+      if (Number(dynProd.linear_weight_kg_m) > 0) {
+        return Math.round(Number(dynProd.linear_weight_kg_m) * len * 100) / 100;
+      }
     }
   }
 
@@ -1072,7 +1084,11 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
 
   let unitWeight = 1.0;
   if (typeof product === 'object' && product !== null) {
-    if (Number(product.unitWeight) > 0) {
+    if (Number(product.linear_weight_kg_m) > 0) {
+      unitWeight = Number(product.linear_weight_kg_m) * len;
+    } else if (Number(product.piece_weight_kg) > 0) {
+      unitWeight = Number(product.piece_weight_kg);
+    } else if (Number(product.unitWeight) > 0) {
       unitWeight = Number(product.unitWeight);
     } else if (Number(product.stdWeight) > 0) {
       unitWeight = Number(product.stdWeight);
@@ -1095,7 +1111,9 @@ export function calculateBenchmarkSpeedForProduct(product, machineId, machineMas
     targetRate: calculatedRate,
     calculatedRate,
     unitWeight,
-    stdWeight: unitWeight
+    stdWeight: unitWeight,
+    pieceWeight: unitWeight,
+    linearWeightKgM: len > 0 ? Number((unitWeight / len).toFixed(3)) : unitWeight
   };
 }
 
@@ -1131,7 +1149,21 @@ export function resolveSuggestedRate(lineId, productCode, {
 
   // 1.5 Check catalog standard target pace if defined on matched product
   if (matchedProduct && Number(matchedProduct.targetPcsH) > 0) {
-    return Math.round(Number(matchedProduct.targetPcsH));
+    const pLen = Number(matchedProduct.pipe_length_m || matchedProduct.pipeLength || pipeLength) || 6.0;
+    const effPieceWeight = (Number(matchedProduct.linear_weight_kg_m) > 0 && pLen > 0)
+      ? Number(matchedProduct.linear_weight_kg_m) * pLen
+      : (Number(matchedProduct.piece_weight_kg || matchedProduct.unitWeight || matchedProduct.stdWeight || unitWeight) || 0);
+
+    const nomCap = Number(nominalCapacity) > 0 ? Number(nominalCapacity) : 200;
+    const rawPace = Number(matchedProduct.targetPcsH);
+
+    // Guard against unrealistic speeds (e.g. 151 pcs/h for 110mm pipe when planner entered target divided by linear weight)
+    const od = Number(matchedProduct.od_mm || matchedProduct.odMm || 0);
+    if (effPieceWeight > 1.5 && (rawPace * effPieceWeight > 2.5 * nomCap || (od >= 75 && rawPace > 60))) {
+      return Math.round(nomCap / effPieceWeight);
+    }
+
+    return Math.round(rawPace);
   }
 
   // 2. Check latest excel line record
@@ -1156,11 +1188,18 @@ export function resolveSuggestedRate(lineId, productCode, {
   }
 
   // 5. Benchmark calculation based on extruder capacity & unit weight
-  const uWeight = Number(unitWeight) > 0 ? Number(unitWeight) : 1.0;
   const pLen = Number(pipeLength) > 0 ? Number(pipeLength) : 6.0;
+  let uWeight = Number(unitWeight) > 0 ? Number(unitWeight) : 0;
+  if (matchedProduct && Number(matchedProduct.linear_weight_kg_m) > 0) {
+    uWeight = Number(matchedProduct.linear_weight_kg_m) * pLen;
+  } else if (matchedProduct && Number(matchedProduct.piece_weight_kg) > 0) {
+    uWeight = Number(matchedProduct.piece_weight_kg);
+  }
+  if (uWeight <= 0) uWeight = Number(unitWeight) > 0 ? Number(unitWeight) : 1.0;
+
   if (matchedProduct || uWeight > 0) {
     const benchmark = calculateBenchmarkSpeedForProduct(
-      matchedProduct || { unitWeight: uWeight },
+      matchedProduct || { unitWeight: uWeight, linear_weight_kg_m: uWeight / pLen },
       lineId,
       machineMaster,
       pLen

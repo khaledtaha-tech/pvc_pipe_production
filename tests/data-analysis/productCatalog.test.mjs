@@ -37,7 +37,9 @@ import {
   purgeInvalidCatalogItems,
   compareProductCodes,
   scoreProductSearchRelevance,
-  classifyProductCodeType
+  classifyProductCodeType,
+  resolvePipeLinearWeight,
+  extractPipeLength
 } from '../../src/logic/productCatalogHelper.js';
 import {
   saveBaselineRate,
@@ -970,7 +972,101 @@ assert.strictEqual(resNone.length, 0, 'Non-existent code query must return 0 res
 
 console.log('Test 23 Passed: Dedicated inline item code filtering strictly verified.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (23/23) ---');
+// 24. Canonical Linear Weight (kg/m) and Pipe Length Architecture Verification
+console.log('Test 24: Canonical linear weight, pipe length, and dual-mode ingestion classification');
+
+// 24.1 Pipe length dynamic extraction
+assert.strictEqual(extractPipeLength('UPVC PRESSURE PIPE 110MM CLASS 4 2.9MTR'), 2.9, 'Should extract 2.9m length');
+assert.strictEqual(extractPipeLength('UPVC PIPE 160MM SDR 26 5.8M'), 5.8, 'Should extract 5.8m length');
+assert.strictEqual(extractPipeLength('UPVC PIPE 90MM PN-10 6M'), 6.0, 'Should extract 6.0m length');
+assert.strictEqual(extractPipeLength('UPVC DRAIN PIPE 75MM CLASS 2'), 6.0, 'Default length must be 6.0m');
+// Verify it does not false match mm dimensions as meters
+assert.strictEqual(extractPipeLength('UPVC 75MM 2.2MM THICKNESS'), 6.0, 'Dimensions with MM should not be false matched as meters');
+
+// 24.2 Intelligent dual-mode linear weight classifier (resolvePipeLinearWeight)
+// Case A: 75mm x 2.2mm pipe. Theoretical linear weight = 0.0045 * (75 - 2.2) * 2.2 = 0.72072 kg/m.
+// Incoming raw weight is 0.95 kg (per-meter). Should classify as per-meter:
+const linWtFromMeter = resolvePipeLinearWeight(0.95, 75, 2.2, 6.0, false);
+assert.strictEqual(linWtFromMeter, 0.95, 'Per-meter raw weight 0.95 kg should resolve to 0.950 kg/m');
+
+// Case B: Same 75mm pipe, incoming raw weight is 5.70 kg (piece weight = 0.95 * 6). Should classify as piece weight:
+const linWtFromPiece = resolvePipeLinearWeight(5.70, 75, 2.2, 6.0, false);
+assert.strictEqual(linWtFromPiece, 0.95, 'Full piece raw weight 5.70 kg at 6m should resolve to 0.950 kg/m');
+
+// Case C: 3" SDR26 ASTM pipe (OD 88.9, WT 3.42, 6m). Piece weight 7.85 kg.
+// Theoretical Wtheo = 0.0045 * (88.9 - 3.42) * 3.42 = 1.315 kg/m.
+// 7.85 kg / 6m = 1.308 kg/m.
+const linWt188 = resolvePipeLinearWeight(7.85, 88.9, 3.42, 6.0, false);
+assert.strictEqual(linWt188, 1.308, 'Piece weight 7.85 kg for 3" SDR26 should resolve to 1.308 kg/m');
+
+// Case D: Compounding / pelletizing material (25 kg bag) must preserve raw unit weight
+const linWtComp = resolvePipeLinearWeight(25.0, null, null, 0, true);
+assert.strictEqual(linWtComp, 25.0, 'Compounding material must preserve raw unit weight');
+
+// Case E: Missing dimension fallback:
+// Weight < 4.0 kg for OD >= 75mm resolves as per-meter
+const linWtFallbackMeter = resolvePipeLinearWeight(1.25, 110, null, 6.0, false);
+assert.strictEqual(linWtFallbackMeter, 1.25, 'Fallback for weight < 4.0 kg on OD >= 75mm should treat as per-meter');
+
+// Weight >= 4.0 kg for OD >= 75mm resolves as per-piece (divided by length)
+const linWtFallbackPiece = resolvePipeLinearWeight(12.0, 110, null, 6.0, false);
+assert.strictEqual(linWtFallbackPiece, 2.0, 'Fallback for weight >= 4.0 kg on OD >= 75mm should divide by pipe length');
+
+// 24.3 Dynamic product save & registry persistence with canonical fields
+const productCustomLen = saveProduct({
+  itemCode: 'LEN-29',
+  description: 'UPVC CONDUIT PIPE 50MM 2.9MTR',
+  odMm: 50,
+  wallThickness: 1.8,
+  unitWeight: 0.40,
+  source: 'manual'
+}, { syncServer: false });
+
+assert.strictEqual(productCustomLen.pipe_length_m, 2.9, 'Extracted length must be 2.9m');
+assert.strictEqual(productCustomLen.linear_weight_kg_m, 0.4, 'Linear weight must be 0.4 kg/m');
+assert.strictEqual(productCustomLen.piece_weight_kg, 1.16, 'Piece weight must be 0.4 * 2.9 = 1.16 kg');
+assert.strictEqual(productCustomLen.std_weight_kg, 1.16, 'std_weight_kg must match piece_weight_kg');
+
+// 24.4 Audit export snapshot schema verification
+const auditItem = transformProductToProvenanceAuditItem(productCustomLen);
+assert.strictEqual(auditItem.pipe_length_m, 2.9, 'Audit item must include pipe_length_m');
+assert.strictEqual(auditItem.linear_weight_kg_m, 0.4, 'Audit item must include linear_weight_kg_m');
+assert.strictEqual(auditItem.piece_weight_kg, 1.16, 'Audit item must include piece_weight_kg');
+assert.strictEqual(auditItem.std_weight_kg, 1.16, 'Audit item std_weight_kg must match piece_weight_kg');
+
+// CSV export headers include new canonical fields
+const csvString = convertProvenanceSnapshotToCsv([auditItem]);
+assert.ok(csvString.includes('linear_weight_kg_m'), 'CSV header must include linear_weight_kg_m');
+assert.ok(csvString.includes('pipe_length_m'), 'CSV header must include pipe_length_m');
+assert.ok(csvString.includes('piece_weight_kg'), 'CSV header must include piece_weight_kg');
+
+// 24.5 Pace normalization: guard against unrealistic 151 pcs/h for 110mm pipe
+// When planner entered 151 pcs/h because target 200 kg/h was divided by linear weight 1.32 kg/m:
+const unrealisticPaceItem = {
+  itemCode: '190',
+  description: 'UPVC PIPE 110MM SDR 26',
+  odMm: 110,
+  od_mm: 110,
+  wallThickness: 4.2,
+  linear_weight_kg_m: 1.32,
+  pipe_length_m: 6.0,
+  piece_weight_kg: 7.92,
+  std_weight_kg: 7.92,
+  unitWeight: 7.92,
+  targetPcsH: 151
+};
+
+const normalizedPace = resolveSuggestedRate('L-05', '190', {
+  matchedProduct: unrealisticPaceItem,
+  pipeLength: 6.0,
+  unitWeight: 7.92,
+  nominalCapacity: 200
+});
+assert.ok(normalizedPace >= 25 && normalizedPace <= 27, `Pace must normalize from 151 to ~25-27 pcs/h, got ${normalizedPace}`);
+
+console.log('Test 24 Passed: Canonical linear weight, pipe length, and pace normalization verified.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (24/24) ---');
 
 
 

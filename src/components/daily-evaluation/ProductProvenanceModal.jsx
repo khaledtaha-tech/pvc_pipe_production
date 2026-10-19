@@ -9,7 +9,10 @@ import {
   formatProvenanceAuditFilename,
   convertProvenanceSnapshotToCsv,
   compareProductCodes,
-  scoreProductSearchRelevance
+  scoreProductSearchRelevance,
+  resolvePipeLinearWeight,
+  extractPipeLength,
+  extractProductDimensions
 } from '../../logic/productCatalogHelper.js';
 import { downloadBlob } from '../../logic/batchZipExport.js';
 
@@ -450,20 +453,32 @@ export default function ProductProvenanceModal({
                       )}
                     </div>
                   </th>
-                  <th className="py-2.5 px-3 font-semibold min-w-[220px] align-top bg-slate-100 dark:bg-slate-800">Description &amp; Standard Specs</th>
-                  <th className="py-2.5 px-3 font-semibold w-28 align-top bg-slate-100 dark:bg-slate-800">OD &times; Wall (SDR)</th>
-                  <th className="py-2.5 px-3 font-semibold text-right w-24 align-top bg-slate-100 dark:bg-slate-800">Std Wt (kg)</th>
-                  <th className="py-2.5 px-3 font-semibold text-right w-28 align-top bg-slate-100 dark:bg-slate-800">Pace (pcs/h)</th>
-                  <th className="py-2.5 px-3 font-semibold min-w-[180px] align-top bg-slate-100 dark:bg-slate-800">Source File &amp; Sheet</th>
-                  <th className="py-2.5 px-3 font-semibold w-40 text-center align-top bg-slate-100 dark:bg-slate-800">Origin Type</th>
-                  <th className="py-2.5 px-3 font-semibold w-28 text-right align-top bg-slate-100 dark:bg-slate-800">Updated</th>
+                  <th className="py-2.5 px-3 font-semibold min-w-[200px] align-top bg-slate-100 dark:bg-slate-800">Description &amp; Standard Specs</th>
+                  <th className="py-2.5 px-3 font-semibold w-24 align-top bg-slate-100 dark:bg-slate-800">OD &times; Wall (SDR)</th>
+                  <th className="py-2.5 px-3 font-semibold text-center w-16 align-top bg-slate-100 dark:bg-slate-800">Length (m)</th>
+                  <th className="py-2.5 px-3 font-semibold text-right w-24 align-top bg-slate-100 dark:bg-slate-800">Linear Wt (kg/m)</th>
+                  <th className="py-2.5 px-3 font-semibold text-right w-24 align-top bg-slate-100 dark:bg-slate-800">Std Wt (kg/pc)</th>
+                  <th className="py-2.5 px-3 font-semibold text-right w-24 align-top bg-slate-100 dark:bg-slate-800">Pace (pcs/h)</th>
+                  <th className="py-2.5 px-3 font-semibold min-w-[160px] align-top bg-slate-100 dark:bg-slate-800">Source File &amp; Sheet</th>
+                  <th className="py-2.5 px-3 font-semibold w-36 text-center align-top bg-slate-100 dark:bg-slate-800">Origin Type</th>
+                  <th className="py-2.5 px-3 font-semibold w-24 text-right align-top bg-slate-100 dark:bg-slate-800">Updated</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredProducts.map((item) => {
                   const origin = item.source_origin || (item.source === 'factory_preset' ? 'preset_seed' : (item.isPending ? 'daily_log' : 'planning_catalog'));
                   const badgeTheme = getSourceOriginBadgeTheme(origin);
-                  const uWeight = Number(item.unitWeight || item.stdWeight || 0);
+                  const dims = extractProductDimensions(item);
+                  const pipeLen = item.isCompounding ? 0 : (Number(item.pipe_length_m || item.pipeLength) > 0 ? Number(item.pipe_length_m || item.pipeLength) : extractPipeLength(item.description, 6.0));
+                  const rawWeight = Number(item.unitWeight || item.stdWeight || item.piece_weight_kg || 0);
+                  const linearWeight = (item.linear_weight_kg_m !== undefined && item.linear_weight_kg_m !== null && Number(item.linear_weight_kg_m) > 0)
+                    ? Number(item.linear_weight_kg_m)
+                    : resolvePipeLinearWeight(rawWeight, dims.od_mm, dims.wall_thickness_mm, pipeLen, item.isCompounding);
+                  const pieceWeight = item.isCompounding
+                    ? rawWeight
+                    : ((item.piece_weight_kg !== undefined && item.piece_weight_kg !== null && Number(item.piece_weight_kg) > 0)
+                        ? Number(item.piece_weight_kg)
+                        : (rawWeight > 0 ? rawWeight : Number((linearWeight * (pipeLen > 0 ? pipeLen : 6.0)).toFixed(2))));
                   const pace = item.targetPcsH ? Number(item.targetPcsH) : null;
                   const formattedDate = item.last_updated_at || item.updatedAt
                     ? new Date(item.last_updated_at || item.updatedAt).toLocaleDateString()
@@ -495,9 +510,19 @@ export default function ProductProvenanceModal({
                         <div className="text-[10px] text-slate-400 dark:text-slate-500">{item.wallThickness || '--'}</div>
                       </td>
 
-                      {/* Std Weight */}
+                      {/* Length (m) */}
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 dark:text-slate-300">
+                        {item.isCompounding ? '--' : `${pipeLen}m`}
+                      </td>
+
+                      {/* Linear Weight (kg/m) */}
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
+                        {linearWeight > 0 ? linearWeight.toFixed(3) : '--'}
+                      </td>
+
+                      {/* Std Piece Weight (kg/pc) */}
                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-800 dark:text-slate-100">
-                        {uWeight > 0 ? uWeight.toFixed(2) : '--'}
+                        {pieceWeight > 0 ? pieceWeight.toFixed(2) : '--'}
                       </td>
 
                       {/* Pace */}

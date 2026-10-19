@@ -1,7 +1,13 @@
 import { MACHINES, matchMachine, normalizeLineId, sanitizeMachineMaster } from '../config/machines.js';
 import { normalizeExcelDate } from './excelParser.js';
 import { resolveStdWeightFromSpecs } from './legacySopHelper.js';
-import { autoRegisterPendingProduct, isValidProductCode } from './productCatalogHelper.js';
+import {
+  autoRegisterPendingProduct,
+  isValidProductCode,
+  resolvePipeLinearWeight,
+  extractPipeLength,
+  extractProductDimensions
+} from './productCatalogHelper.js';
 
 export const LATEST_RUN_STORAGE_KEYS = {
   LATEST_EXCEL_LOGGED_RUN: 'latestExcelLoggedRun',
@@ -163,9 +169,13 @@ export function extractLatestDateOperationalLines(rowsOrParsed, targetDate = nul
     const unitWt = Number(isArrayRow ? row[7] : (row.unitWeight ?? row.stdWeight ?? 0)) || 0;
     const scrapKg = Number(isArrayRow ? row[12] : (row.scrapKg ?? 0)) || 0;
 
-    const resolvedWeight = unitWt > 0
-      ? unitWt
-      : resolveStdWeightFromSpecs({ itemCode: cleanItemCode, description: cleanDesc }, 6.0);
+    const pipeLen = extractPipeLength(cleanDesc, machineInfo.isPelletizingLine ? 0 : 6.0);
+    const dims = extractProductDimensions({ description: cleanDesc });
+    const linearWt = resolvePipeLinearWeight(unitWt, dims.od_mm, dims.wall_thickness_mm, pipeLen, machineInfo.isPelletizingLine);
+    const pieceWt = machineInfo.isPelletizingLine ? unitWt : Number((linearWt * (pipeLen > 0 ? pipeLen : 6.0)).toFixed(2));
+    const resolvedWeight = pieceWt > 0
+      ? pieceWt
+      : resolveStdWeightFromSpecs({ itemCode: cleanItemCode, description: cleanDesc }, pipeLen);
 
     // Auto-register discovered product into central catalog
     if (cleanItemCode && isValidProductCode(cleanItemCode, cleanDesc)) {
@@ -173,7 +183,10 @@ export function extractLatestDateOperationalLines(rowsOrParsed, targetDate = nul
         autoRegisterPendingProduct(cleanItemCode, cleanDesc, {
           unitWeight: resolvedWeight,
           stdWeight: resolvedWeight,
-          pipeLength: machineInfo.isPelletizingLine ? 0 : 6.0
+          linear_weight_kg_m: linearWt,
+          pipe_length_m: machineInfo.isPelletizingLine ? 0 : pipeLen,
+          piece_weight_kg: resolvedWeight,
+          pipeLength: machineInfo.isPelletizingLine ? 0 : pipeLen
         });
       } catch (_) {}
     }

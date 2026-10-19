@@ -29,9 +29,13 @@ export function calculateAdvisoryRate(nominalCapOrOptions, stdWeightArg, maxLine
   if (typeof nominalCapOrOptions === 'object' && nominalCapOrOptions !== null) {
     const opts = nominalCapOrOptions;
     nominalCap = Number(opts.nominalCap ?? opts.nominalCapacity ?? opts.capacityKgH) || 0;
-    stdWeight = Number(opts.stdWeight ?? opts.unitWeight ?? opts.weightPerPiece) || 0;
+    pipeLength = Number(opts.pipe_length_m ?? opts.pipeLength ?? opts.cutLength) || DEFAULT_PIPE_LENGTH;
+    if (Number(opts.linear_weight_kg_m) > 0) {
+      stdWeight = Number(opts.linear_weight_kg_m) * (pipeLength > 0 ? pipeLength : DEFAULT_PIPE_LENGTH);
+    } else {
+      stdWeight = Number(opts.piece_weight_kg ?? opts.pieceWeightKg ?? opts.std_weight_kg ?? opts.stdWeight ?? opts.unitWeight ?? opts.weightPerPiece) || 0;
+    }
     maxLinearSpeed = Number(opts.maxLinearSpeed ?? opts.speed) || DEFAULT_MAX_LINEAR_SPEED;
-    pipeLength = Number(opts.pipeLength ?? opts.cutLength) || DEFAULT_PIPE_LENGTH;
   } else {
     nominalCap = Number(nominalCapOrOptions) || 0;
     stdWeight = Number(stdWeightArg) || 0;

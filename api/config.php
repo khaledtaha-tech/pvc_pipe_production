@@ -83,33 +83,64 @@ function json_response($data, $statusCode = 200) {
  * @return PDO
  */
 function get_db_connection() {
-    if (DB_PASS === 'DB_PASSWORD_HERE' || DB_PASS === 'YOUR_SECURE_DATABASE_PASSWORD_HERE') {
-        json_response([
-            'success' => false,
-            'code' => 'DB_CONFIG_REQUIRED',
-            'message' => 'Database password has not been configured in .env or api/config.php.'
-        ], 503);
+    static $cachedPdo = null;
+    if ($cachedPdo !== null) {
+        return $cachedPdo;
     }
 
-    $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
-    ];
+    $defaultPass = 'x1h5LCzMn)%6oUL';
+    $envPass = env('DB_PASS');
 
-    try {
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        ensure_auth_tables_exist($pdo);
-        return $pdo;
-    } catch (PDOException $e) {
-        json_response([
-            'success' => false,
-            'code' => 'DB_CONNECTION_ERROR',
-            'message' => 'Database connection failed: ' . $e->getMessage()
-        ], 500);
+    $passwordsToTry = [];
+    if (!empty($envPass) && $envPass !== 'DB_PASSWORD_HERE' && $envPass !== 'YOUR_SECURE_DATABASE_PASSWORD_HERE') {
+        $passwordsToTry[] = $envPass;
     }
+    if (!in_array($defaultPass, $passwordsToTry, true)) {
+        $passwordsToTry[] = $defaultPass;
+    }
+
+    $hostsToTry = array_values(array_unique(array_filter([
+        env('DB_HOST', 'localhost'),
+        '127.0.0.1',
+        'localhost'
+    ])));
+
+    $lastException = null;
+
+    foreach ($hostsToTry as $host) {
+        foreach ($passwordsToTry as $pass) {
+            $dsn = 'mysql:host=' . $host . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+            ];
+
+            try {
+                $pdo = new PDO($dsn, DB_USER, $pass, $options);
+                ensure_auth_tables_exist($pdo);
+                $cachedPdo = $pdo;
+                return $pdo;
+            } catch (PDOException $e) {
+                $lastException = $e;
+            }
+        }
+    }
+
+    $errMsg = $lastException ? $lastException->getMessage() : 'Access denied or server unreachable.';
+
+    if (strpos($errMsg, '1045') !== false) {
+        $cleanMessage = 'Database connection failed: Access denied for MySQL user \'' . DB_USER . '\' (Error 1045). Please verify that the password in Hostinger hPanel (Databases -> Management -> Change Password) is set to: ' . $defaultPass . ' or update DB_PASS in config.php.';
+    } else {
+        $cleanMessage = 'Database connection failed: ' . $errMsg;
+    }
+
+    json_response([
+        'success' => false,
+        'code' => 'DB_CONNECTION_ERROR',
+        'message' => $cleanMessage
+    ], 500);
 }
 
 /**

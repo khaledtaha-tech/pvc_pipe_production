@@ -1774,4 +1774,94 @@ export function convertProvenanceSnapshotToCsv(snapshot = []) {
   return rows.join('\r\n');
 }
 
+/**
+ * Natural / alphanumeric collation comparator for item codes
+ * Handles numeric values in natural order (e.g. 12 < 12.68 < 188 < 190 < 195)
+ * and keeps alphanumeric suffixes grouped logically (e.g. 247 < 247 R < 248)
+ * @param {string|Object} a First product code or product object
+ * @param {string|Object} b Second product code or product object
+ * @param {'asc'|'desc'} [direction='asc'] Sort direction
+ * @returns {number}
+ */
+export function compareProductCodes(a, b, direction = 'asc') {
+  const codeA = String(typeof a === 'object' && a !== null ? (a.itemCode ?? a.item_code ?? a.code ?? '') : (a ?? '')).trim();
+  const codeB = String(typeof b === 'object' && b !== null ? (b.itemCode ?? b.item_code ?? b.code ?? '') : (b ?? '')).trim();
+
+  // Natural numeric collation with base sensitivity
+  const cmp = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+  if (cmp !== 0) {
+    return direction === 'desc' ? -cmp : cmp;
+  }
+
+  // Tie-breaker by description if objects are provided
+  const descA = String(typeof a === 'object' && a !== null ? (a.description ?? '') : '').trim();
+  const descB = String(typeof b === 'object' && b !== null ? (b.description ?? '') : '').trim();
+  const descCmp = descA.localeCompare(descB);
+  return direction === 'desc' ? -descCmp : descCmp;
+}
+
+/**
+ * Score relevance of a product item against a search query
+ * Gives high priority to exact or prefix matches on itemCode
+ * @param {Object} item
+ * @param {string} query
+ * @returns {number} Relevance score (higher is more relevant)
+ */
+export function scoreProductSearchRelevance(item, query) {
+  if (!item || !query) return 0;
+  const q = String(query).trim().toLowerCase();
+  if (!q) return 0;
+
+  const code = String(item.itemCode || item.item_code || item.code || '').trim().toLowerCase();
+  const desc = String(item.description || '').trim().toLowerCase();
+  const od = String(item.odMm || item.od_mm || '').trim().toLowerCase();
+  const wt = String(item.wallThickness || item.wall_thickness_mm || item.sdr || '').trim().toLowerCase();
+  const file = String(item.source_file || '').trim().toLowerCase();
+  const sheet = String(item.source_sheet || '').trim().toLowerCase();
+
+  // 1. Exact match on itemCode
+  if (code === q) return 100;
+
+  // 2. ItemCode starts with query
+  if (code.startsWith(q)) return 80;
+
+  // 3. ItemCode contains query as substring or word
+  if (code.includes(q)) return 60;
+
+  // 4. Description starts with query
+  if (desc.startsWith(q)) return 40;
+
+  // 5. Description contains query
+  if (desc.includes(q)) return 30;
+
+  // 6. OD or wall thickness match
+  if (od.includes(q) || wt.includes(q)) return 20;
+
+  // 7. Source file or sheet match
+  if (file.includes(q) || sheet.includes(q)) return 10;
+
+  return 0;
+}
+
+/**
+ * Classify product code into one of standard categories:
+ * - 'NUMERIC': purely numeric or decimal code (e.g. 12, 188, 195, 12.68)
+ * - 'SUFFIX': numeric with suffix or modifier (e.g. 247 R, 188-A, 249B)
+ * - 'COMPOUND': compounding recipe or pellet code (e.g. COMP-01, PEL-01, or isCompounding=true)
+ * - 'OTHER': other alphanumeric codes
+ * @param {Object|string} item
+ * @returns {string} Category string
+ */
+export function classifyProductCodeType(item) {
+  const code = String(typeof item === 'object' && item !== null ? (item.itemCode ?? item.item_code ?? item.code ?? '') : (item ?? '')).trim();
+  const isComp = Boolean((typeof item === 'object' && item !== null && item.isCompounding) || /^COMP|^PEL|^BLEND/i.test(code));
+  if (isComp) return 'COMPOUND';
+
+  if (/^\d+(?:\.\d+)?$/.test(code)) return 'NUMERIC';
+  if (/\d+.*[a-zA-Z]|[a-zA-Z].*\d+/.test(code)) return 'SUFFIX';
+
+  return 'OTHER';
+}
+
+
 

@@ -7,7 +7,9 @@ import {
   syncProductsWithServer,
   generateProvenanceAuditSnapshot,
   formatProvenanceAuditFilename,
-  convertProvenanceSnapshotToCsv
+  convertProvenanceSnapshotToCsv,
+  compareProductCodes,
+  scoreProductSearchRelevance
 } from '../../logic/productCatalogHelper.js';
 import { downloadBlob } from '../../logic/batchZipExport.js';
 
@@ -18,7 +20,17 @@ export default function ProductProvenanceModal({
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [originFilter, setOriginFilter] = useState('ALL');
+  const [codeFilterType, setCodeFilterType] = useState('ALL'); // 'ALL' | 'NUMERIC' | 'SUFFIX' | 'COMPOUND'
+  const [sortDirection, setSortDirection] = useState('none'); // 'none' | 'asc' | 'desc'
   const [feedback, setFeedback] = useState('');
+
+  const handleToggleSortDirection = () => {
+    setSortDirection((prev) => {
+      if (prev === 'none') return 'asc';
+      if (prev === 'asc') return 'desc';
+      return 'none';
+    });
+  };
 
   const loadProducts = () => {
     const all = getAllProducts();
@@ -103,14 +115,29 @@ export default function ProductProvenanceModal({
     return res;
   }, [products]);
 
-  // Filtered product records
+  // Filtered and sorted product records
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return products.filter((p) => {
+
+    // 1. Filter items
+    const matches = products.filter((p) => {
       const origin = p.source_origin || (p.source === 'factory_preset' ? 'preset_seed' : (p.isPending ? 'daily_log' : 'planning_catalog'));
       if (originFilter !== 'ALL' && origin !== originFilter) {
         return false;
       }
+
+      // Quick Code Type Filter
+      if (codeFilterType !== 'ALL') {
+        const code = String(p.itemCode || '').trim();
+        const isComp = Boolean(p.isCompounding || /^COMP|^PEL|^BLEND/i.test(code));
+        const isNumeric = /^\d+(?:\.\d+)?$/.test(code);
+        const hasSuffix = /\d+.*[a-zA-Z]|[a-zA-Z].*\d+/.test(code) && !isComp;
+
+        if (codeFilterType === 'NUMERIC' && !isNumeric) return false;
+        if (codeFilterType === 'SUFFIX' && !hasSuffix) return false;
+        if (codeFilterType === 'COMPOUND' && !isComp) return false;
+      }
+
       if (!q) return true;
 
       const code = String(p.itemCode || '').toLowerCase();
@@ -129,7 +156,27 @@ export default function ProductProvenanceModal({
         sheet.includes(q)
       );
     });
-  }, [products, searchQuery, originFilter]);
+
+    // 2. Sort items
+    if (sortDirection !== 'none') {
+      return matches.slice().sort((a, b) => compareProductCodes(a, b, sortDirection));
+    }
+
+    if (q) {
+      // Prioritize exact / prefix match on itemCode when searching
+      return matches.slice().sort((a, b) => {
+        const scoreA = scoreProductSearchRelevance(a, q);
+        const scoreB = scoreProductSearchRelevance(b, q);
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA;
+        }
+        return compareProductCodes(a, b, 'asc');
+      });
+    }
+
+    // Default: natural ascending sort
+    return matches.slice().sort((a, b) => compareProductCodes(a, b, 'asc'));
+  }, [products, searchQuery, originFilter, codeFilterType, sortDirection]);
 
   if (!isOpen) return null;
 
@@ -257,35 +304,55 @@ export default function ProductProvenanceModal({
             </button>
           </div>
 
-          <div className="relative flex-1 sm:w-64 sm:flex-initial">
-            <input
-              type="text"
-              className="w-full text-xs px-3 py-1.5 pl-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              placeholder="Search code, spec, file..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <svg
-              className="absolute left-2.5 top-2 text-slate-400"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            {searchQuery && (
-              <button
-                type="button"
-                className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-                onClick={() => setSearchQuery('')}
+          {/* Quick Filter and Search Controls */}
+          <div className="flex items-center gap-2 flex-1 sm:w-auto sm:flex-initial">
+            {/* Quick Code Type Dropdown */}
+            <div className="relative">
+              <select
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
+                value={codeFilterType}
+                onChange={(e) => setCodeFilterType(e.target.value)}
+                title="Filter by item code category"
+                aria-label="Filter by item code category"
               >
-                &times;
-              </button>
-            )}
+                <option value="ALL">All Codes</option>
+                <option value="NUMERIC">Numeric Only (12, 188...)</option>
+                <option value="SUFFIX">Suffix Codes (247 R...)</option>
+                <option value="COMPOUND">Compounds / Pellets</option>
+              </select>
+            </div>
+
+            {/* Search Input Box */}
+            <div className="relative flex-1 sm:w-64 sm:flex-initial">
+              <input
+                type="text"
+                className="w-full text-xs px-3 py-1.5 pl-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                placeholder="Search code, spec, file..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <svg
+                className="absolute left-2.5 top-2 text-slate-400"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                  onClick={() => setSearchQuery('')}
+                >
+                  &times;
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -304,7 +371,34 @@ export default function ProductProvenanceModal({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/75 dark:bg-slate-800/75 text-slate-600 dark:text-slate-300">
-                  <th className="py-2.5 px-3 font-semibold w-24">Item Code</th>
+                  <th
+                    className={`py-2.5 px-3 font-semibold w-28 cursor-pointer select-none transition-colors group ${
+                      sortDirection !== 'none'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-700 dark:hover:text-emerald-400'
+                    }`}
+                    onClick={handleToggleSortDirection}
+                    title={`Sort by Item Code (${
+                      sortDirection === 'asc'
+                        ? 'Sorted Ascending - click to sort Descending'
+                        : sortDirection === 'desc'
+                        ? 'Sorted Descending - click to reset'
+                        : 'Click to sort Ascending'
+                    })`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span>Item Code</span>
+                      <span
+                        className={`inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold transition-all ${
+                          sortDirection !== 'none'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-slate-400 group-hover:text-emerald-600'
+                        }`}
+                      >
+                        {sortDirection === 'asc' ? '▲' : sortDirection === 'desc' ? '▼' : '↕'}
+                      </span>
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 font-semibold min-w-[220px]">Description &amp; Standard Specs</th>
                   <th className="py-2.5 px-3 font-semibold w-28">OD &times; Wall (SDR)</th>
                   <th className="py-2.5 px-3 font-semibold text-right w-24">Std Wt (kg)</th>
@@ -402,7 +496,19 @@ export default function ProductProvenanceModal({
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3" style={{ flexShrink: 0 }}>
           <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-            <span>Showing {filteredProducts.length} of {products.length} registered catalog items</span>
+            <span>
+              Showing {filteredProducts.length} of {products.length} registered catalog items
+              {sortDirection !== 'none' && (
+                <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  (Sorted {sortDirection === 'asc' ? 'Ascending ▲' : 'Descending ▼'})
+                </span>
+              )}
+              {codeFilterType !== 'ALL' && (
+                <span className="ml-1 text-slate-600 dark:text-slate-300 font-medium">
+                  [{codeFilterType}]
+                </span>
+              )}
+            </span>
             {feedback && (
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />

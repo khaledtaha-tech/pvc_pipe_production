@@ -34,7 +34,10 @@ import {
   isValidProductCode,
   extractProductDimensions,
   normalizePipeUnitWeight,
-  purgeInvalidCatalogItems
+  purgeInvalidCatalogItems,
+  compareProductCodes,
+  scoreProductSearchRelevance,
+  classifyProductCodeType
 } from '../../src/logic/productCatalogHelper.js';
 import {
   saveBaselineRate,
@@ -857,9 +860,57 @@ assert.strictEqual(testLogFallback.source_origin, 'daily_log');
 assert.strictEqual(testLogFallback.source_file, 'Daily Production Log', 'Erronous fallback must be corrected to Daily Production Log');
 assert.strictEqual(testLogFallback.source_sheet, 'Daily Shift Log', 'Erronous fallback must be corrected to Daily Shift Log');
 
-console.log('Test 21 Passed: Daily log provenance tagging strictly enforced.');
+// 22. Item Code Bidirectional Natural Sorting & Quick Filter
+console.log('Test 22: Item code bidirectional natural sorting & quick filter capabilities');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (21/21) ---');
+// 1. Natural ascending numeric and alphanumeric sort verification
+const unsortedCodes = ['195', '12', '247 R', '188', '12.68', '247', 'COMP-01', '190', '248'];
+const sortedAsc = [...unsortedCodes].sort((a, b) => compareProductCodes(a, b, 'asc'));
+assert.deepStrictEqual(
+  sortedAsc,
+  ['12', '12.68', '188', '190', '195', '247', '247 R', '248', 'COMP-01'],
+  'Natural ascending sort must place numeric codes in numerical order and group suffixes properly'
+);
+
+// 2. Natural descending sort verification
+const sortedDesc = [...unsortedCodes].sort((a, b) => compareProductCodes(a, b, 'desc'));
+assert.deepStrictEqual(
+  sortedDesc,
+  ['COMP-01', '248', '247 R', '247', '195', '190', '188', '12.68', '12'],
+  'Natural descending sort must reverse order accurately'
+);
+
+// 3. Object-based comparison with tie-breaker
+const objA = { itemCode: '188', description: 'Alpha Spec' };
+const objB = { itemCode: '188', description: 'Beta Spec' };
+assert.ok(compareProductCodes(objA, objB, 'asc') < 0, 'Tie with equal code should sort by description ascending');
+assert.ok(compareProductCodes(objA, objB, 'desc') > 0, 'Tie with equal code should sort by description descending');
+
+// 4. Search relevance scoring verification
+const sampleItem188 = { itemCode: '188', description: 'MANARCO UPVC PIPE 3" SDR26 ASTM', source_file: 'Unique Planning Catalog' };
+const itemLongDesc = { itemCode: '999', description: 'Special pipe with 188 reference in text', source_file: 'Planning Catalog' };
+const itemPrefix = { itemCode: '1880', description: 'Conduit pipe 20mm', source_file: 'Planning Catalog' };
+
+const scoreExact = scoreProductSearchRelevance(sampleItem188, '188');
+const scorePrefix = scoreProductSearchRelevance(itemPrefix, '188');
+const scoreDescOnly = scoreProductSearchRelevance(itemLongDesc, '188');
+
+assert.strictEqual(scoreExact, 100, 'Exact itemCode match must score 100');
+assert.strictEqual(scorePrefix, 80, 'Prefix itemCode match must score 80');
+assert.strictEqual(scoreDescOnly, 30, 'Description-only substring match must score 30');
+assert.ok(scoreExact > scorePrefix && scorePrefix > scoreDescOnly, 'Search relevance must strictly prioritize itemCode matches');
+
+// 5. Code classification verification
+assert.strictEqual(classifyProductCodeType('188'), 'NUMERIC');
+assert.strictEqual(classifyProductCodeType('12.68'), 'NUMERIC');
+assert.strictEqual(classifyProductCodeType('247 R'), 'SUFFIX');
+assert.strictEqual(classifyProductCodeType('188-A'), 'SUFFIX');
+assert.strictEqual(classifyProductCodeType('COMP-01'), 'COMPOUND');
+assert.strictEqual(classifyProductCodeType({ itemCode: 'PEL-05', isCompounding: true }), 'COMPOUND');
+
+console.log('Test 22 Passed: Natural sorting, search relevance scoring, and code classification verified.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (22/22) ---');
 
 
 

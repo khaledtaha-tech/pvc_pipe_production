@@ -83,7 +83,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [newStatus, setNewStatus] = useState('active');
   const [newIsActive, setNewIsActive] = useState(true);
   const [newMustChangePassword, setNewMustChangePassword] = useState(true); // Default to true per requirement
-  const [newExpiryPreset, setNewExpiryPreset] = useState('unlimited');
+  const [newExpiryPreset, setNewExpiryPreset] = useState('1month');
   const [newCustomExpiry, setNewCustomExpiry] = useState('');
   const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
@@ -96,12 +96,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [newResetPassword, setNewResetPassword] = useState('');
   const [isSubmittingReset, setIsSubmittingReset] = useState(false);
 
-  // Edit user profile state (to add/update email, full name, phone)
+  // Edit user profile state (to add/update email, full name, phone, access duration)
   const [editingUser, setEditingUser] = useState(null);
   const [editUsername, setEditUsername] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editFullName, setEditFullName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editDurationPreset, setEditDurationPreset] = useState('unchanged');
+  const [editCustomExpiry, setEditCustomExpiry] = useState('');
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.username === 'admin';
@@ -209,25 +211,46 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     setEditEmail(user.email || '');
     setEditFullName(user.full_name || '');
     setEditPhone(user.phone || '');
+    setEditDurationPreset('unchanged');
+    setEditCustomExpiry(user.access_expires_at ? user.access_expires_at.slice(0, 16) : '');
   };
 
-  // Handle Saving User Profile Edit (Email, Name, Phone)
+  // Handle Saving User Profile Edit (Email, Name, Phone, Access Duration)
   const handleSaveEdit = async (e) => {
     if (e) e.preventDefault();
     if (!editingUser) return;
 
+    let accessExpiresAtPayload = undefined;
+    if (editDurationPreset !== 'unchanged') {
+      if (editDurationPreset === 'unlimited') {
+        accessExpiresAtPayload = null;
+      } else if (editDurationPreset.endsWith('month') || editDurationPreset.endsWith('months')) {
+        const m = parseInt(editDurationPreset, 10) || 1;
+        const d = new Date();
+        d.setMonth(d.getMonth() + m);
+        accessExpiresAtPayload = d.toISOString().slice(0, 19).replace('T', ' ');
+      } else if (editDurationPreset === 'custom' && editCustomExpiry) {
+        accessExpiresAtPayload = editCustomExpiry.replace('T', ' ') + ':00';
+      }
+    }
+
     setIsSubmittingEdit(true);
     try {
+      const payload = {
+        id: editingUser.id,
+        username: editingUser.username === 'admin' ? undefined : editUsername.trim(),
+        email: editEmail.trim(),
+        full_name: editFullName.trim(),
+        phone: editPhone.trim()
+      };
+      if (editDurationPreset !== 'unchanged') {
+        payload.access_expires_at = accessExpiresAtPayload;
+      }
+
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          id: editingUser.id,
-          username: editingUser.username === 'admin' ? undefined : editUsername.trim(),
-          email: editEmail.trim(),
-          full_name: editFullName.trim(),
-          phone: editPhone.trim()
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await resp.json().catch(() => null);
@@ -357,12 +380,19 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     }
   };
 
-  // Handle Expiration Extension
-  const handleExtendExpiry = async (user, days) => {
+  // Handle Expiration Extension / Setting by Months (1 - 12 Months)
+  const handleSetMonthDuration = async (user, months, fromNow = false) => {
     let formattedDate = null;
-    if (days !== null) {
-      const targetTime = Date.now() + days * 86400000;
-      formattedDate = new Date(targetTime).toISOString().slice(0, 19).replace('T', ' ');
+    if (months !== null && months !== undefined) {
+      const m = parseInt(months, 10);
+      if (!isNaN(m) && m > 0) {
+        // Extend from current expiration date if in the future, or from now if already expired or not set
+        const base = (!fromNow && user.access_expires_at && !isDateExpired(user.access_expires_at))
+          ? new Date(user.access_expires_at)
+          : new Date();
+        base.setMonth(base.getMonth() + m);
+        formattedDate = base.toISOString().slice(0, 19).replace('T', ' ');
+      }
     }
 
     try {
@@ -377,9 +407,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
         showToast(
-          days === null
+          formattedDate === null
             ? `Set ${user.username} to Unlimited Access`
-            : `Extended ${user.username} access by ${days} days`
+            : `Set access for ${user.username} to +${months} month${parseInt(months, 10) > 1 ? 's' : ''}`
         );
         fetchUsers();
       } else {
@@ -388,6 +418,10 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     } catch (err) {
       showToast(err.message || 'Network error updating expiry', 'error');
     }
+  };
+
+  const handleExtendExpiry = (user, daysOrMonths) => {
+    return handleSetMonthDuration(user, daysOrMonths === 7 ? 1 : daysOrMonths === 30 ? 1 : daysOrMonths);
   };
 
   // Handle Custom Expiry Submission
@@ -489,7 +523,12 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     }
 
     let accessExpiresAt = null;
-    if (newExpiryPreset === '7days') {
+    if (newExpiryPreset.endsWith('month') || newExpiryPreset.endsWith('months')) {
+      const months = parseInt(newExpiryPreset, 10) || 1;
+      const d = new Date();
+      d.setMonth(d.getMonth() + months);
+      accessExpiresAt = d.toISOString().slice(0, 19).replace('T', ' ');
+    } else if (newExpiryPreset === '7days') {
       accessExpiresAt = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
     } else if (newExpiryPreset === '30days') {
       accessExpiresAt = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 19).replace('T', ' ');
@@ -529,7 +568,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         setNewStatus('active');
         setNewIsActive(true);
         setNewMustChangePassword(true);
-        setNewExpiryPreset('unlimited');
+        setNewExpiryPreset('1month');
         setNewCustomExpiry('');
         setIsAddFormOpen(false);
         fetchUsers();
@@ -772,11 +811,34 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                         : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   >
+                    <option value="1month">1 Month</option>
+                    <option value="2months">2 Months</option>
+                    <option value="3months">3 Months (Quarterly)</option>
+                    <option value="4months">4 Months</option>
+                    <option value="5months">5 Months</option>
+                    <option value="6months">6 Months (Half Year)</option>
+                    <option value="7months">7 Months</option>
+                    <option value="8months">8 Months</option>
+                    <option value="9months">9 Months</option>
+                    <option value="10months">10 Months</option>
+                    <option value="11months">11 Months</option>
+                    <option value="12months">12 Months (1 Year)</option>
                     <option value="unlimited">Unlimited / Permanent</option>
-                    <option value="7days">7 Days</option>
-                    <option value="30days">30 Days</option>
                     <option value="custom">Custom Date &amp; Time</option>
                   </select>
+                  {newExpiryPreset === 'custom' && (
+                    <input
+                      type="datetime-local"
+                      required
+                      value={newCustomExpiry}
+                      onChange={(e) => setNewCustomExpiry(e.target.value)}
+                      className={`w-full mt-1.5 text-xs px-2.5 py-1.5 rounded-lg border outline-none ${
+                        theme === 'light'
+                          ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                          : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                      }`}
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -1120,28 +1182,81 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                               )}
                             </span>
 
-                            {/* Quick Extensions */}
-                            <div className="flex items-center gap-1">
+                            {/* Quick Month Extensions & Selection (1 to 12 Months) */}
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <select
+                                defaultValue=""
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (!val) return;
+                                  if (val === 'custom') {
+                                    setCustomExpiryUserId(u.id);
+                                    setCustomExpiryValue(u.access_expires_at ? u.access_expires_at.slice(0, 16) : '');
+                                  } else if (val === 'unlimited') {
+                                    handleSetMonthDuration(u, null);
+                                  } else {
+                                    const m = parseInt(val, 10);
+                                    handleSetMonthDuration(u, m);
+                                  }
+                                  e.target.value = '';
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 outline-none cursor-pointer"
+                                title="Set duration from 1 to 12 months"
+                              >
+                                <option value="" disabled>Duration (1-12 Mo)...</option>
+                                <option value="1">+1 Month</option>
+                                <option value="2">+2 Months</option>
+                                <option value="3">+3 Months</option>
+                                <option value="4">+4 Months</option>
+                                <option value="5">+5 Months</option>
+                                <option value="6">+6 Months</option>
+                                <option value="7">+7 Months</option>
+                                <option value="8">+8 Months</option>
+                                <option value="9">+9 Months</option>
+                                <option value="10">+10 Months</option>
+                                <option value="11">+11 Months</option>
+                                <option value="12">+12 Months (1 Year)</option>
+                                <option value="unlimited">Unlimited (&infin;)</option>
+                                <option value="custom">Pick Custom Date...</option>
+                              </select>
+
+                              {/* Quick 1-click Buttons */}
                               <button
                                 type="button"
-                                onClick={() => handleExtendExpiry(u, 7)}
-                                className="px-1.5 py-0.5 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
-                                title="Add 7 Days"
+                                onClick={() => handleSetMonthDuration(u, 1)}
+                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
+                                title="Add 1 Month"
                               >
-                                +7d
+                                +1m
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleExtendExpiry(u, 30)}
-                                className="px-1.5 py-0.5 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
-                                title="Add 30 Days"
+                                onClick={() => handleSetMonthDuration(u, 3)}
+                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
+                                title="Add 3 Months"
                               >
-                                +30d
+                                +3m
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleExtendExpiry(u, null)}
-                                className="px-1.5 py-0.5 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
+                                onClick={() => handleSetMonthDuration(u, 6)}
+                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
+                                title="Add 6 Months"
+                              >
+                                +6m
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSetMonthDuration(u, 12)}
+                                className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-emerald-400 hover:border-emerald-700/60 transition cursor-pointer"
+                                title="Add 12 Months (1 Year)"
+                              >
+                                +12m
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSetMonthDuration(u, null)}
+                                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
                                 title="Clear Expiry (Unlimited Access)"
                               >
                                 &infin;
@@ -1403,6 +1518,53 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                     }`}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className={`block text-[11px] font-semibold mb-1 ${theme === 'light' ? 'text-stone-600' : 'text-slate-400'}`}>
+                  Access Duration &amp; Expiration
+                </label>
+                <div className="relative">
+                  <Clock className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                  <select
+                    value={editDurationPreset}
+                    onChange={(e) => setEditDurationPreset(e.target.value)}
+                    className={`w-full text-xs pl-8 pr-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
+                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  >
+                    <option value="unchanged">Keep Current ({formatDateDisplay(editingUser.access_expires_at)})</option>
+                    <option value="1month">Set to 1 Month from now</option>
+                    <option value="2months">Set to 2 Months from now</option>
+                    <option value="3months">Set to 3 Months from now</option>
+                    <option value="4months">Set to 4 Months from now</option>
+                    <option value="5months">Set to 5 Months from now</option>
+                    <option value="6months">Set to 6 Months from now</option>
+                    <option value="7months">Set to 7 Months from now</option>
+                    <option value="8months">Set to 8 Months from now</option>
+                    <option value="9months">Set to 9 Months from now</option>
+                    <option value="10months">Set to 10 Months from now</option>
+                    <option value="11months">Set to 11 Months from now</option>
+                    <option value="12months">Set to 12 Months (1 Year) from now</option>
+                    <option value="unlimited">Unlimited / Permanent Access</option>
+                    <option value="custom">Custom Date &amp; Time</option>
+                  </select>
+                </div>
+                {editDurationPreset === 'custom' && (
+                  <input
+                    type="datetime-local"
+                    required
+                    value={editCustomExpiry}
+                    onChange={(e) => setEditCustomExpiry(e.target.value)}
+                    className={`w-full mt-1.5 text-xs px-2.5 py-1.5 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-stone-50 border-stone-300 text-stone-900 focus:border-emerald-600 focus:bg-white'
+                        : 'bg-slate-950 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                )}
               </div>
 
               <div

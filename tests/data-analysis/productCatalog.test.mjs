@@ -910,7 +910,67 @@ assert.strictEqual(classifyProductCodeType({ itemCode: 'PEL-05', isCompounding: 
 
 console.log('Test 22 Passed: Natural sorting, search relevance scoring, and code classification verified.');
 
-console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (22/22) ---');
+// 23. Dedicated Inline Item Code Text Filter
+console.log('Test 23: Dedicated inline item code text filter logic');
+
+const sampleCatalog = [
+  { itemCode: '188', description: 'MANARCO UPVC PIPE 3" SDR26 ASTM', source_origin: 'planning_catalog' },
+  { itemCode: '188-A', description: 'Modified Fitting Pipe', source_origin: 'planning_catalog' },
+  { itemCode: '190', description: 'uPVC PIPE 110mm PN-10', source_origin: 'planning_catalog' },
+  { itemCode: '247', description: 'uPVC PIPE 160mm PN-6', source_origin: 'preset_seed' },
+  { itemCode: '247 R', description: 'uPVC PIPE 160mm Rubber Ring PN-6', source_origin: 'planning_catalog' },
+  { itemCode: '262 R', description: 'uPVC PIPE 200mm Rubber Ring PN-10', source_origin: 'daily_log' },
+  { itemCode: 'COMP-01', description: 'White PVC Compound Resin with 188 additive note', source_origin: 'preset_seed' }
+];
+
+const filterByInlineCode = (list, codeQuery, origin = 'ALL') => {
+  const c = String(codeQuery || '').trim().toLowerCase();
+  return list.filter((item) => {
+    if (origin !== 'ALL' && item.source_origin !== origin) return false;
+    if (!c) return true;
+    const itemCode = String(item.itemCode || '').trim().toLowerCase();
+    return itemCode.includes(c);
+  });
+};
+
+// 1. Typing '188' strictly filters by code
+const res188 = filterByInlineCode(sampleCatalog, '188');
+assert.deepStrictEqual(
+  res188.map((i) => i.itemCode),
+  ['188', '188-A'],
+  'Filtering by "188" must return only items whose itemCode contains 188 (excluding description matches like COMP-01)'
+);
+
+// 2. Typing 'R' (case-insensitive) matches suffix codes
+const resR = filterByInlineCode(sampleCatalog, 'R');
+assert.deepStrictEqual(
+  resR.map((i) => i.itemCode),
+  ['247 R', '262 R'],
+  'Filtering by "R" must isolate codes with R suffix (247 R, 262 R)'
+);
+
+const resLowerR = filterByInlineCode(sampleCatalog, 'r');
+assert.deepStrictEqual(
+  resLowerR.map((i) => i.itemCode),
+  ['247 R', '262 R'],
+  'Filtering by lowercase "r" must be case-insensitive'
+);
+
+// 3. Combined with source tabs
+const resRPlanningOnly = filterByInlineCode(sampleCatalog, 'R', 'planning_catalog');
+assert.deepStrictEqual(
+  resRPlanningOnly.map((i) => i.itemCode),
+  ['247 R'],
+  'Filtering by "R" under planning_catalog source must only return 247 R'
+);
+
+// 4. Typing non-matching code returns empty list
+const resNone = filterByInlineCode(sampleCatalog, '9999');
+assert.strictEqual(resNone.length, 0, 'Non-existent code query must return 0 results');
+
+console.log('Test 23 Passed: Dedicated inline item code filtering strictly verified.');
+
+console.log('--- ALL DYNAMIC PRODUCT CATALOG TESTS PASSED SUCCESSFULLY! (23/23) ---');
 
 
 

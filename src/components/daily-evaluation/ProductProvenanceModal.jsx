@@ -19,6 +19,7 @@ export default function ProductProvenanceModal({
 }) {
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [codeFilter, setCodeFilter] = useState('');
   const [originFilter, setOriginFilter] = useState('ALL');
   const [codeFilterType, setCodeFilterType] = useState('ALL'); // 'ALL' | 'NUMERIC' | 'SUFFIX' | 'COMPOUND'
   const [sortDirection, setSortDirection] = useState('none'); // 'none' | 'asc' | 'desc'
@@ -118,12 +119,21 @@ export default function ProductProvenanceModal({
   // Filtered and sorted product records
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const cFilter = codeFilter.trim().toLowerCase();
 
     // 1. Filter items
     const matches = products.filter((p) => {
       const origin = p.source_origin || (p.source === 'factory_preset' ? 'preset_seed' : (p.isPending ? 'daily_log' : 'planning_catalog'));
       if (originFilter !== 'ALL' && origin !== originFilter) {
         return false;
+      }
+
+      // Dedicated Inline Item Code Filter (case-insensitive substring match)
+      if (cFilter) {
+        const itemCodeStr = String(p.itemCode || p.code || p.item_code || '').trim().toLowerCase();
+        if (!itemCodeStr.includes(cFilter)) {
+          return false;
+        }
       }
 
       // Quick Code Type Filter
@@ -176,7 +186,7 @@ export default function ProductProvenanceModal({
 
     // Default: natural ascending sort
     return matches.slice().sort((a, b) => compareProductCodes(a, b, 'asc'));
-  }, [products, searchQuery, originFilter, codeFilterType, sortDirection]);
+  }, [products, searchQuery, codeFilter, originFilter, codeFilterType, sortDirection]);
 
   if (!isOpen) return null;
 
@@ -372,22 +382,24 @@ export default function ProductProvenanceModal({
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/75 dark:bg-slate-800/75 text-slate-600 dark:text-slate-300">
                   <th
-                    className={`py-2.5 px-3 font-semibold w-28 cursor-pointer select-none transition-colors group ${
+                    className={`py-2 px-3 font-semibold min-w-[130px] w-36 select-none transition-colors group align-top ${
                       sortDirection !== 'none'
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-700 dark:hover:text-emerald-400'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
                     }`}
-                    onClick={handleToggleSortDirection}
-                    title={`Sort by Item Code (${
-                      sortDirection === 'asc'
-                        ? 'Sorted Ascending - click to sort Descending'
-                        : sortDirection === 'desc'
-                        ? 'Sorted Descending - click to reset'
-                        : 'Click to sort Ascending'
-                    })`}
                   >
-                    <div className="flex items-center justify-between gap-1">
-                      <span>Item Code</span>
+                    <div
+                      className="flex items-center justify-between gap-1 cursor-pointer py-0.5 hover:text-emerald-700 dark:hover:text-emerald-400"
+                      onClick={handleToggleSortDirection}
+                      title={`Sort by Item Code (${
+                        sortDirection === 'asc'
+                          ? 'Sorted Ascending - click to sort Descending'
+                          : sortDirection === 'desc'
+                          ? 'Sorted Descending - click to reset'
+                          : 'Click to sort Ascending'
+                      })`}
+                    >
+                      <span className="font-semibold text-xs">Item Code</span>
                       <span
                         className={`inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-bold transition-all ${
                           sortDirection !== 'none'
@@ -398,14 +410,43 @@ export default function ProductProvenanceModal({
                         {sortDirection === 'asc' ? '▲' : sortDirection === 'desc' ? '▼' : '↕'}
                       </span>
                     </div>
+
+                    {/* Inline Column Input Filter */}
+                    <div className="relative mt-1.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        className="w-full text-[11px] px-2 py-1 pr-5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-normal font-mono"
+                        placeholder="Filter code..."
+                        value={codeFilter}
+                        onChange={(e) => setCodeFilter(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        title="Filter by specific item code or sub-code"
+                        aria-label="Filter by item code"
+                      />
+                      {codeFilter && (
+                        <button
+                          type="button"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer font-bold leading-none p-0.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCodeFilter('');
+                          }}
+                          title="Clear code filter"
+                          aria-label="Clear code filter"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
                   </th>
-                  <th className="py-2.5 px-3 font-semibold min-w-[220px]">Description &amp; Standard Specs</th>
-                  <th className="py-2.5 px-3 font-semibold w-28">OD &times; Wall (SDR)</th>
-                  <th className="py-2.5 px-3 font-semibold text-right w-24">Std Wt (kg)</th>
-                  <th className="py-2.5 px-3 font-semibold text-right w-28">Pace (pcs/h)</th>
-                  <th className="py-2.5 px-3 font-semibold min-w-[180px]">Source File &amp; Sheet</th>
-                  <th className="py-2.5 px-3 font-semibold w-40 text-center">Origin Type</th>
-                  <th className="py-2.5 px-3 font-semibold w-28 text-right">Updated</th>
+                  <th className="py-2.5 px-3 font-semibold min-w-[220px] align-top">Description &amp; Standard Specs</th>
+                  <th className="py-2.5 px-3 font-semibold w-28 align-top">OD &times; Wall (SDR)</th>
+                  <th className="py-2.5 px-3 font-semibold text-right w-24 align-top">Std Wt (kg)</th>
+                  <th className="py-2.5 px-3 font-semibold text-right w-28 align-top">Pace (pcs/h)</th>
+                  <th className="py-2.5 px-3 font-semibold min-w-[180px] align-top">Source File &amp; Sheet</th>
+                  <th className="py-2.5 px-3 font-semibold w-40 text-center align-top">Origin Type</th>
+                  <th className="py-2.5 px-3 font-semibold w-28 text-right align-top">Updated</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -501,6 +542,11 @@ export default function ProductProvenanceModal({
               {sortDirection !== 'none' && (
                 <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-medium">
                   (Sorted {sortDirection === 'asc' ? 'Ascending ▲' : 'Descending ▼'})
+                </span>
+              )}
+              {codeFilter && (
+                <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  (Code: &quot;{codeFilter}&quot;)
                 </span>
               )}
               {codeFilterType !== 'ALL' && (

@@ -10,7 +10,8 @@ import {
   ChevronRight,
   ChevronLeft,
   CheckCircle2,
-  HardDrive
+  HardDrive,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Header({
@@ -18,6 +19,8 @@ export default function Header({
   activeTab,
   lang,
   theme,
+  user,
+  onOpenAdminModal,
   isCollapsed,
   setIsCollapsed,
   setIsMobileOpen,
@@ -149,6 +152,23 @@ export default function Header({
             >
               <PlusCircle className="w-3.5 h-3.5 text-emerald-500" />
               <span className="hidden sm:inline">{isAr ? 'إضافة سطر' : 'Add Row'}</span>
+            </button>
+          )}
+
+          {/* Admin User Management Button */}
+          {(user?.role === 'super_admin' || user?.role === 'admin') && onOpenAdminModal && (
+            <button
+              type="button"
+              onClick={onOpenAdminModal}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-xs ${
+                isLight
+                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                  : 'bg-slate-800 text-amber-300 border-amber-500/40 hover:bg-slate-700'
+              }`}
+              title={isAr ? 'إدارة المستخدمين والباقات (لوحة المشرف)' : 'User & Tier Management (Admin)'}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">{isAr ? 'إدارة المستخدمين' : 'User Management'}</span>
             </button>
           )}
 

@@ -445,18 +445,21 @@ export default function Sidebar({
           </div>
 
           {/* Admin User Management */}
-          {(user?.role === 'super_admin' || user?.role === 'admin') && onOpenAdminModal && !isCollapsed && (
+          {(user?.role === 'super_admin' || user?.role === 'admin') && onOpenAdminModal && (
             <button
               type="button"
               onClick={onOpenAdminModal}
-              className={`w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+              title={isAr ? 'إدارة المستخدمين والباقات' : 'User & Tier Management'}
+              className={`flex items-center gap-1.5 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                isCollapsed ? 'w-full justify-center p-2' : 'w-full justify-center px-2.5 py-1.5'
+              } ${
                 isLight
                   ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                   : 'bg-slate-800 text-amber-300 border-slate-700 hover:bg-slate-700'
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span>User &amp; Tier Management</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              {!isCollapsed && <span>{isAr ? 'إدارة المستخدمين والباقات' : 'User & Tier Management'}</span>}
             </button>
           )}
 

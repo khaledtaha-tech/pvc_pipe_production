@@ -385,6 +385,8 @@ function AppContent() {
           activeTab={activeTab}
           lang={lang}
           theme={theme}
+          user={user}
+          onOpenAdminModal={() => setIsAdminModalOpen(true)}
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={handleToggleSidebarCollapse}
           setIsMobileOpen={setIsMobileSidebarOpen}

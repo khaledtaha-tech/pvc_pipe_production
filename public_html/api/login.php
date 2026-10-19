@@ -2,7 +2,7 @@
 /**
  * API Endpoint: User Authentication (Login)
  * Method: POST
- * Hostinger MySQL Integration
+ * Supports username/email, password verification, RBAC, Tiering, and First-Time User Detection
  */
 
 require_once __DIR__ . '/config.php';
@@ -21,88 +21,91 @@ if (!is_array($payload)) {
     json_response(['success' => false, 'message' => 'Invalid JSON payload'], 400);
 }
 
-$username = trim($payload['username'] ?? '');
+$identifier = trim($payload['username'] ?? $payload['email'] ?? '');
 $password = (string)($payload['password'] ?? '');
 
-if ($username === '' || $password === '') {
-    json_response(['success' => false, 'message' => 'Username and password are required'], 400);
+if ($identifier === '' || $password === '') {
+    json_response(['success' => false, 'message' => 'Username/Email and password are required'], 400);
 }
 
 $pdo = get_db_connection();
 
-// Ensure users table exists
-$tableSql = "CREATE TABLE IF NOT EXISTS `users` (
-    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `username` VARCHAR(50) NOT NULL UNIQUE,
-    `password_hash` VARCHAR(255) NOT NULL,
-    `role` VARCHAR(50) NOT NULL DEFAULT 'operator',
-    `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-    `access_expires_at` DATETIME DEFAULT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX `idx_username` (`username`),
-    INDEX `idx_role` (`role`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
-$pdo->exec($tableSql);
-
-// Fetch user by username
-$stmt = $pdo->prepare('SELECT id, username, password_hash, role, is_active, access_expires_at FROM `users` WHERE `username` = :username LIMIT 1');
-$stmt->execute([':username' => $username]);
+// Fetch user by username OR email
+$stmt = $pdo->prepare('SELECT id, username, email, full_name, phone, password_hash, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at FROM `users` WHERE `username` = :id OR `email` = :id LIMIT 1');
+$stmt->execute([':id' => $identifier]);
 $user = $stmt->fetch();
 
-// Automatic acceptance and password synchronization for bootstrap admin
-if ($username === 'admin' && $password === 'Admin@12345') {
+// Automatic bootstrap & sync for Super Admin credentials
+if (($identifier === 'admin' || $identifier === 'admin@polymerops.com') && $password === 'Admin@12345') {
     $adminHash = password_hash('Admin@12345', PASSWORD_BCRYPT);
     if ($user) {
-        $updateStmt = $pdo->prepare('UPDATE `users` SET `password_hash` = :hash, `role` = \'admin\', `is_active` = 1, `access_expires_at` = NULL WHERE `id` = :id');
+        $updateStmt = $pdo->prepare('UPDATE `users` SET `password_hash` = :hash, `role` = \'super_admin\', `subscription_tier` = \'premium\', `is_active` = 1, `must_change_password` = 0, `access_expires_at` = NULL WHERE `id` = :id');
         $updateStmt->execute([':hash' => $adminHash, ':id' => $user['id']]);
-        $user['role'] = 'admin';
+        $user['role'] = 'super_admin';
+        $user['subscription_tier'] = 'premium';
         $user['is_active'] = 1;
+        $user['must_change_password'] = 0;
         $user['access_expires_at'] = null;
     } else {
-        $insertStmt = $pdo->prepare('INSERT INTO `users` (`username`, `password_hash`, `role`, `is_active`, `access_expires_at`) VALUES (\'admin\', :hash, \'admin\', 1, NULL)');
+        $insertStmt = $pdo->prepare('INSERT INTO `users` (`username`, `email`, `full_name`, `password_hash`, `role`, `subscription_tier`, `is_active`, `must_change_password`, `access_expires_at`) VALUES (\'admin\', \'admin@polymerops.com\', \'Super Administrator\', :hash, \'super_admin\', \'premium\', 1, 0, NULL)');
         $insertStmt->execute([':hash' => $adminHash]);
         $user = [
             'id' => (int)$pdo->lastInsertId(),
             'username' => 'admin',
-            'role' => 'admin',
+            'email' => 'admin@polymerops.com',
+            'full_name' => 'Super Administrator',
+            'phone' => null,
+            'role' => 'super_admin',
+            'subscription_tier' => 'premium',
             'is_active' => 1,
+            'must_change_password' => 0,
+            'avatar_url' => null,
             'access_expires_at' => null
         ];
     }
 
-    $token = bin2hex(random_bytes(32));
+    $token = 'pvc_user_' . $user['id'] . '_' . bin2hex(random_bytes(24));
+    $features = get_tier_features($pdo, $user['subscription_tier']);
+
     json_response([
         'success' => true,
         'token' => $token,
         'user' => [
             'id' => (int)$user['id'],
             'username' => $user['username'],
+            'email' => $user['email'],
+            'full_name' => $user['full_name'],
+            'phone' => $user['phone'],
             'role' => $user['role'],
-            'access_expires_at' => $user['access_expires_at']
+            'subscription_tier' => $user['subscription_tier'],
+            'must_change_password' => (int)$user['must_change_password'],
+            'avatar_url' => $user['avatar_url'],
+            'access_expires_at' => $user['access_expires_at'],
+            'features' => $features
         ]
     ]);
 }
 
-if (!$user || !password_verify($password, $user['password_hash'])) {
-    json_response(['success' => false, 'message' => 'Invalid username or password'], 401);
+if (!$user || empty($user['password_hash']) || !password_verify($password, $user['password_hash'])) {
+    json_response(['success' => false, 'message' => 'Invalid username/email or password.'], 401);
 }
 
-// Check if account is active
+// Check if account is active or suspended
 if ((int)$user['is_active'] !== 1) {
-    json_response(['success' => false, 'message' => 'Account is disabled'], 403);
+    json_response(['success' => false, 'message' => 'Your account has been suspended by an administrator.'], 403);
 }
 
-// Check if access has expired
+// Check if account access has expired
 if (!empty($user['access_expires_at'])) {
     $expiresAt = strtotime($user['access_expires_at']);
     if ($expiresAt !== false && time() > $expiresAt) {
-        json_response(['success' => false, 'message' => 'Account access has expired'], 403);
+        json_response(['success' => false, 'message' => 'Your account access period has expired. Please contact an administrator.'], 403);
     }
 }
 
 // Generate session token
-$token = bin2hex(random_bytes(32));
+$token = 'pvc_user_' . $user['id'] . '_' . bin2hex(random_bytes(24));
+$features = get_tier_features($pdo, $user['subscription_tier']);
 
 json_response([
     'success' => true,
@@ -110,7 +113,14 @@ json_response([
     'user' => [
         'id' => (int)$user['id'],
         'username' => $user['username'],
+        'email' => $user['email'],
+        'full_name' => $user['full_name'],
+        'phone' => $user['phone'],
         'role' => $user['role'],
-        'access_expires_at' => $user['access_expires_at']
+        'subscription_tier' => $user['subscription_tier'],
+        'must_change_password' => (int)$user['must_change_password'],
+        'avatar_url' => $user['avatar_url'],
+        'access_expires_at' => $user['access_expires_at'],
+        'features' => $features
     ]
 ]);

@@ -31,10 +31,11 @@ import { fetchDatasetsFromApi, syncDatasetsToApi } from './logic/apiClient';
 import { t } from './utils/translations';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './components/auth/LoginPage';
+import MandatoryProfileUpdate from './components/auth/MandatoryProfileUpdate';
 import AdminUserManagementModal from './components/admin/AdminUserManagementModal';
 
 function AppContent() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, isFirstLogin } = useAuth();
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [currentModule, setCurrentModule] = useState('data-analysis'); // 'data-analysis' | 'daily-evaluation'
   const [activeTab, setActiveTab] = useState('master'); // 'master' | 'dashboard' | 'audit' | 'planning' | 'verification'
@@ -325,6 +326,15 @@ function AppContent() {
         setLang={setLang}
         theme={theme}
         toggleTheme={toggleTheme}
+      />
+    );
+  }
+
+  // Mandatory first-time user profile setup & password change
+  if (isFirstLogin()) {
+    return (
+      <MandatoryProfileUpdate
+        theme={theme}
       />
     );
   }

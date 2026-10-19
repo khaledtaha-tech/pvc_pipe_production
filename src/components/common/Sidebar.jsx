@@ -445,7 +445,7 @@ export default function Sidebar({
           </div>
 
           {/* Admin User Management */}
-          {user?.role === 'admin' && onOpenAdminModal && !isCollapsed && (
+          {(user?.role === 'super_admin' || user?.role === 'admin') && onOpenAdminModal && !isCollapsed && (
             <button
               type="button"
               onClick={onOpenAdminModal}
@@ -456,7 +456,7 @@ export default function Sidebar({
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span>User Management</span>
+              <span>User &amp; Tier Management</span>
             </button>
           )}
 
@@ -475,9 +475,20 @@ export default function Sidebar({
                     <span className="text-xs font-bold truncate text-slate-800 dark:text-slate-200">
                       {user.username}
                     </span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      {user.role || 'operator'}
-                    </span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        {user.role === 'super_admin' ? 'Super Admin' : (user.role || 'operator')}
+                      </span>
+                      <span className={`text-[8px] font-bold uppercase tracking-wider px-1 py-0.2 rounded ${
+                        user.subscription_tier === 'premium'
+                          ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                          : user.subscription_tier === 'basic'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}>
+                        {user.subscription_tier || 'free'}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

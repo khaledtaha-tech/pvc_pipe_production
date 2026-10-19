@@ -14,7 +14,15 @@ import {
   AlertCircle,
   KeyRound,
   Lock,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  CreditCard,
+  Ban,
+  Check,
+  Mail,
+  Phone,
+  User as UserIcon,
+  Crown
 } from 'lucide-react';
 
 function getApiUrl(endpoint = 'users.php') {
@@ -65,9 +73,14 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newFullName, setNewFullName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
   const [newRole, setNewRole] = useState('operator');
+  const [newTier, setNewTier] = useState('free');
   const [newIsActive, setNewIsActive] = useState(true);
-  const [newExpiryPreset, setNewExpiryPreset] = useState('unlimited'); // 'unlimited' | '7days' | '30days' | 'custom'
+  const [newMustChangePassword, setNewMustChangePassword] = useState(true); // Default to true per requirement
+  const [newExpiryPreset, setNewExpiryPreset] = useState('unlimited');
   const [newCustomExpiry, setNewCustomExpiry] = useState('');
   const [isSubmittingNew, setIsSubmittingNew] = useState(false);
 
@@ -80,9 +93,12 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   const [newResetPassword, setNewResetPassword] = useState('');
   const [isSubmittingReset, setIsSubmittingReset] = useState(false);
 
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isAdmin = isSuperAdmin || currentUser?.role === 'admin';
+
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
-    window.setTimeout(() => setToast(null), 3500);
+    window.setTimeout(() => setToast(null), 3800);
   }, []);
 
   const fetchUsers = useCallback(async () => {
@@ -119,24 +135,24 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   }, [showToast]);
 
   useEffect(() => {
-    if (isOpen && currentUser?.role === 'admin') {
+    if (isOpen && isAdmin) {
       fetchUsers();
     }
-  }, [isOpen, currentUser, fetchUsers]);
+  }, [isOpen, isAdmin, fetchUsers]);
 
   if (!isOpen) return null;
 
   // Access control safeguard
-  if (currentUser?.role !== 'admin') {
+  if (!isAdmin) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
         <div className={`p-6 rounded-2xl max-w-sm w-full border ${theme === 'light' ? 'bg-white border-stone-200' : 'bg-slate-900 border-slate-800 text-white'}`}>
           <div className="flex items-center gap-3 text-rose-500 mb-3">
             <AlertCircle className="w-6 h-6" />
             <h3 className="font-bold text-base">Access Restricted</h3>
           </div>
           <p className="text-xs text-slate-400 mb-4">
-            Only users with the Administrator role can access the User Management panel.
+            Only users with Administrator or Super Administrator roles can access the User Management panel.
           </p>
           <button
             type="button"
@@ -150,9 +166,16 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
     );
   }
 
-  // Handle Quick Status Toggle
+  // Handle Quick Allow / Suspend (Ban) Toggle
   const handleToggleStatus = async (user) => {
+    if (user.username === 'admin') {
+      showToast('The primary Super Admin account cannot be suspended.', 'error');
+      return;
+    }
+
     const nextStatus = user.is_active ? 0 : 1;
+    const actionName = nextStatus ? 'Allowed' : 'Suspended';
+
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
@@ -164,7 +187,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       });
       const data = await resp.json().catch(() => null);
       if (resp.ok && data?.success) {
-        showToast(`User ${user.username} is now ${nextStatus ? 'Active' : 'Disabled'}`);
+        showToast(`User ${user.username} is now ${actionName}`);
         fetchUsers();
       } else {
         showToast(data?.message || 'Failed to update user status', 'error');
@@ -177,6 +200,11 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   // Handle Role Change
   const handleRoleChange = async (user, newRoleValue) => {
     if (user.role === newRoleValue) return;
+    if (user.username === 'admin' && newRoleValue !== 'super_admin') {
+      showToast('Primary Super Admin role cannot be demoted.', 'error');
+      return;
+    }
+
     try {
       const resp = await fetch(getApiUrl('users.php'), {
         method: 'PUT',
@@ -195,6 +223,55 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
       }
     } catch (err) {
       showToast(err.message || 'Network error updating role', 'error');
+    }
+  };
+
+  // Handle Subscription Tier Change
+  const handleTierChange = async (user, newTierValue) => {
+    if (user.subscription_tier === newTierValue) return;
+
+    try {
+      const resp = await fetch(getApiUrl('users.php'), {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          id: user.id,
+          subscription_tier: newTierValue
+        })
+      });
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success) {
+        showToast(`Updated subscription tier for ${user.username} to ${newTierValue.toUpperCase()}`);
+        fetchUsers();
+      } else {
+        showToast(data?.message || 'Failed to update subscription tier', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Network error updating tier', 'error');
+    }
+  };
+
+  // Handle First-Time Password Reset Flag Toggle
+  const handleToggleMustChangePassword = async (user) => {
+    const nextFlag = user.must_change_password ? 0 : 1;
+    try {
+      const resp = await fetch(getApiUrl('users.php'), {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          id: user.id,
+          must_change_password: nextFlag
+        })
+      });
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success) {
+        showToast(nextFlag ? `Forced password change on next login for ${user.username}` : `Cleared password change requirement for ${user.username}`);
+        fetchUsers();
+      } else {
+        showToast(data?.message || 'Failed to update password change flag', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Network error updating user', 'error');
     }
   };
 
@@ -291,7 +368,12 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
 
   // Handle User Deletion
   const handleDeleteUser = async (user) => {
-    const confirmed = window.confirm(`Are you sure you want to permanently delete user "${user.username}"?`);
+    if (user.username === 'admin') {
+      showToast('Primary Super Admin account cannot be deleted.', 'error');
+      return;
+    }
+
+    const confirmed = window.confirm(`Are you sure you want to permanently delete user "${user.username}"? This cannot be undone.`);
     if (!confirmed) return;
 
     try {
@@ -341,8 +423,13 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         body: JSON.stringify({
           username: cleanUsername,
           password: newPassword,
+          email: newEmail.trim() || null,
+          full_name: newFullName.trim() || null,
+          phone: newPhone.trim() || null,
           role: newRole,
+          subscription_tier: newTier,
           is_active: newIsActive ? 1 : 0,
+          must_change_password: newMustChangePassword ? 1 : 0,
           access_expires_at: accessExpiresAt
         })
       });
@@ -351,8 +438,13 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         showToast(`User ${cleanUsername} created successfully`);
         setNewUsername('');
         setNewPassword('');
+        setNewEmail('');
+        setNewFullName('');
+        setNewPhone('');
         setNewRole('operator');
+        setNewTier('free');
         setNewIsActive(true);
+        setNewMustChangePassword(true);
         setNewExpiryPreset('unlimited');
         setNewCustomExpiry('');
         setIsAddFormOpen(false);
@@ -370,7 +462,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
       <div
-        className={`w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
+        className={`w-full max-w-6xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
           theme === 'light'
             ? 'bg-white border-stone-200 text-stone-900 shadow-stone-300'
             : 'bg-slate-900 border-slate-800 text-slate-100 shadow-black'
@@ -385,20 +477,20 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
           <div className="flex items-center gap-3">
             <div
               className={`p-2.5 rounded-xl ${
-                theme === 'light' ? 'bg-amber-100 text-amber-800' : 'bg-amber-950/80 text-amber-400 border border-amber-800/60'
+                theme === 'light' ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
               }`}
             >
-              <Users className="w-5 h-5" />
+              <Crown className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold">User Management &amp; Access Control</h2>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-                  Hostinger MySQL
+                <h2 className="text-base font-bold">Super Admin User &amp; Tier Management</h2>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60">
+                  Full RBAC &amp; Tiers
                 </span>
               </div>
               <p className={`text-xs ${theme === 'light' ? 'text-stone-500' : 'text-slate-400'}`}>
-                Manage system users, grant administrative roles, toggle account statuses, and control access expirations.
+                Allow or suspend accounts, grant roles, assign Free/Basic/Premium subscription tiers, and control password policies.
               </p>
             </div>
           </div>
@@ -422,10 +514,10 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
             <button
               type="button"
               onClick={() => setIsAddFormOpen((v) => !v)}
-              className="px-3 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              className="px-3 py-1.5 brand-gradient text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition cursor-pointer"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>{isAddFormOpen ? 'Close Form' : 'Add New User'}</span>
+              <span>{isAddFormOpen ? 'Close Form' : 'Register New User'}</span>
             </button>
 
             <button
@@ -463,109 +555,158 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
         {isAddFormOpen && (
           <div
             className={`px-6 py-4 border-b transition-all ${
-              theme === 'light' ? 'bg-stone-50 border-stone-200' : 'bg-slate-950/40 border-slate-800'
+              theme === 'light' ? 'bg-stone-50 border-stone-200' : 'bg-slate-950/50 border-slate-800'
             }`}
           >
             <div className="flex items-center gap-2 mb-3 text-xs font-bold text-emerald-400">
               <UserPlus className="w-4 h-4" />
-              <span>Provision New User Account</span>
+              <span>Register New System User (With First-Time Setup Enforcement)</span>
             </div>
 
-            <form onSubmit={handleCreateUser} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Username *</label>
-                <input
-                  type="text"
-                  required
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="e.g. operator_l02"
-                  className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
-                    theme === 'light'
-                      ? 'bg-white border-stone-300 text-stone-900 focus:border-teal-600'
-                      : 'bg-slate-900 border-slate-700 text-white focus:border-cyan-500'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Password *</label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
-                    theme === 'light'
-                      ? 'bg-white border-stone-300 text-stone-900 focus:border-teal-600'
-                      : 'bg-slate-900 border-slate-700 text-white focus:border-cyan-500'
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Role</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  className={`w-full text-xs px-2.5 py-2 rounded-lg border outline-none ${
-                    theme === 'light'
-                      ? 'bg-white border-stone-300 text-stone-900 focus:border-teal-600'
-                      : 'bg-slate-900 border-slate-700 text-white focus:border-cyan-500'
-                  }`}
-                >
-                  <option value="operator">Operator (Line Data Entry)</option>
-                  <option value="supervisor">Supervisor (Shift Follow)</option>
-                  <option value="admin">Administrator (Full Access)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Access Duration</label>
-                <select
-                  value={newExpiryPreset}
-                  onChange={(e) => setNewExpiryPreset(e.target.value)}
-                  className={`w-full text-xs px-2.5 py-2 rounded-lg border outline-none ${
-                    theme === 'light'
-                      ? 'bg-white border-stone-300 text-stone-900 focus:border-teal-600'
-                      : 'bg-slate-900 border-slate-700 text-white focus:border-cyan-500'
-                  }`}
-                >
-                  <option value="unlimited">Unlimited / Permanent</option>
-                  <option value="7days">7 Days</option>
-                  <option value="30days">30 Days</option>
-                  <option value="custom">Custom Date &amp; Time</option>
-                </select>
-              </div>
-
-              <div className="flex items-end gap-2">
-                <button
-                  type="submit"
-                  disabled={isSubmittingNew}
-                  className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer"
-                >
-                  {isSubmittingNew ? 'Creating...' : 'Save User'}
-                </button>
-              </div>
-
-              {newExpiryPreset === 'custom' && (
-                <div className="sm:col-span-2 md:col-span-3 pt-1">
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    Custom Expiration Date &amp; Time
-                  </label>
+            <form onSubmit={handleCreateUser} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Username *</label>
                   <input
-                    type="datetime-local"
-                    value={newCustomExpiry}
-                    onChange={(e) => setNewCustomExpiry(e.target.value)}
-                    className={`text-xs px-3 py-1.5 rounded-lg border outline-none ${
+                    type="text"
+                    required
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="e.g. eng_ahmed"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
                       theme === 'light'
-                        ? 'bg-white border-stone-300 text-stone-900'
-                        : 'bg-slate-900 border-slate-700 text-white'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
                     }`}
                   />
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Temporary Password *</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Initial default password"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="user@polymerops.com"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={newFullName}
+                    onChange={(e) => setNewFullName(e.target.value)}
+                    placeholder="e.g. Eng. Ahmed Salem"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Role (RBAC)</label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value)}
+                    className={`w-full text-xs px-2.5 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  >
+                    <option value="operator">Operator (Line Data Entry)</option>
+                    <option value="supervisor">Supervisor (Shift Follow)</option>
+                    <option value="admin">Admin (Operational &amp; Data)</option>
+                    <option value="super_admin">Super Admin (Complete Privileges)</option>
+                    <option value="viewer">Viewer (Read Only)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Subscription Tier</label>
+                  <select
+                    value={newTier}
+                    onChange={(e) => setNewTier(e.target.value)}
+                    className={`w-full text-xs px-2.5 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  >
+                    <option value="free">Free Tier ($0/mo &middot; 2 Lines)</option>
+                    <option value="basic">Basic Tier ($49/mo &middot; 7 Lines)</option>
+                    <option value="premium">Premium Tier ($149/mo &middot; Full Suite)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Access Duration</label>
+                  <select
+                    value={newExpiryPreset}
+                    onChange={(e) => setNewExpiryPreset(e.target.value)}
+                    className={`w-full text-xs px-2.5 py-2 rounded-lg border outline-none ${
+                      theme === 'light'
+                        ? 'bg-white border-stone-300 text-stone-900 focus:border-emerald-600'
+                        : 'bg-slate-900 border-slate-700 text-white focus:border-emerald-500'
+                    }`}
+                  >
+                    <option value="unlimited">Unlimited / Permanent</option>
+                    <option value="7days">7 Days</option>
+                    <option value="30days">30 Days</option>
+                    <option value="custom">Custom Date &amp; Time</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-3 pt-4">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newMustChangePassword}
+                      onChange={(e) => setNewMustChangePassword(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-semibold text-emerald-400">
+                      Force Password Update on First Login
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={isSubmittingNew}
+                  className="py-2 px-5 brand-gradient hover:opacity-90 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition shadow-md shadow-emerald-500/20 cursor-pointer"
+                >
+                  {isSubmittingNew ? 'Registering User...' : 'Save & Register User'}
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -576,25 +717,27 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className={`${theme === 'light' ? 'bg-stone-100 text-stone-700' : 'bg-slate-950 text-slate-300'} font-semibold border-b border-slate-800`}>
-                  <th className="py-3 px-4">User</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">User Details</th>
+                  <th className="py-3 px-4">Role (RBAC)</th>
+                  <th className="py-3 px-4">Subscription Tier</th>
+                  <th className="py-3 px-4">Account Status (Allow / Suspend)</th>
+                  <th className="py-3 px-4">First-Time Setup</th>
                   <th className="py-3 px-4">Access Expiration</th>
-                  <th className="py-3 px-4">Created Date</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-slate-500">
-                      {isLoading ? 'Loading users...' : 'No users found in database.'}
+                    <td colSpan={7} className="text-center py-8 text-slate-500">
+                      {isLoading ? 'Loading user database...' : 'No users found in database.'}
                     </td>
                   </tr>
                 ) : (
                   users.map((u) => {
                     const isExpired = isDateExpired(u.access_expires_at);
                     const isSelf = u.id === currentUser?.id;
+                    const isRoot = u.username === 'admin';
 
                     return (
                       <tr
@@ -605,17 +748,31 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                             : 'hover:bg-slate-800/40 text-slate-200'
                         }`}
                       >
-                        {/* Username */}
+                        {/* User Details */}
                         <td className="py-3 px-4">
-                          <div className="font-bold flex items-center gap-2">
-                            <span>{u.username}</span>
-                            {isSelf && (
-                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-                                You
-                              </span>
-                            )}
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg brand-gradient text-white flex items-center justify-center font-bold text-xs shrink-0">
+                              {u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-bold flex items-center gap-1.5">
+                                <span>{u.username}</span>
+                                {isRoot && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                    Root Super Admin
+                                  </span>
+                                )}
+                                {isSelf && !isRoot && (
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {u.email || 'No email attached'} {u.full_name ? `(${u.full_name})` : ''}
+                              </div>
+                            </div>
                           </div>
-                          <span className="text-[10px] text-slate-500">ID: #{u.id}</span>
                         </td>
 
                         {/* Role Selector */}
@@ -623,39 +780,84 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                           <select
                             value={u.role || 'operator'}
                             onChange={(e) => handleRoleChange(u, e.target.value)}
-                            disabled={isSelf && u.role === 'admin'}
+                            disabled={isRoot}
                             className={`text-xs px-2 py-1 rounded-md border font-medium outline-none cursor-pointer ${
-                              u.role === 'admin'
+                              u.role === 'super_admin'
                                 ? 'bg-amber-950/60 text-amber-300 border-amber-800/80 font-bold'
+                                : u.role === 'admin'
+                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80 font-bold'
                                 : u.role === 'supervisor'
-                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80'
+                                ? 'bg-teal-950/60 text-teal-300 border-teal-800/80'
                                 : 'bg-slate-800 text-slate-300 border-slate-700'
                             }`}
                           >
-                            <option value="operator">Operator</option>
-                            <option value="supervisor">Supervisor</option>
+                            <option value="super_admin">Super Admin</option>
                             <option value="admin">Admin</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="operator">Operator</option>
+                            <option value="viewer">Viewer</option>
                           </select>
                         </td>
 
-                        {/* Status Badge & Toggle */}
+                        {/* Subscription Tier Selector */}
+                        <td className="py-3 px-4">
+                          <select
+                            value={u.subscription_tier || 'free'}
+                            onChange={(e) => handleTierChange(u, e.target.value)}
+                            className={`text-xs px-2 py-1 rounded-md border font-semibold outline-none cursor-pointer ${
+                              u.subscription_tier === 'premium'
+                                ? 'bg-purple-950/60 text-purple-300 border-purple-800'
+                                : u.subscription_tier === 'basic'
+                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                                : 'bg-slate-800 text-slate-300 border-slate-700'
+                            }`}
+                          >
+                            <option value="free">Free ($0/mo)</option>
+                            <option value="basic">Basic ($49/mo)</option>
+                            <option value="premium">Premium ($149/mo)</option>
+                          </select>
+                        </td>
+
+                        {/* Account Status (Allow / Suspend Toggle) */}
                         <td className="py-3 px-4">
                           <button
                             type="button"
                             onClick={() => handleToggleStatus(u)}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition ${
+                            disabled={isRoot}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                               u.is_active
                                 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900/60'
                                 : 'bg-rose-950 text-rose-400 border border-rose-800 hover:bg-rose-900/60'
                             }`}
-                            title="Click to toggle Active / Disabled status"
+                            title={isRoot ? 'Cannot suspend primary Super Admin' : (u.is_active ? 'Click to Suspend (Ban) this user' : 'Click to Allow (Reactivate) this user')}
                           >
                             {u.is_active ? (
-                              <CheckCircle2 className="w-3 h-3" />
+                              <>
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Allowed (Active)</span>
+                              </>
                             ) : (
-                              <XCircle className="w-3 h-3" />
+                              <>
+                                <Ban className="w-3.5 h-3.5" />
+                                <span>Suspended (Banned)</span>
+                              </>
                             )}
-                            <span>{u.is_active ? 'Active' : 'Disabled'}</span>
+                          </button>
+                        </td>
+
+                        {/* First-Time Setup Flag Toggle */}
+                        <td className="py-3 px-4">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleMustChangePassword(u)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer border ${
+                              u.must_change_password
+                                ? 'bg-amber-950/50 text-amber-300 border-amber-800/60'
+                                : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                            }`}
+                            title="Click to toggle mandatory profile & password update requirement"
+                          >
+                            {u.must_change_password ? 'Required' : 'Completed'}
                           </button>
                         </td>
 
@@ -703,7 +905,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                                 className="px-1.5 py-0.5 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
                                 title="Clear Expiry (Unlimited Access)"
                               >
-                                &infin; Unl
+                                &infin;
                               </button>
                               <button
                                 type="button"
@@ -746,11 +948,6 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                           </div>
                         </td>
 
-                        {/* Created Date */}
-                        <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
-                          {u.created_at ? u.created_at.slice(0, 10) : '—'}
-                        </td>
-
                         {/* Actions */}
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
@@ -771,9 +968,9 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
                             <button
                               type="button"
                               onClick={() => handleDeleteUser(u)}
-                              disabled={isSelf}
+                              disabled={isRoot || isSelf}
                               className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                              title={isSelf ? 'Cannot delete your own account' : 'Delete User'}
+                              title={isRoot ? 'Cannot delete Super Admin' : (isSelf ? 'Cannot delete your own account' : 'Delete User')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -828,7 +1025,7 @@ export default function AdminUserManagementModal({ isOpen, onClose, currentUser,
           }`}
         >
           <span>Total Registered Accounts: {users.length}</span>
-          <span>Security Policy: Bcrypt Hash &middot; MySQL utf8mb4 &middot; Session Token Protected</span>
+          <span>Security &amp; RBAC: Bcrypt &middot; Super Admin Protected &middot; Tier Feature Gating Active</span>
         </div>
       </div>
     </div>

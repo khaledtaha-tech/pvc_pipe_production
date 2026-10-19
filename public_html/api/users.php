@@ -1,8 +1,8 @@
 <?php
 /**
- * API Endpoint: User Management (CRUD)
+ * API Endpoint: User Management (RBAC & Tier Control)
  * Methods: GET, POST, PUT, DELETE, OPTIONS
- * Hostinger MySQL Integration
+ * Hostinger MySQL Integration & Super Admin User Management
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -47,21 +47,7 @@ function sanitize_datetime($dt) {
 
 try {
     $pdo = get_db_connection();
-
-    // Ensure users table exists
-    $tableSql = "CREATE TABLE IF NOT EXISTS `users` (
-        `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        `username` VARCHAR(50) NOT NULL UNIQUE,
-        `password_hash` VARCHAR(255) NOT NULL,
-        `role` VARCHAR(50) NOT NULL DEFAULT 'operator',
-        `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-        `access_expires_at` DATETIME DEFAULT NULL,
-        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX `idx_username` (`username`),
-        INDEX `idx_role` (`role`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
-    $pdo->exec($tableSql);
+    ensure_auth_tables_exist($pdo);
 
     // -----------------------------------------------------------------------------
     // 1. GET: List All Users (Excludes password_hash)
@@ -69,7 +55,7 @@ try {
     if ($method === 'GET') {
         // If specific ID requested
         if (!empty($_GET['id'])) {
-            $stmt = $pdo->prepare('SELECT id, username, role, is_active, access_expires_at, created_at FROM `users` WHERE id = :id LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` WHERE id = :id LIMIT 1');
             $stmt->execute([':id' => (int)$_GET['id']]);
             $user = $stmt->fetch();
             if (!$user) {
@@ -77,15 +63,19 @@ try {
             }
             $user['id'] = (int)$user['id'];
             $user['is_active'] = (int)$user['is_active'];
+            $user['must_change_password'] = (int)$user['must_change_password'];
+            $user['features'] = get_tier_features($pdo, $user['subscription_tier'] ?? 'free');
             json_response(['success' => true, 'user' => $user]);
         }
 
-        $stmt = $pdo->query('SELECT id, username, role, is_active, access_expires_at, created_at FROM `users` ORDER BY id ASC');
+        $stmt = $pdo->query('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` ORDER BY id ASC');
         $users = $stmt->fetchAll();
 
         foreach ($users as &$u) {
             $u['id'] = (int)$u['id'];
             $u['is_active'] = (int)$u['is_active'];
+            $u['must_change_password'] = (int)$u['must_change_password'];
+            $u['features'] = get_tier_features($pdo, $u['subscription_tier'] ?? 'free');
         }
         unset($u);
 
@@ -104,8 +94,14 @@ try {
 
         $username = trim($input['username'] ?? '');
         $password = (string)($input['password'] ?? '');
+        $email = !empty($input['email']) ? strtolower(trim($input['email'])) : null;
+        $fullName = !empty($input['full_name']) ? trim($input['full_name']) : null;
+        $phone = !empty($input['phone']) ? trim($input['phone']) : null;
         $role = trim($input['role'] ?? 'operator');
+        $tier = trim($input['subscription_tier'] ?? 'free');
         $isActive = isset($input['is_active']) ? ((int)$input['is_active'] ? 1 : 0) : 1;
+        // Default must_change_password to 1 so registered users are prompted on first login
+        $mustChangePassword = isset($input['must_change_password']) ? ((int)$input['must_change_password'] ? 1 : 0) : 1;
         $accessExpiresAt = sanitize_datetime($input['access_expires_at'] ?? null);
 
         if ($username === '') {
@@ -115,6 +111,17 @@ try {
             json_response(['success' => false, 'message' => 'Password is required'], 400);
         }
 
+        // Validate valid roles & tiers
+        $validRoles = ['super_admin', 'admin', 'supervisor', 'operator', 'viewer'];
+        if (!in_array($role, $validRoles, true)) {
+            $role = 'operator';
+        }
+
+        $validTiers = ['free', 'basic', 'premium'];
+        if (!in_array($tier, $validTiers, true)) {
+            $tier = 'free';
+        }
+
         // Check if username already exists
         $checkStmt = $pdo->prepare('SELECT id FROM `users` WHERE username = :username LIMIT 1');
         $checkStmt->execute([':username' => $username]);
@@ -122,14 +129,28 @@ try {
             json_response(['success' => false, 'message' => 'Username already exists'], 409);
         }
 
+        // Check if email already exists
+        if (!empty($email)) {
+            $checkEmail = $pdo->prepare('SELECT id FROM `users` WHERE email = :email LIMIT 1');
+            $checkEmail->execute([':email' => $email]);
+            if ($checkEmail->fetch()) {
+                json_response(['success' => false, 'message' => 'Email address is already in use by another account'], 409);
+            }
+        }
+
         $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-        $insertStmt = $pdo->prepare('INSERT INTO `users` (username, password_hash, role, is_active, access_expires_at) VALUES (:username, :password_hash, :role, :is_active, :access_expires_at)');
+        $insertStmt = $pdo->prepare('INSERT INTO `users` (username, email, full_name, phone, password_hash, role, subscription_tier, is_active, must_change_password, access_expires_at) VALUES (:username, :email, :full_name, :phone, :password_hash, :role, :subscription_tier, :is_active, :must_change_password, :access_expires_at)');
         $insertStmt->execute([
             ':username' => $username,
+            ':email' => $email,
+            ':full_name' => $fullName,
+            ':phone' => $phone,
             ':password_hash' => $passwordHash,
             ':role' => $role,
+            ':subscription_tier' => $tier,
             ':is_active' => $isActive,
+            ':must_change_password' => $mustChangePassword,
             ':access_expires_at' => $accessExpiresAt
         ]);
 
@@ -141,15 +162,21 @@ try {
             'user' => [
                 'id' => $newId,
                 'username' => $username,
+                'email' => $email,
+                'full_name' => $fullName,
+                'phone' => $phone,
                 'role' => $role,
+                'subscription_tier' => $tier,
                 'is_active' => $isActive,
-                'access_expires_at' => $accessExpiresAt
+                'must_change_password' => $mustChangePassword,
+                'access_expires_at' => $accessExpiresAt,
+                'features' => get_tier_features($pdo, $tier)
             ]
         ], 201);
     }
 
     // -----------------------------------------------------------------------------
-    // 3. PUT: Update User (is_active, access_expires_at, role, password)
+    // 3. PUT: Update User (Allow/Suspend, Tier, Role, Password, Details)
     // -----------------------------------------------------------------------------
     if ($method === 'PUT') {
         $input = get_json_input();
@@ -160,7 +187,7 @@ try {
         }
 
         // Fetch existing record
-        $fetchStmt = $pdo->prepare('SELECT id, username, role, is_active, access_expires_at FROM `users` WHERE id = :id LIMIT 1');
+        $fetchStmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at FROM `users` WHERE id = :id LIMIT 1');
         $fetchStmt->execute([':id' => $id]);
         $existing = $fetchStmt->fetch();
 
@@ -168,18 +195,30 @@ try {
             json_response(['success' => false, 'message' => 'User not found'], 404);
         }
 
-        // Protection rule: Prevent deactivating or demoting the last active admin
-        $isCurrentlyAdmin = ($existing['role'] === 'admin' && (int)$existing['is_active'] === 1);
-        $willDeactivate = (isset($input['is_active']) && (int)$input['is_active'] === 0);
-        $willDemote = (isset($input['role']) && trim($input['role']) !== 'admin');
+        $isRootAdmin = ($existing['username'] === 'admin');
+        $isAdminRole = ($existing['role'] === 'super_admin' || $existing['role'] === 'admin');
 
-        if ($isCurrentlyAdmin && ($willDeactivate || $willDemote)) {
-            $adminCountStmt = $pdo->prepare("SELECT COUNT(*) FROM `users` WHERE role = 'admin' AND is_active = 1 AND id != :id");
+        // Protection: Prevent suspending or demoting the root 'admin'
+        if ($isRootAdmin) {
+            if (isset($input['is_active']) && (int)$input['is_active'] === 0) {
+                json_response(['success' => false, 'message' => 'Primary Super Admin account cannot be suspended.'], 400);
+            }
+            if (isset($input['role']) && trim($input['role']) !== 'super_admin') {
+                json_response(['success' => false, 'message' => 'Primary Super Admin role cannot be demoted.'], 400);
+            }
+        }
+
+        // Protection rule: Prevent deactivating or demoting the last active super_admin/admin
+        $willDeactivate = (isset($input['is_active']) && (int)$input['is_active'] === 0);
+        $willDemote = (isset($input['role']) && !in_array(trim($input['role']), ['super_admin', 'admin'], true));
+
+        if ($isAdminRole && ($willDeactivate || $willDemote)) {
+            $adminCountStmt = $pdo->prepare("SELECT COUNT(*) FROM `users` WHERE role IN ('super_admin', 'admin') AND is_active = 1 AND id != :id");
             $adminCountStmt->execute([':id' => $id]);
             $remainingAdmins = (int)$adminCountStmt->fetchColumn();
 
             if ($remainingAdmins === 0) {
-                json_response(['success' => false, 'message' => 'Cannot deactivate or demote the last remaining active admin'], 400);
+                json_response(['success' => false, 'message' => 'Cannot suspend or demote the last remaining active administrator.'], 400);
             }
         }
 
@@ -199,14 +238,57 @@ try {
             }
         }
 
+        if (array_key_exists('email', $input)) {
+            $newEmail = !empty($input['email']) ? strtolower(trim($input['email'])) : null;
+            if ($newEmail !== $existing['email']) {
+                if ($newEmail !== null) {
+                    $eCheck = $pdo->prepare('SELECT id FROM `users` WHERE email = :email AND id != :id LIMIT 1');
+                    $eCheck->execute([':email' => $newEmail, ':id' => $id]);
+                    if ($eCheck->fetch()) {
+                        json_response(['success' => false, 'message' => 'Email address is already in use by another account'], 409);
+                    }
+                }
+                $updates[] = '`email` = :email';
+                $params[':email'] = $newEmail;
+            }
+        }
+
+        if (array_key_exists('full_name', $input)) {
+            $updates[] = '`full_name` = :full_name';
+            $params[':full_name'] = !empty($input['full_name']) ? trim($input['full_name']) : null;
+        }
+
+        if (array_key_exists('phone', $input)) {
+            $updates[] = '`phone` = :phone';
+            $params[':phone'] = !empty($input['phone']) ? trim($input['phone']) : null;
+        }
+
         if (isset($input['role'])) {
-            $updates[] = '`role` = :role';
-            $params[':role'] = trim($input['role']);
+            $newRole = trim($input['role']);
+            $validRoles = ['super_admin', 'admin', 'supervisor', 'operator', 'viewer'];
+            if (in_array($newRole, $validRoles, true)) {
+                $updates[] = '`role` = :role';
+                $params[':role'] = $newRole;
+            }
+        }
+
+        if (isset($input['subscription_tier'])) {
+            $newTier = trim($input['subscription_tier']);
+            $validTiers = ['free', 'basic', 'premium'];
+            if (in_array($newTier, $validTiers, true)) {
+                $updates[] = '`subscription_tier` = :subscription_tier';
+                $params[':subscription_tier'] = $newTier;
+            }
         }
 
         if (isset($input['is_active'])) {
             $updates[] = '`is_active` = :is_active';
             $params[':is_active'] = (int)$input['is_active'] ? 1 : 0;
+        }
+
+        if (isset($input['must_change_password'])) {
+            $updates[] = '`must_change_password` = :must_change_password';
+            $params[':must_change_password'] = (int)$input['must_change_password'] ? 1 : 0;
         }
 
         if (array_key_exists('access_expires_at', $input)) {
@@ -219,20 +301,20 @@ try {
             $params[':password_hash'] = password_hash((string)$input['password'], PASSWORD_BCRYPT);
         }
 
-        if (empty($updates)) {
-            json_response(['success' => true, 'message' => 'No changes submitted', 'user' => $existing]);
+        if (!empty($updates)) {
+            $sql = 'UPDATE `users` SET ' . implode(', ', $updates) . ' WHERE id = :id';
+            $updateStmt = $pdo->prepare($sql);
+            $updateStmt->execute($params);
         }
 
-        $sql = 'UPDATE `users` SET ' . implode(', ', $updates) . ' WHERE id = :id';
-        $updateStmt = $pdo->prepare($sql);
-        $updateStmt->execute($params);
-
         // Fetch updated user
-        $refetchStmt = $pdo->prepare('SELECT id, username, role, is_active, access_expires_at, created_at FROM `users` WHERE id = :id LIMIT 1');
+        $refetchStmt = $pdo->prepare('SELECT id, username, email, full_name, phone, role, subscription_tier, is_active, must_change_password, avatar_url, access_expires_at, created_at, updated_at FROM `users` WHERE id = :id LIMIT 1');
         $refetchStmt->execute([':id' => $id]);
         $updatedUser = $refetchStmt->fetch();
         $updatedUser['id'] = (int)$updatedUser['id'];
         $updatedUser['is_active'] = (int)$updatedUser['is_active'];
+        $updatedUser['must_change_password'] = (int)$updatedUser['must_change_password'];
+        $updatedUser['features'] = get_tier_features($pdo, $updatedUser['subscription_tier'] ?? 'free');
 
         json_response([
             'success' => true,
@@ -242,7 +324,7 @@ try {
     }
 
     // -----------------------------------------------------------------------------
-    // 4. DELETE: Delete User (Cannot delete last active admin)
+    // 4. DELETE: Delete User (Cannot delete primary admin or last active admin)
     // -----------------------------------------------------------------------------
     if ($method === 'DELETE') {
         $input = get_json_input();
@@ -260,16 +342,24 @@ try {
             json_response(['success' => false, 'message' => 'User not found'], 404);
         }
 
-        // Protection rule: Prevent deleting the last active admin
-        if ($existing['role'] === 'admin') {
-            $adminCountStmt = $pdo->prepare("SELECT COUNT(*) FROM `users` WHERE role = 'admin' AND is_active = 1 AND id != :id");
+        // Root admin cannot be deleted
+        if ($existing['username'] === 'admin') {
+            json_response(['success' => false, 'message' => 'The primary Super Administrator account cannot be deleted.'], 403);
+        }
+
+        // Protection rule: Prevent deleting the last active admin/super_admin
+        if ($existing['role'] === 'super_admin' || $existing['role'] === 'admin') {
+            $adminCountStmt = $pdo->prepare("SELECT COUNT(*) FROM `users` WHERE role IN ('super_admin', 'admin') AND is_active = 1 AND id != :id");
             $adminCountStmt->execute([':id' => $id]);
             $remainingAdmins = (int)$adminCountStmt->fetchColumn();
 
             if ($remainingAdmins === 0) {
-                json_response(['success' => false, 'message' => 'Cannot delete the last remaining active admin'], 400);
+                json_response(['success' => false, 'message' => 'Cannot delete the last remaining active administrator.'], 400);
             }
         }
+
+        // Clean up any password reset records first
+        $pdo->prepare('DELETE FROM `password_resets` WHERE user_id = :id')->execute([':id' => $id]);
 
         $delStmt = $pdo->prepare('DELETE FROM `users` WHERE id = :id');
         $delStmt->execute([':id' => $id]);

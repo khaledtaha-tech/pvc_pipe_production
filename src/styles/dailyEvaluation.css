@@ -5421,7 +5421,7 @@ html:not(.light) .log-table th {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 12px;
   animation: modalFadeIn 0.15s ease;
 }
 
@@ -5866,10 +5866,10 @@ html:not(.light) .log-table th {
    MORNING BLANK SOP GENERATOR MODAL (DOC-Ext.-03) STYLES
    ======================================================== */
 .print-sop-modal-dialog {
-  max-width: 1200px;
-  width: 95vw;
-  height: 88vh;
-  max-height: 88vh;
+  max-width: 1440px;
+  width: 96vw;
+  height: 94vh;
+  max-height: 94vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -8575,7 +8575,8 @@ html:not(.light) .print-sop-switch-banner .btn-link-action:hover {
    ========================================================================== */
 .standards-catalog-body {
   padding: 1.25rem 1.5rem;
-  max-height: calc(85vh - 140px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -8702,7 +8703,8 @@ html:not(.light) .print-sop-switch-banner .btn-link-action:hover {
 .standards-catalog-table-wrap {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  max-height: calc(94vh - 240px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
@@ -8722,6 +8724,9 @@ html:not(.light) .print-sop-switch-banner .btn-link-action:hover {
   border-bottom: 1px solid #cbd5e1;
   font-size: 0.775rem;
   letter-spacing: 0.02em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .standards-catalog-table td {

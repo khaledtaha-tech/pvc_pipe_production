@@ -180,7 +180,7 @@ export default function MachineSettingsModal({
         aria-modal="true"
         aria-labelledby="machine-settings-modal-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 980 }}
+        style={{ maxWidth: 1400, width: '96vw', height: '94vh', maxHeight: '94vh', display: 'flex', flexDirection: 'column' }}
       >
         <div className="export-modal-header">
           <div className="export-modal-header-left">

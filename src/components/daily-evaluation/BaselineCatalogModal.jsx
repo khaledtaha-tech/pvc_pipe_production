@@ -242,7 +242,7 @@ export default function BaselineCatalogModal({
         aria-modal="true"
         aria-labelledby="baseline-catalog-modal-title"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 940 }}
+        style={{ maxWidth: 1400, width: '96vw', height: '94vh', maxHeight: '94vh', display: 'flex', flexDirection: 'column' }}
       >
         {/* Modal Header */}
         <div className="export-modal-header">

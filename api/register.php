@@ -71,11 +71,11 @@ try {
 
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-    $insert = $pdo->prepare('INSERT INTO `users` (
+    $insert = $pdo->prepare("INSERT INTO `users` (
         `username`, `email`, `full_name`, `phone`, `password_hash`, `role`, `subscription_tier`, `is_active`, `status`, `must_change_password`
     ) VALUES (
         :u, :e, :fn, :ph, :hash, 'operator', 'basic', 0, 'pending', 0
-    )');
+    )");
 
     $insert->execute([
         ':u' => $username,

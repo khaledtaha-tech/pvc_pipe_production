@@ -48,13 +48,15 @@ try {
         }
     }
 
-    $whereClause = '`username` = :id';
+    $whereClause = '`username` = :u_id';
+    $params = [':u_id' => $identifier];
     if (isset($colMap['email'])) {
-        $whereClause .= ' OR `email` = :id';
+        $whereClause .= ' OR `email` = :e_id';
+        $params[':e_id'] = $identifier;
     }
 
     $stmt = $pdo->prepare('SELECT ' . implode(', ', $fields) . " FROM `users` WHERE $whereClause LIMIT 1");
-    $stmt->execute([':id' => $identifier]);
+    $stmt->execute($params);
     $user = $stmt->fetch();
 
     // Automatic bootstrap & sync for Super Admin credentials (admin / Admin@12345)

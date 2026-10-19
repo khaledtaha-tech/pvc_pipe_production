@@ -30,8 +30,8 @@ if ($identifier === '') {
 $pdo = get_db_connection();
 
 // Find user by email or username
-$stmt = $pdo->prepare('SELECT id, username, email, full_name, is_active FROM `users` WHERE `email` = :id OR `username` = :id LIMIT 1');
-$stmt->execute([':id' => $identifier]);
+$stmt = $pdo->prepare('SELECT id, username, email, full_name, is_active FROM `users` WHERE `email` = :em OR `username` = :un LIMIT 1');
+$stmt->execute([':em' => $identifier, ':un' => $identifier]);
 $user = $stmt->fetch();
 
 // Standard security practice: respond with positive message even if user not found to prevent account enumeration

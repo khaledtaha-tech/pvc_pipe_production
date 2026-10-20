@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Factory, 
+  Factory,
+  BookOpen, 
   BarChart3, 
   ClipboardList, 
   Database, 
@@ -267,6 +268,33 @@ export default function Sidebar({
                   <div className="truncate">{isAr ? 'سجل الوردية و OEE' : 'Daily OEE Evaluation'}</div>
                   <div className={`text-[10px] font-normal truncate ${currentModule === 'daily-evaluation' ? 'text-emerald-100' : 'text-slate-400'}`}>
                     {isAr ? 'متابعة الخطوط والورديات' : '24h Shift Reconciliation'}
+                  </div>
+                </div>
+              )}
+            </button>
+
+            {/* 4. Engineering Governance & Sizing Hub */}
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentModule('engineering-docs');
+                if (isMobileOpen) setIsMobileOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                currentModule === 'engineering-docs'
+                  ? 'brand-gradient text-white shadow-md shadow-emerald-600/25 ring-1 ring-white/20'
+                  : isLight
+                    ? 'text-slate-700 hover:bg-slate-100'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+              } ${isCollapsed ? 'justify-center px-0' : ''}`}
+              title={isAr ? '\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062F\u0633\u064A\u0629' : 'Engineering Governance Hub'}
+            >
+              <BookOpen className="w-4 h-4 shrink-0" />
+              {!isCollapsed && (
+                <div className="flex-1 text-left rtl:text-right truncate">
+                  <div className="truncate">{isAr ? '\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062F\u0633\u064A\u0629' : 'Engineering Hub'}</div>
+                  <div className={`text-[10px] font-normal truncate ${currentModule === 'engineering-docs' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                    {isAr ? '\u062F\u0644\u064A\u0644 \u0627\u0644\u0645\u0642\u0627\u0633\u0627\u062A \u0648\u0627\u0644\u0623\u0648\u0632\u0627\u0646' : 'Governance & Sizing Doc'}
                   </div>
                 </div>
               )}

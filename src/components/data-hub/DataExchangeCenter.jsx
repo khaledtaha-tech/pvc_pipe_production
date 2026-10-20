@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import {
+  BookOpen,
   UploadCloud,
   FileSpreadsheet,
   Download,
@@ -68,7 +69,8 @@ export default function DataExchangeCenter({
   onExportUniqueCatalog,
   onExportCleanLog,
   onClearAllData,
-  onNotify
+  onNotify,
+  onOpenEngineeringDocs
 }) {
   const isLight = theme === 'light';
   const notify = (msg, type = 'success') => {
@@ -532,6 +534,19 @@ export default function DataExchangeCenter({
               <div className="text-[10px] font-semibold text-slate-400 uppercase">Master Plans</div>
               <div className="text-sm font-bold font-mono text-emerald-500">{masterRuns.length}</div>
             </div>
+
+                        {/* Prominent Engineering Documentation Hub Link */}
+            {onOpenEngineeringDocs && (
+              <button
+                type="button"
+                onClick={onOpenEngineeringDocs}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 border border-teal-500/80 shadow-md shadow-teal-900/30 transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 shrink-0"
+                title="Open Engineering Governance & Sizing Documentation Hub"
+              >
+                <BookOpen className="w-4 h-4 text-white shrink-0" />
+                <span>{lang === 'ar' ? '\u0627\u0644\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u0647\u0646\u062F\u0633\u064A' : 'Engineering Docs Hub'}</span>
+              </button>
+            )}
 
             {/* Prominent Quick Clear Cache Button */}
             <button
@@ -1176,6 +1191,16 @@ export default function DataExchangeCenter({
             <Download className="w-4 h-4" />
             <span>Export Calculation Spec (.xlsx)</span>
           </button>
+          {onOpenEngineeringDocs && (
+            <button
+              type="button"
+              onClick={onOpenEngineeringDocs}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition cursor-pointer self-start md:self-auto"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>{lang === 'ar' ? '\u062F\u0644\u064A\u0644 \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062F\u0633\u064A\u0629' : 'Open Engineering Hub'}</span>
+            </button>
+          )}
         </div>
 
         {/* 2-Column Inspector: Formula Cards vs Interactive Test Sandbox */}

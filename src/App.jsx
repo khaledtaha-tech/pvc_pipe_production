@@ -7,6 +7,7 @@ import Header from './components/common/Header';
 import DataAnalysisView from './components/data-analysis/DataAnalysisView';
 import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationView';
 import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
+import EngineeringDocView from './components/engineering-docs/EngineeringDocView';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 import { cleanPipeProductionData, standardizeMaterial, isValidPipeOrConduitProduct } from './utils/dataCleaner';
@@ -428,6 +429,17 @@ function AppContent() {
                 handleExportConsolidated={handleExportConsolidatedExcel}
                 handleExportMasterPlan={handleExportMasterPlanExcel}
                 handleExportUniqueCatalog={handleExportUniqueCatalog}
+                onNotify={showToast}
+                onOpenEngineeringDocs={() => setCurrentModule('engineering-docs')}
+              />
+            </ErrorBoundary>
+          )}
+
+                    {currentModule === 'engineering-docs' && (
+            <ErrorBoundary>
+              <EngineeringDocView
+                theme={theme}
+                lang={lang}
                 onNotify={showToast}
               />
             </ErrorBoundary>

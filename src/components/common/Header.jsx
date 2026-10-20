@@ -43,6 +43,8 @@ export default function Header({
         return isAr ? 'سجل الوردية والتقييم اليومي' : 'Daily OEE Evaluation';
       case 'data-hub':
         return isAr ? 'مركز تبادل البيانات' : 'Data Exchange Hub';
+      case 'engineering-docs':
+        return isAr ? '\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062F\u0633\u064A\u0629' : 'Engineering Documentation Hub';
       default:
         return 'PVC Suite';
     }

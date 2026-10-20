@@ -613,6 +613,24 @@ export default function ProductProvenanceModal({
               <span>Export Provenance Audit (JSON)</span>
             </button>
 
+            {onOpenEngineeringDocs && (
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                onClick={() => {
+                  onClose();
+                  onOpenEngineeringDocs();
+                }}
+                title="Open Engineering Governance Documentation Hub"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                </svg>
+                <span>Engineering Docs</span>
+              </button>
+            )}
+
             {/* Export CSV Button */}
             <button
               type="button"

@@ -488,6 +488,7 @@ function AppContent() {
                 lang={lang}
                 historicalRawRows={historicalRawRows}
                 rawRows={rawRows}
+                onOpenEngineeringDocs={() => setCurrentModule('engineering-docs')}
               />
             </ErrorBoundary>
           </div>

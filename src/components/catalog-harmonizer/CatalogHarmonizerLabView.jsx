@@ -31,8 +31,13 @@ import {
   loadHarmonizerSandboxState,
   saveHarmonizerSandboxState,
   clearHarmonizerSandboxState,
-  promoteToMasterCatalog
+  promoteToMasterCatalog,
+  loadArchetypes,
+  applyArchetypeToItem,
+  synthesizeDescription
 } from '../../logic/catalogHarmonizer.js';
+
+import ArchetypePatternStudioModal from './ArchetypePatternStudioModal.jsx';
 
 import { getAllProducts } from '../../logic/productCatalogHelper.js';
 
@@ -76,6 +81,15 @@ export default function CatalogHarmonizerLabView({
   // Promotion confirmation modal
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Archetype Pattern Studio modal state
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [activeArchetypesList, setActiveArchetypesList] = useState(() => loadArchetypes());
+
+  // Reload archetypes when studio opens or changes
+  const refreshArchetypes = () => {
+    setActiveArchetypesList(loadArchetypes());
+  };
 
   // Auto-persist staged items to isolated sandbox storage
   useEffect(() => {
@@ -273,6 +287,23 @@ export default function CatalogHarmonizerLabView({
     handleAction(item, 'keep_factory');
   };
 
+  // Archetype Pattern Studio application handler
+  const handleApplyArchetypeToSandbox = (archetype, mode = 'matching') => {
+    let count = 0;
+    setStagedItems(prev => {
+      return prev.map(item => {
+        const matches = mode === 'all' || item.matchedArchetypeId === archetype.id;
+        if (matches) {
+          count++;
+          return applyArchetypeToItem(item, archetype);
+        }
+        return item;
+      });
+    });
+    refreshArchetypes();
+    onNotify(`Applied ${archetype.name} to ${count} staged items in sandbox`, 'success');
+  };
+
   // Promotion Handler
   const handleConfirmPromotion = () => {
     setIsProcessing(true);
@@ -360,6 +391,23 @@ export default function CatalogHarmonizerLabView({
             >
               <Database className="w-4 h-4 text-emerald-500" />
               <span>{isAr ? '\u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u062F\u0644\u064A\u0644 \u0627\u0644\u062D\u0627\u0644\u064A' : 'Load Active Catalog'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                refreshArchetypes();
+                setIsStudioOpen(true);
+              }}
+              className={`h-9 inline-flex items-center gap-2 text-xs font-bold px-3.5 rounded-xl border transition cursor-pointer shadow-xs ${
+                isLight 
+                  ? 'bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-300' 
+                  : 'bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border-cyan-700/60'
+              }`}
+              title="Open Archetype Pattern Studio to visually configure naming rules"
+            >
+              <Sparkles className="w-4 h-4 text-cyan-500" />
+              <span>{isAr ? '\u0627\u0633\u062A\u062F\u064A\u0648 \u0627\u0644\u0623\u0646\u0645\u0627\u0637 (Studio)' : 'Archetype Studio'}</span>
             </button>
 
             <button
@@ -581,6 +629,7 @@ export default function CatalogHarmonizerLabView({
                 <th className="py-3 px-2.5 font-bold text-center w-28">Standard</th>
                 <th className="py-3 px-2 font-bold text-center w-16">Joint</th>
                 <th className="py-3 px-2 font-bold text-center w-16">Length</th>
+                <th className="py-3 px-3 font-bold text-center min-w-[140px]">Matched Archetype</th>
                 <th className="py-3 px-3 font-bold text-center w-44">Governance Status</th>
                 <th className="py-3 px-3.5 font-bold text-center w-36">Actions</th>
               </tr>
@@ -588,7 +637,7 @@ export default function CatalogHarmonizerLabView({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={12} className="py-12 text-center text-slate-400">
                     <Sliders className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="font-semibold">No staged products found in sandbox.</p>
                     <p className="text-[11px] mt-1 text-slate-500">
@@ -648,6 +697,11 @@ export default function CatalogHarmonizerLabView({
                       </td>
                       <td className="py-2.5 px-2 text-center font-mono text-[11px]">
                         {item.lengthM ? `${item.lengthM}M` : '-'}
+                      </td>
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap font-mono text-[11px]">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30">
+                          {item.matchedArchetypeBadge || item.matchedArchetypeName || '#1 Metric'}
+                        </span>
                       </td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         {item.status === 'variance' && (
@@ -836,6 +890,43 @@ export default function CatalogHarmonizerLabView({
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
                   {selectedItem.conflictNotes}
                 </p>
+              </div>
+
+              {/* Archetype Pattern Alignment */}
+              <div className="p-3.5 rounded-xl border space-y-2 ${
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/60 border-slate-800'
+              }">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span>Archetype Pattern Alignment</span>
+                  <span className="text-cyan-500 font-mono text-[10px]">
+                    {selectedItem.matchedArchetypeBadge || selectedItem.matchedArchetypeName || 'Pattern #1'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {activeArchetypesList.map((arch) => {
+                    const isCurrent = selectedItem.matchedArchetypeId === arch.id;
+                    return (
+                      <button
+                        key={arch.id}
+                        type="button"
+                        onClick={() => {
+                          const updated = applyArchetypeToItem(selectedItem, arch);
+                          setStagedItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+                          setSelectedItem(updated);
+                          onNotify(`Applied ${arch.name} to ${selectedItem.itemCode}`, 'success');
+                        }}
+                        className={`p-2 rounded-xl border text-left rtl:text-right transition cursor-pointer text-xs ${
+                          isCurrent
+                            ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400 font-bold'
+                            : isLight ? 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700' : 'bg-slate-800/60 border-slate-700 hover:bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        <div className="font-bold truncate text-[11px]">{arch.name}</div>
+                        <div className="text-[10px] text-slate-400 truncate font-mono">{arch.code || 'ARCH'}</div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Three-Button Decision Workbench */}
@@ -1032,6 +1123,17 @@ export default function CatalogHarmonizerLabView({
           </div>
         </div>
       )}
+
+      {/* Archetype Pattern Studio Modal */}
+      <ArchetypePatternStudioModal
+        isOpen={isStudioOpen}
+        onClose={() => setIsStudioOpen(false)}
+        stagedItems={stagedItems}
+        onApplyArchetypeToSandbox={handleApplyArchetypeToSandbox}
+        theme={theme}
+        lang={lang}
+        onNotify={onNotify}
+      />
 
       {/* Promote to Master Catalog Confirmation Modal */}
       {isPromoteModalOpen && (

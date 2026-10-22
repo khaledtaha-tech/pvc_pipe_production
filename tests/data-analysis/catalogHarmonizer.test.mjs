@@ -12,7 +12,14 @@ import {
   loadHarmonizerSandboxState,
   saveHarmonizerSandboxState,
   clearHarmonizerSandboxState,
-  promoteToMasterCatalog
+  promoteToMasterCatalog,
+  loadArchetypes,
+  saveArchetypes,
+  resetArchetypes,
+  formatTokenValue,
+  synthesizeDescription,
+  detectMatchedArchetype,
+  applyArchetypeToItem
 } from '../../src/logic/catalogHarmonizer.js';
 
 import { getAllProducts, getProductByCode } from '../../src/logic/productCatalogHelper.js';
@@ -140,7 +147,9 @@ console.log('Test 7 Passed: Staging sandbox isolated and promotion verified.');
 console.log('Test 8: Zero literal Arabic characters check');
 const filesToCheck = [
   'src/data/harmonizerConfig.json',
-  'src/logic/catalogHarmonizer.js'
+  'src/logic/catalogHarmonizer.js',
+  'src/components/catalog-harmonizer/ArchetypePatternStudioModal.jsx',
+  'src/components/catalog-harmonizer/CatalogHarmonizerLabView.jsx'
 ];
 const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 filesToCheck.forEach((f) => {
@@ -150,4 +159,94 @@ filesToCheck.forEach((f) => {
 });
 console.log('Test 8 Passed: Zero literal Arabic characters in new harmonizer files.');
 
-console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (8/8) ---');
+// Test 9: Seed Archetypes (#1 to #5) validation & description synthesis
+console.log('Test 9: Seed Archetypes (#1 to #5) validation & synthesis');
+const archetypes = loadArchetypes();
+assert.ok(archetypes.length >= 5, 'Must contain at least 5 seed archetypes');
+
+const arch1 = archetypes.find(a => a.id === 'pattern_1_metric_pressure');
+assert.ok(arch1, 'Pattern #1 must exist');
+assert.strictEqual(synthesizeDescription(arch1.sampleItem, arch1.tokenSequence), arch1.targetExample);
+
+const arch2 = archetypes.find(a => a.id === 'pattern_2_metric_sewer');
+assert.ok(arch2, 'Pattern #2 must exist');
+assert.strictEqual(synthesizeDescription(arch2.sampleItem, arch2.tokenSequence), arch2.targetExample);
+
+const arch3 = archetypes.find(a => a.id === 'pattern_3_astm_inch');
+assert.ok(arch3, 'Pattern #3 must exist');
+assert.strictEqual(synthesizeDescription(arch3.sampleItem, arch3.tokenSequence), arch3.targetExample);
+
+const arch4 = archetypes.find(a => a.id === 'pattern_4_conduit_duct');
+assert.ok(arch4, 'Pattern #4 must exist');
+assert.strictEqual(synthesizeDescription(arch4.sampleItem, arch4.tokenSequence), arch4.targetExample);
+
+const arch5 = archetypes.find(a => a.id === 'pattern_5_pvc_compound');
+assert.ok(arch5, 'Pattern #5 must exist');
+assert.strictEqual(synthesizeDescription(arch5.sampleItem, arch5.tokenSequence), arch5.targetExample);
+console.log('Test 9 Passed: All 5 seed archetypes synthesized correctly matching target examples.');
+
+// Test 10: Automatic Archetype Pattern Matching & Scoring
+console.log('Test 10: Automatic Archetype Pattern Matching');
+const matchCompound = detectMatchedArchetype({ rawDescription: 'PVC COMPOUND WHITE FOR INJECTION' });
+assert.strictEqual(matchCompound.archetypeId, 'pattern_5_pvc_compound');
+assert.ok(matchCompound.matchScore >= 95);
+
+const matchConduit = detectMatchedArchetype({ rawDescription: 'PVC CONDUIT 25MM CLASS 4 BLACK 3.0M' });
+assert.strictEqual(matchConduit.archetypeId, 'pattern_4_conduit_duct');
+
+const matchInch = detectMatchedArchetype({ rawDescription: 'PVC PIPE 4 INCH SCH40 ASTM D1785 6.0M' });
+assert.strictEqual(matchInch.archetypeId, 'pattern_3_astm_inch');
+
+const matchSewer = detectMatchedArchetype({ rawDescription: 'PVC PIPE 160MM SDR41 SN4 EN 1401-1 R/R' });
+assert.strictEqual(matchSewer.archetypeId, 'pattern_2_metric_sewer');
+
+const matchPressure = detectMatchedArchetype({ rawDescription: 'PVC PIPE 110X5.3MM PN10 SASO-ISO 1452-2' });
+assert.strictEqual(matchPressure.archetypeId, 'pattern_1_metric_pressure');
+console.log('Test 10 Passed: Intelligent archetype pattern detection accurately categorizes products.');
+
+// Test 11: Drag-and-Drop / Custom Token Re-ordering synthesis
+console.log('Test 11: Custom Token Re-ordering synthesis');
+const customOrder = ['LENGTH', 'PRODUCT_TYPE', 'OD_SIZE', 'WT', 'RATING_PN_SDR'];
+const customSynthesized = synthesizeDescription({
+  productType: 'PVC PIPE',
+  odMm: 110,
+  wallThicknessMm: 5.3,
+  ratingClass: 'PN10',
+  lengthM: 6.0
+}, customOrder);
+assert.strictEqual(customSynthesized, '6.0M PVC PIPE 110 x 5.3mm PN10');
+console.log('Test 11 Passed: Custom token re-ordering correctly formats dynamic description.');
+
+// Test 12: Archetype Persistence (save, load, reset)
+console.log('Test 12: Archetype Persistence');
+const modifiedArchetypes = JSON.parse(JSON.stringify(archetypes));
+modifiedArchetypes[0].name = 'Modified Pattern #1';
+saveArchetypes(modifiedArchetypes);
+const loadedArch = loadArchetypes();
+assert.strictEqual(loadedArch[0].name, 'Modified Pattern #1');
+
+const resetArch = resetArchetypes();
+assert.strictEqual(resetArch[0].name, 'Pattern #1: Metric Pressure');
+console.log('Test 12 Passed: Archetype persistence and factory reset verified.');
+
+// Test 13: Apply Archetype Pattern to Staged Item
+console.log('Test 13: Apply Archetype Pattern to Staged Item');
+const stagedTestItem = {
+  id: 'item-test-1',
+  itemCode: 'TEST-110',
+  productType: 'PVC PIPE',
+  odMm: 110,
+  sizeDisplay: '110',
+  wallThicknessMm: 5.3,
+  ratingClass: 'PN10',
+  standard: 'SASO-ISO 1452-2',
+  joint: 'R/R',
+  lengthM: 6.0
+};
+const updatedWithArch = applyArchetypeToItem(stagedTestItem, arch1);
+assert.strictEqual(updatedWithArch.canonicalDescription, 'PVC PIPE 110 x 5.3mm PN10 SASO-ISO 1452-2 R/R 6.0M');
+assert.strictEqual(updatedWithArch.matchedArchetypeId, arch1.id);
+assert.strictEqual(updatedWithArch.matchScore, 100);
+console.log('Test 13 Passed: Applied archetype pattern successfully re-synthesizes item.');
+
+console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (13/13) ---');

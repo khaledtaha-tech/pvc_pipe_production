@@ -15,6 +15,7 @@ import {
 } from './productCatalogHelper.js';
 
 export const HARMONIZER_STORAGE_KEY = 'pvc_catalog_harmonizer_sandbox';
+export const ARCHETYPES_STORAGE_KEY = 'pvc_catalog_archetypes';
 
 function getStorage() {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -28,6 +29,62 @@ function getStorage() {
 
 // In-memory fallback for headless/test environments
 let inMemoryHarmonizerSandbox = null;
+let inMemoryArchetypes = null;
+
+/**
+ * Load archetypes patterns from storage or fallback to seed defaults
+ * @returns {Array<Object>} Active archetype pattern templates
+ */
+export function loadArchetypes() {
+  const storage = getStorage();
+  if (storage) {
+    try {
+      const raw = storage.getItem(ARCHETYPES_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse archetypes storage:', e);
+    }
+  }
+  return inMemoryArchetypes || JSON.parse(JSON.stringify(harmonizerConfig.seedArchetypes || []));
+}
+
+/**
+ * Persist archetype patterns to localStorage
+ * @param {Array<Object>} archetypes
+ */
+export function saveArchetypes(archetypes) {
+  const safe = Array.isArray(archetypes) ? archetypes : [];
+  inMemoryArchetypes = safe;
+  const storage = getStorage();
+  if (storage) {
+    try {
+      storage.setItem(ARCHETYPES_STORAGE_KEY, JSON.stringify(safe));
+    } catch (e) {
+      console.warn('Failed to save archetypes storage:', e);
+    }
+  }
+}
+
+/**
+ * Reset archetype patterns to factory default seed list
+ * @returns {Array<Object>} Reset seed archetypes
+ */
+export function resetArchetypes() {
+  const seeds = JSON.parse(JSON.stringify(harmonizerConfig.seedArchetypes || []));
+  inMemoryArchetypes = seeds;
+  const storage = getStorage();
+  if (storage) {
+    try {
+      storage.setItem(ARCHETYPES_STORAGE_KEY, JSON.stringify(seeds));
+    } catch (e) {
+      console.warn('Failed to reset archetypes storage:', e);
+    }
+  }
+  return seeds;
+}
 
 /**
  * Load isolated harmonizer staging sandbox state
@@ -246,11 +303,35 @@ export function parseMessyProductDescription(rawDesc = '', itemCode = '', existi
     joint = 'R/R';
   } else if (/\b(?:S\/C|SC|SOLVENT|SOLVENT\s*CEMENT|PLAIN\s*SOCKET)\b/i.test(desc)) {
     joint = 'S/C';
+  } else if (/\bPLAIN\b/i.test(desc)) {
+    joint = 'PLAIN';
   } else if (/\b(?:P\/E|PE|PLAIN\s*END)\b/i.test(desc)) {
     joint = 'P/E';
   }
 
-  // 6. Length (default 6.0M if unspecified)
+  // 6. Color
+  let color = '';
+  const colorMatch = desc.match(/\b(GREY|GRAY|BLACK|WHITE|ORANGE|BLUE|TERRACOTTA|RED|YELLOW)\b/i);
+  if (colorMatch) {
+    color = colorMatch[1].toUpperCase();
+    if (color === 'GRAY') color = 'GREY';
+  }
+
+  // 7. Application (for compound)
+  let application = '';
+  const appMatch = desc.match(/\b(FOR\s+INJECTION|FOR\s+EXTRUSION|FOR\s+FITTINGS|FOR\s+BOTTLES|FOR\s+PROFILE)\b/i);
+  if (appMatch) {
+    application = appMatch[1].toUpperCase().replace(/\s+/g, ' ');
+  }
+
+  // 8. Grade (for compound)
+  let grade = '';
+  const gradeMatch = desc.match(/\b(GRADE[- ]?[A-Z0-9]+|K[- ]?67|K[- ]?57|K[- ]?70)\b/i);
+  if (gradeMatch) {
+    grade = gradeMatch[1].toUpperCase().replace(/\s+/g, '-');
+  }
+
+  // 9. Length (default 6.0M if unspecified)
   let lengthM = 6.0;
   const lengthMatch = desc.match(/(?:^|[\s(])(\d+(?:\.\d+)?)\s*M(?:ETER)?\b/i);
   if (lengthMatch) {
@@ -270,6 +351,9 @@ export function parseMessyProductDescription(rawDesc = '', itemCode = '', existi
     ratingClass,
     standard,
     joint,
+    color,
+    application,
+    grade,
     lengthM
   };
 }
@@ -281,6 +365,178 @@ export function parseMessyProductDescription(rawDesc = '', itemCode = '', existi
  * @param {Object} fields Decomposed structured fields
  * @returns {string} Standardized canonical product name
  */
+
+/**
+ * Formats a single token value for an item or sample object
+ * @param {Object} item Decomposed fields or product object
+ * @param {string} tokenId Token identifier (e.g. PRODUCT_TYPE, OD_SIZE, WT, ...)
+ * @returns {string} Formatted token string
+ */
+export function formatTokenValue(item = {}, tokenId = '') {
+  if (!item) return '';
+
+  switch (tokenId) {
+    case 'PRODUCT_TYPE':
+      return item.productType || 'PVC PIPE';
+
+    case 'OD_SIZE':
+      return item.sizeDisplay || (item.odMm ? String(item.odMm) : '');
+
+    case 'WT': {
+      if (item.wallThicknessMm !== undefined && item.wallThicknessMm !== null && item.wallThicknessMm !== '') {
+        const num = Number(item.wallThicknessMm);
+        if (!isNaN(num)) {
+          const rawStr = String(item.wallThicknessMm);
+          const formatted = !rawStr.includes('.') ? num.toFixed(1) : rawStr;
+          return `x ${formatted}mm`;
+        }
+        return `x ${item.wallThicknessMm}mm`;
+      }
+      return '';
+    }
+
+    case 'RATING_PN_SDR':
+      return item.ratingClass || item.sdr || '';
+
+    case 'STANDARD':
+      return item.standard || '';
+
+    case 'COLOR':
+      return item.color || '';
+
+    case 'JOINT_TYPE':
+      return item.joint || '';
+
+    case 'LENGTH':
+      return item.lengthM !== undefined && item.lengthM !== null ? `${Number(item.lengthM).toFixed(1)}M` : '6.0M';
+
+    case 'APPLICATION':
+      return item.application || '';
+
+    case 'GRADE':
+      return item.grade || '';
+
+    default:
+      return item[tokenId] ? String(item[tokenId]) : '';
+  }
+}
+
+/**
+ * Synthesizes a standardized description from an item and a token sequence
+ * @param {Object} item Decomposed product item or fields
+ * @param {Array<string>} tokenSequence Array of token identifiers in custom order
+ * @returns {string} Synthesized product description
+ */
+export function synthesizeDescription(item = {}, tokenSequence = []) {
+  if (!Array.isArray(tokenSequence) || tokenSequence.length === 0) {
+    return buildCanonicalProductName(item);
+  }
+
+  const parts = [];
+  tokenSequence.forEach((tokenId) => {
+    const val = formatTokenValue(item, tokenId);
+    if (val && String(val).trim()) {
+      parts.push(String(val).trim());
+    }
+  });
+
+  return parts
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+x\s*$/, '')
+    .replace(/^x\s+/, '')
+    .trim();
+}
+
+/**
+ * Determines which archetype best matches a product item
+ * @param {Object} item Decomposed product record
+ * @param {Array<Object>} [archetypes] List of active archetypes
+ * @returns {Object} { archetypeId, archetypeName, matchScore, badgeLabel }
+ */
+export function detectMatchedArchetype(item = {}, archetypes = null) {
+  const activeArchetypes = archetypes || loadArchetypes();
+  const rawUpper = String(item.rawDescription || item.description || '').toUpperCase();
+  const typeUpper = String(item.productType || '').toUpperCase();
+  const sizeStr = String(item.sizeDisplay || item.odMm || '').toUpperCase();
+  const ratingUpper = String(item.ratingClass || item.sdr || '').toUpperCase();
+  const stdUpper = String(item.standard || '').toUpperCase();
+
+  // 1. PVC Compound (Pattern #5)
+  if (typeUpper.includes('COMPOUND') || rawUpper.includes('COMPOUND') || rawUpper.includes('DRYBLEND') || rawUpper.includes('REGRIND')) {
+    const p5 = activeArchetypes.find(a => a.id === 'pattern_5_pvc_compound') || activeArchetypes[4] || activeArchetypes[0];
+    return {
+      archetypeId: p5.id,
+      archetypeName: p5.name,
+      matchScore: 98,
+      badgeLabel: '#5 Compound (98%)'
+    };
+  }
+
+  // 2. Conduit & Duct (Pattern #4)
+  if (typeUpper.includes('CONDUIT') || rawUpper.includes('CONDUIT') || rawUpper.includes('DUCT') || stdUpper.includes('BS 4607') || rawUpper.includes('BS 4607')) {
+    const p4 = activeArchetypes.find(a => a.id === 'pattern_4_conduit_duct') || activeArchetypes[3] || activeArchetypes[0];
+    return {
+      archetypeId: p4.id,
+      archetypeName: p4.name,
+      matchScore: 96,
+      badgeLabel: '#4 Conduit (96%)'
+    };
+  }
+
+  // 3. ASTM Inch Schedule (Pattern #3)
+  if (sizeStr.includes('INCH') || sizeStr.includes('"') || ratingUpper.includes('SCH') || stdUpper.includes('ASTM') || rawUpper.includes('INCH') || rawUpper.includes('SCH40') || rawUpper.includes('SCH80') || rawUpper.includes('ASTM')) {
+    const p3 = activeArchetypes.find(a => a.id === 'pattern_3_astm_inch') || activeArchetypes[2] || activeArchetypes[0];
+    return {
+      archetypeId: p3.id,
+      archetypeName: p3.name,
+      matchScore: 97,
+      badgeLabel: '#3 ASTM Inch (97%)'
+    };
+  }
+
+  // 4. Metric Sewer / Drainage (Pattern #2)
+  if (ratingUpper.includes('SDR41') || ratingUpper.includes('SN4') || ratingUpper.includes('SN8') || stdUpper.includes('EN 1401') || rawUpper.includes('SDR41') || rawUpper.includes('SN4') || rawUpper.includes('SN8') || rawUpper.includes('EN 1401') || rawUpper.includes('SEWER') || rawUpper.includes('DRAIN') || rawUpper.includes('DWV')) {
+    const p2 = activeArchetypes.find(a => a.id === 'pattern_2_metric_sewer') || activeArchetypes[1] || activeArchetypes[0];
+    return {
+      archetypeId: p2.id,
+      archetypeName: p2.name,
+      matchScore: 95,
+      badgeLabel: '#2 Sewer (95%)'
+    };
+  }
+
+  // 5. Metric Pressure (Pattern #1 Default)
+  const p1 = activeArchetypes.find(a => a.id === 'pattern_1_metric_pressure') || activeArchetypes[0];
+  return {
+    archetypeId: p1.id,
+    archetypeName: p1.name,
+    matchScore: 96,
+    badgeLabel: '#1 Metric Pressure (96%)'
+  };
+}
+
+/**
+ * Applies a specific archetype pattern to a staged item, re-synthesizing description
+ * @param {Object} item Staged product item
+ * @param {Object} archetype Selected archetype pattern
+ * @returns {Object} Updated item
+ */
+export function applyArchetypeToItem(item, archetype) {
+  if (!item || !archetype) return item;
+  const newCanonical = synthesizeDescription(item, archetype.tokenSequence);
+  return {
+    ...item,
+    canonicalDescription: newCanonical,
+    matchedArchetypeId: archetype.id,
+    matchedArchetypeName: archetype.name,
+    matchedArchetypeBadge: `${archetype.code || archetype.name.split(':')[0]} (Applied)`,
+    matchScore: 100,
+    actionTaken: `Applied ${archetype.name}`,
+    conflictNotes: `Applied Archetype Template: ${archetype.name}`
+  };
+}
+
 export function buildCanonicalProductName(fields = {}) {
   const productType = fields.productType || 'PVC PIPE';
   const size = fields.sizeDisplay || (fields.odMm ? `${fields.odMm}` : '');
@@ -429,7 +685,12 @@ export function harmonizeCatalogItem(item = {}) {
     decomposed.sizeDisplay
   );
 
-  const canonicalDescription = buildCanonicalProductName(decomposed);
+  const activeArchetypes = loadArchetypes();
+  const matchedArch = detectMatchedArchetype(decomposed, activeArchetypes);
+  const matchedArchObj = activeArchetypes.find(a => a.id === matchedArch.archetypeId);
+  const canonicalDescription = matchedArchObj?.tokenSequence
+    ? synthesizeDescription(decomposed, matchedArchObj.tokenSequence)
+    : buildCanonicalProductName(decomposed);
 
   // Derive pipe linear weight
   const linearWeightKgM = resolvePipeLinearWeight(
@@ -457,6 +718,10 @@ export function harmonizeCatalogItem(item = {}) {
     linearWeightKgM,
     unitWeight6mKg,
     canonicalDescription,
+    matchedArchetypeId: matchedArch.archetypeId,
+    matchedArchetypeName: matchedArch.archetypeName,
+    matchedArchetypeBadge: matchedArch.badgeLabel,
+    matchScore: matchedArch.matchScore,
     hasVariance: varianceCheck.hasVariance,
     varianceDiffMm: varianceCheck.diffMm,
     standardRef: varianceCheck.standardRef,
@@ -554,6 +819,7 @@ export function exportCleanSpringWorkbook(stagedItems = []) {
   const cleanMasterRows = stagedItems.map((item) => ({
     'Item Code': item.itemCode,
     'Clean Standardized Description': item.canonicalDescription,
+    'Matched Archetype Pattern': item.matchedArchetypeName || item.matchedArchetypeBadge || 'Pattern #1',
     'OD (mm)': item.odMm || '',
     'Wall Thickness (mm)': item.wallThicknessMm || '',
     'Pressure / Class / SDR': item.ratingClass || '',

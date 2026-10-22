@@ -76,6 +76,211 @@
       }
     }
   },
+  "tokenLibrary": [
+    {
+      "id": "PRODUCT_TYPE",
+      "label": "Product Type",
+      "category": "Classification",
+      "badgeColor": "blue",
+      "sampleValue": "PVC PIPE",
+      "description": "Core product family (e.g. PVC PIPE, PVC CONDUIT, PVC COMPOUND)"
+    },
+    {
+      "id": "OD_SIZE",
+      "label": "OD / Size",
+      "category": "Dimensions",
+      "badgeColor": "amber",
+      "sampleValue": "110",
+      "description": "Outer Diameter in mm or Nominal Pipe Size in Inches"
+    },
+    {
+      "id": "WT",
+      "label": "Wall Thickness",
+      "category": "Dimensions",
+      "badgeColor": "emerald",
+      "sampleValue": "x 5.3mm",
+      "description": "Pipe wall thickness in mm formatted with leading 'x' multiplier"
+    },
+    {
+      "id": "RATING_PN_SDR",
+      "label": "Rating / SDR / Class",
+      "category": "Rating",
+      "badgeColor": "purple",
+      "sampleValue": "PN10",
+      "description": "Nominal pressure PN, Schedule, SDR, or Class designation"
+    },
+    {
+      "id": "STANDARD",
+      "label": "Standard Spec",
+      "category": "Standard",
+      "badgeColor": "rose",
+      "sampleValue": "SASO-ISO 1452-2",
+      "description": "Official manufacturing reference standard"
+    },
+    {
+      "id": "COLOR",
+      "label": "Color",
+      "category": "Physical",
+      "badgeColor": "slate",
+      "sampleValue": "Grey",
+      "description": "Pipe exterior pigment (e.g. Grey, Black, White, Orange)"
+    },
+    {
+      "id": "JOINT_TYPE",
+      "label": "Joint Type",
+      "category": "Connection",
+      "badgeColor": "cyan",
+      "sampleValue": "R/R",
+      "description": "Rubber Ring (R/R), Solvent Socket (S/C), or Plain End (P/E)"
+    },
+    {
+      "id": "LENGTH",
+      "label": "Pipe Length",
+      "category": "Dimensions",
+      "badgeColor": "indigo",
+      "sampleValue": "6.0M",
+      "description": "Standard length per piece in meters"
+    },
+    {
+      "id": "APPLICATION",
+      "label": "Application",
+      "category": "Classification",
+      "badgeColor": "teal",
+      "sampleValue": "FOR INJECTION",
+      "description": "Target processing application for compound"
+    },
+    {
+      "id": "GRADE",
+      "label": "Grade / Resin",
+      "category": "Specification",
+      "badgeColor": "orange",
+      "sampleValue": "GRADE-A",
+      "description": "Resin formulation quality or K-value designation"
+    }
+  ],
+  "seedArchetypes": [
+    {
+      "id": "pattern_1_metric_pressure",
+      "name": "Pattern #1: Metric Pressure",
+      "code": "ARCH-01",
+      "description": "Standard pressurized potable water and irrigation lines (ISO 1452 / DIN 8062)",
+      "tokenSequence": [
+        "PRODUCT_TYPE",
+        "OD_SIZE",
+        "WT",
+        "RATING_PN_SDR",
+        "STANDARD",
+        "JOINT_TYPE",
+        "LENGTH"
+      ],
+      "sampleItem": {
+        "productType": "PVC PIPE",
+        "odMm": 110,
+        "sizeDisplay": "110",
+        "wallThicknessMm": 5.3,
+        "ratingClass": "PN10",
+        "standard": "SASO-ISO 1452-2",
+        "joint": "R/R",
+        "lengthM": 6.0
+      },
+      "targetExample": "PVC PIPE 110 x 5.3mm PN10 SASO-ISO 1452-2 R/R 6.0M"
+    },
+    {
+      "id": "pattern_2_metric_sewer",
+      "name": "Pattern #2: Metric Sewer / Drainage",
+      "code": "ARCH-02",
+      "description": "Non-pressure underground sewerage and drainage pipes (EN 1401-1 / DIN 19534)",
+      "tokenSequence": [
+        "PRODUCT_TYPE",
+        "OD_SIZE",
+        "WT",
+        "RATING_PN_SDR",
+        "STANDARD",
+        "JOINT_TYPE",
+        "LENGTH"
+      ],
+      "sampleItem": {
+        "productType": "PVC PIPE",
+        "odMm": 160,
+        "sizeDisplay": "160",
+        "wallThicknessMm": 4.0,
+        "ratingClass": "SDR41 SN4",
+        "standard": "EN 1401-1",
+        "joint": "R/R",
+        "lengthM": 6.0
+      },
+      "targetExample": "PVC PIPE 160 x 4.0mm SDR41 SN4 EN 1401-1 R/R 6.0M"
+    },
+    {
+      "id": "pattern_3_astm_inch",
+      "name": "Pattern #3: ASTM Inch Schedule",
+      "code": "ARCH-03",
+      "description": "Imperial NPS Schedule 40/80 plumbing & DWV pipes (ASTM D1785 / D2665)",
+      "tokenSequence": [
+        "PRODUCT_TYPE",
+        "OD_SIZE",
+        "WT",
+        "RATING_PN_SDR",
+        "STANDARD",
+        "JOINT_TYPE",
+        "LENGTH"
+      ],
+      "sampleItem": {
+        "productType": "PVC PIPE",
+        "sizeDisplay": "4 INCH",
+        "wallThicknessMm": 6.02,
+        "ratingClass": "SCH40 DWV",
+        "standard": "ASTM D1785",
+        "joint": "PLAIN",
+        "lengthM": 6.0
+      },
+      "targetExample": "PVC PIPE 4 INCH x 6.02mm SCH40 DWV ASTM D1785 PLAIN 6.0M"
+    },
+    {
+      "id": "pattern_4_conduit_duct",
+      "name": "Pattern #4: Conduit & Duct",
+      "code": "ARCH-04",
+      "description": "Electrical conduit, ducting, and power protection pipes (BS 4607 / NEMA)",
+      "tokenSequence": [
+        "PRODUCT_TYPE",
+        "OD_SIZE",
+        "WT",
+        "RATING_PN_SDR",
+        "COLOR",
+        "JOINT_TYPE",
+        "LENGTH"
+      ],
+      "sampleItem": {
+        "productType": "PVC CONDUIT",
+        "sizeDisplay": "25",
+        "wallThicknessMm": 1.9,
+        "ratingClass": "CLASS 4",
+        "color": "BLACK",
+        "joint": "PLAIN",
+        "lengthM": 3.0
+      },
+      "targetExample": "PVC CONDUIT 25 x 1.9mm CLASS 4 BLACK PLAIN 3.0M"
+    },
+    {
+      "id": "pattern_5_pvc_compound",
+      "name": "Pattern #5: PVC Compound",
+      "code": "ARCH-05",
+      "description": "Dry blend, injection grade, extrusion grade pelletized compounds",
+      "tokenSequence": [
+        "PRODUCT_TYPE",
+        "APPLICATION",
+        "COLOR",
+        "GRADE"
+      ],
+      "sampleItem": {
+        "productType": "PVC COMPOUND",
+        "application": "FOR INJECTION",
+        "color": "WHITE",
+        "grade": "GRADE-A"
+      },
+      "targetExample": "PVC COMPOUND FOR INJECTION WHITE GRADE-A"
+    }
+  ],
   "productTypes": [
     { "key": "PVC PIPE", "label": "PVC PIPE" },
     { "key": "PVC CONDUIT", "label": "PVC CONDUIT" },

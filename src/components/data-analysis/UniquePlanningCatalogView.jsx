@@ -9,13 +9,15 @@ import {
   CheckCircle2, 
   Filter, 
   TrendingUp,
-  Table
+  Table,
+  Sliders
 } from 'lucide-react';
 import { t } from '../../utils/translations.js';
 
 export default function UniquePlanningCatalogView({
   uniqueMatrix = [],
   onExportUniqueCatalog,
+  onOpenHarmonizer,
   lang = 'en',
   theme = 'dark'
 }) {
@@ -124,6 +126,18 @@ export default function UniquePlanningCatalogView({
                 {stats.totalRuns.toLocaleString()}
               </strong>
             </div>
+
+            {onOpenHarmonizer && (
+              <button
+                type="button"
+                onClick={onOpenHarmonizer}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition transform active:scale-95 cursor-pointer shadow-md bg-amber-600 hover:bg-amber-700 text-white"
+                title="Open Isolated Catalog Harmonizer Lab (Staging Sandbox)"
+              >
+                <Sliders className="w-4 h-4 text-white" />
+                <span>{lang === 'ar' ? '\u0645\u062E\u062A\u0628\u0631 \u0627\u0644\u062A\u0648\u062D\u064A\u062F (Sandbox)' : 'Harmonizer Lab (Staging)'}</span>
+              </button>
+            )}
 
             <button
               onClick={onExportUniqueCatalog}

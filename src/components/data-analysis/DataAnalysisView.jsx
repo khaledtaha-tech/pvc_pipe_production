@@ -50,7 +50,8 @@ export default function DataAnalysisView({
   handleExportConsolidated,
   handleExportMasterPlan,
   handleExportUniqueCatalog,
-  onNotify
+  onNotify,
+  onOpenHarmonizer
 }) {
   const isAr = lang === 'ar';
 
@@ -148,6 +149,7 @@ export default function DataAnalysisView({
                 theme={theme}
                 lang={lang}
                 onExport={handleExportUniqueCatalog}
+                onOpenHarmonizer={onOpenHarmonizer}
               />
             </ErrorBoundary>
           </div>

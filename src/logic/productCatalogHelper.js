@@ -1064,6 +1064,7 @@ export function upsertBatchProducts(items = [], options = { syncServer: true, so
       source_origin: item.source_origin || options.source_origin || (existing?.source_origin || 'planning_catalog'),
       source_file: item.source_file || options.source_file || existing?.source_file || 'Excel Workbook',
       source_sheet: item.source_sheet || options.source_sheet || existing?.source_sheet || 'Unique Planning Catalog',
+      provenance_tag: item.provenance_tag || options.provenance_tag || existing?.provenance_tag || (options.source === 'Harmonized Master Catalog' ? 'Harmonized Master Catalog' : null),
       last_updated_at: item.last_updated_at || options.last_updated_at || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

@@ -338,6 +338,38 @@ export default function Sidebar({
               </p>
             )}
 
+            {/* Catalog Harmonizer Lab */}
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentModule('catalog-harmonizer');
+                if (isMobileOpen) setIsMobileOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                currentModule === 'catalog-harmonizer'
+                  ? 'brand-gradient text-white shadow-md shadow-emerald-600/25 ring-1 ring-white/20'
+                  : isLight
+                    ? 'text-slate-700 hover:bg-slate-100'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+              } ${isCollapsed ? 'justify-center px-0' : ''}`}
+              title={isAr ? '\u0645\u062E\u062A\u0628\u0631 \u062A\u0648\u062D\u064A\u062F \u062F\u0644\u064A\u0644 \u0627\u0644\u0623\u0635\u0646\u0627\u0641' : 'Catalog Harmonizer Lab'}
+            >
+              <Sliders className="w-4 h-4 text-amber-500 shrink-0" />
+              {!isCollapsed && (
+                <div className="flex-1 text-left rtl:text-right truncate">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="truncate">{isAr ? '\u0645\u062E\u062A\u0628\u0631 \u062A\u0648\u062D\u064A\u062F \u0627\u0644\u0623\u0635\u0646\u0627\u0641' : 'Catalog Harmonizer'}</span>
+                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                      STAGING
+                    </span>
+                  </div>
+                  <div className={`text-[10px] font-normal truncate ${currentModule === 'catalog-harmonizer' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                    {isAr ? '\u062A\u0648\u062D\u064A\u062F \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062A' : 'Sandbox Standardization'}
+                  </div>
+                </div>
+              )}
+            </button>
+
             {/* Morning SOP Print Button */}
             {onOpenBlankSopPrint && (
               <button

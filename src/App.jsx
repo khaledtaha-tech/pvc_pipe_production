@@ -8,6 +8,7 @@ import DataAnalysisView from './components/data-analysis/DataAnalysisView';
 import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationView';
 import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
 import EngineeringDocView from './components/engineering-docs/EngineeringDocView';
+import CatalogHarmonizerLabView from './components/catalog-harmonizer/CatalogHarmonizerLabView';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 import { cleanPipeProductionData, standardizeMaterial, isValidPipeOrConduitProduct } from './utils/dataCleaner';
@@ -431,11 +432,23 @@ function AppContent() {
                 handleExportUniqueCatalog={handleExportUniqueCatalog}
                 onNotify={showToast}
                 onOpenEngineeringDocs={() => setCurrentModule('engineering-docs')}
+                onOpenHarmonizer={() => setCurrentModule('catalog-harmonizer')}
               />
             </ErrorBoundary>
           )}
 
-                    {currentModule === 'engineering-docs' && (
+                    {currentModule === 'catalog-harmonizer' && (
+            <ErrorBoundary>
+              <CatalogHarmonizerLabView
+                theme={theme}
+                lang={lang}
+                onNotify={showToast}
+                planningMatrix={uniquePlanningMatrix}
+              />
+            </ErrorBoundary>
+          )}
+
+          {currentModule === 'engineering-docs' && (
             <ErrorBoundary>
               <EngineeringDocView
                 theme={theme}

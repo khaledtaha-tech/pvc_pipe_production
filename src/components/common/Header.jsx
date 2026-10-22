@@ -43,6 +43,8 @@ export default function Header({
         return isAr ? 'سجل الوردية والتقييم اليومي' : 'Daily OEE Evaluation';
       case 'data-hub':
         return isAr ? 'مركز تبادل البيانات' : 'Data Exchange Hub';
+      case 'catalog-harmonizer':
+        return isAr ? '\u0645\u062E\u062A\u0628\u0631 \u062A\u0648\u062D\u064A\u062F \u062F\u0644\u064A\u0644 \u0627\u0644\u0623\u0635\u0646\u0627\u0641' : 'Catalog Harmonizer Lab';
       case 'engineering-docs':
         return isAr ? '\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062F\u0633\u064A\u0629' : 'Engineering Documentation Hub';
       default:

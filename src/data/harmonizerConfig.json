@@ -1,0 +1,133 @@
+{
+  "referenceStandards": {
+    "ISO_1452": {
+      "standardName": "SASO-ISO 1452-2",
+      "description": "Plastics piping systems for water supply - Unplasticized poly(vinyl chloride) (PVC-U)",
+      "metricDimensions": {
+        "20": { "PN10": 1.5, "PN16": 1.9, "PN20": 2.3 },
+        "25": { "PN10": 1.5, "PN16": 1.9, "PN20": 2.3 },
+        "32": { "PN10": 1.6, "PN16": 2.4, "PN20": 2.9 },
+        "40": { "PN6": 1.5, "PN10": 1.9, "PN16": 3.0, "PN20": 3.7 },
+        "50": { "PN6": 1.6, "PN10": 2.4, "PN16": 3.7, "PN20": 4.6 },
+        "63": { "PN6": 2.0, "PN10": 3.0, "PN16": 4.7, "PN20": 5.8 },
+        "75": { "PN6": 1.9, "PN8": 2.3, "PN10": 3.6, "PN12.5": 4.5, "PN16": 5.6, "PN20": 6.8 },
+        "90": { "PN6": 2.2, "PN8": 2.8, "PN10": 4.3, "PN12.5": 5.4, "PN16": 6.7, "PN20": 8.2 },
+        "110": { "PN6": 2.7, "PN8": 3.4, "PN10": 5.3, "PN12.5": 6.6, "PN16": 8.1, "PN20": 10.0 },
+        "125": { "PN6": 3.1, "PN8": 3.9, "PN10": 6.0, "PN12.5": 7.4, "PN16": 9.2, "PN20": 11.4 },
+        "140": { "PN6": 3.5, "PN8": 4.3, "PN10": 6.7, "PN12.5": 8.3, "PN16": 10.3, "PN20": 12.7 },
+        "160": { "PN6": 4.0, "PN8": 4.9, "PN10": 7.7, "PN12.5": 9.5, "PN16": 11.8, "PN20": 14.6 },
+        "180": { "PN6": 4.4, "PN8": 5.5, "PN10": 8.6, "PN12.5": 10.7, "PN16": 13.3, "PN20": 16.4 },
+        "200": { "PN6": 4.9, "PN8": 6.2, "PN10": 9.6, "PN12.5": 11.9, "PN16": 14.7, "PN20": 18.2 },
+        "225": { "PN6": 5.5, "PN8": 6.9, "PN10": 10.8, "PN12.5": 13.4, "PN16": 16.6, "PN20": 20.5 },
+        "250": { "PN6": 6.2, "PN8": 7.7, "PN10": 11.9, "PN12.5": 14.8, "PN16": 18.4, "PN20": 22.7 },
+        "280": { "PN6": 6.9, "PN8": 8.6, "PN10": 13.4, "PN12.5": 16.6, "PN16": 20.6, "PN20": 25.4 },
+        "315": { "PN6": 7.7, "PN8": 9.7, "PN10": 15.0, "PN12.5": 18.7, "PN16": 23.2, "PN20": 28.6 },
+        "355": { "PN6": 8.7, "PN8": 10.9, "PN10": 16.9, "PN12.5": 21.1, "PN16": 26.1, "PN20": 32.2 },
+        "400": { "PN6": 9.8, "PN8": 12.3, "PN10": 19.1, "PN12.5": 23.7, "PN16": 29.4, "PN20": 36.3 },
+        "450": { "PN6": 11.0, "PN8": 13.8, "PN10": 21.5, "PN12.5": 26.7, "PN16": 33.1, "PN20": 40.9 },
+        "500": { "PN6": 12.3, "PN8": 15.3, "PN10": 23.9, "PN12.5": 29.7, "PN16": 36.8, "PN20": 45.4 }
+      }
+    },
+    "DIN_8062": {
+      "standardName": "DIN 8062",
+      "description": "Unplasticized polyvinyl chloride (PVC-U) pipes - Dimensions",
+      "metricDimensions": {
+        "75": { "PN10": 3.6, "PN16": 5.6 },
+        "90": { "PN10": 4.3, "PN16": 6.7 },
+        "110": { "PN6": 2.7, "PN10": 5.3, "PN16": 8.1 },
+        "160": { "PN6": 4.0, "PN10": 7.7, "PN16": 11.8 },
+        "200": { "PN6": 4.9, "PN10": 9.6, "PN16": 14.7 }
+      }
+    },
+    "ASTM_D1785": {
+      "standardName": "ASTM D1785",
+      "description": "Standard Specification for Poly(Vinyl Chloride) (PVC) Plastic Pipe, Schedules 40, 80",
+      "schedules": {
+        "SCH40": {
+          "1/2\"": { "odMm": 21.34, "wtMm": 2.77 },
+          "3/4\"": { "odMm": 26.67, "wtMm": 2.87 },
+          "1\"": { "odMm": 33.40, "wtMm": 3.38 },
+          "1-1/4\"": { "odMm": 42.16, "wtMm": 3.56 },
+          "1-1/2\"": { "odMm": 48.26, "wtMm": 3.68 },
+          "2\"": { "odMm": 60.33, "wtMm": 3.91 },
+          "2-1/2\"": { "odMm": 73.03, "wtMm": 5.16 },
+          "3\"": { "odMm": 88.90, "wtMm": 5.49 },
+          "4\"": { "odMm": 114.30, "wtMm": 6.02 },
+          "6\"": { "odMm": 168.28, "wtMm": 7.11 },
+          "8\"": { "odMm": 219.08, "wtMm": 8.18 },
+          "10\"": { "odMm": 273.05, "wtMm": 9.27 },
+          "12\"": { "odMm": 323.85, "wtMm": 10.31 }
+        },
+        "SCH80": {
+          "1/2\"": { "odMm": 21.34, "wtMm": 3.73 },
+          "3/4\"": { "odMm": 26.67, "wtMm": 3.91 },
+          "1\"": { "odMm": 33.40, "wtMm": 4.55 },
+          "1-1/4\"": { "odMm": 42.16, "wtMm": 4.85 },
+          "1-1/2\"": { "odMm": 48.26, "wtMm": 5.08 },
+          "2\"": { "odMm": 60.33, "wtMm": 5.54 },
+          "2-1/2\"": { "odMm": 73.03, "wtMm": 7.01 },
+          "3\"": { "odMm": 88.90, "wtMm": 7.62 },
+          "4\"": { "odMm": 114.30, "wtMm": 8.56 },
+          "6\"": { "odMm": 168.28, "wtMm": 10.97 },
+          "8\"": { "odMm": 219.08, "wtMm": 12.70 },
+          "10\"": { "odMm": 273.05, "wtMm": 15.06 },
+          "12\"": { "odMm": 323.85, "wtMm": 17.48 }
+        }
+      }
+    }
+  },
+  "productTypes": [
+    { "key": "PVC PIPE", "label": "PVC PIPE" },
+    { "key": "PVC CONDUIT", "label": "PVC CONDUIT" },
+    { "key": "PVC COMPOUND", "label": "PVC COMPOUND" },
+    { "key": "CPVC PIPE", "label": "CPVC PIPE" },
+    { "key": "UPVC PIPE", "label": "UPVC PIPE" }
+  ],
+  "jointTypes": [
+    { "code": "R/R", "label": "Rubber Ring Socket (Push-fit)" },
+    { "code": "S/C", "label": "Solvent Cement Socket" },
+    { "code": "P/E", "label": "Plain End" }
+  ],
+  "sampleAlManarFixtures": [
+    {
+      "itemCode": "110-PN10-52-COM",
+      "rawDescription": "PVC PIPE 110X5.2MM PN10 SASO-ISO 1452-2 R/R",
+      "notes": "Classic Al-Manar commercial override: 5.2mm factory thickness vs 5.3mm official standard"
+    },
+    {
+      "itemCode": "075-PN10-CL4",
+      "rawDescription": "PVC PIPE 75X3.6MM PN10 CL4 DIN 8062 S/C 6.0M",
+      "notes": "Clean standard match: 75mm x 3.6mm PN10"
+    },
+    {
+      "itemCode": "004-SCH40-DWV",
+      "rawDescription": "PVC PIPE 4 INCH X 6.0MM SCH40 DWV ASTM D2665 P/E",
+      "notes": "Imperial nominal size 4 inch SCH40 (6.0mm commercial approx for 6.02mm standard)"
+    },
+    {
+      "itemCode": "160-PN125-RR",
+      "rawDescription": "PVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R",
+      "notes": "Specification variance: PN12.5 for 160mm is 9.5mm; 7.7mm belongs to PN10"
+    },
+    {
+      "itemCode": "200-PN10-RR",
+      "rawDescription": "PVC PIPE 200X9.6MM PN10 SASO-ISO 1452-2 R/R 5.8M",
+      "notes": "Clean standard match with 5.8M custom length"
+    },
+    {
+      "itemCode": "050-PN16-SC",
+      "rawDescription": "PVC PIPE 50MM PN16 3.7MM DIN 8062 S/C",
+      "notes": "Clean standard match: 50mm x 3.7mm PN16"
+    },
+    {
+      "itemCode": "063-PN10-RR",
+      "rawDescription": "PVC PIPE 63X3.0MM PN10 SASO-ISO 1452-2 R/R",
+      "notes": "Clean standard match: 63mm x 3.0mm PN10"
+    },
+    {
+      "itemCode": "025-CND-MED",
+      "rawDescription": "PVC CONDUIT 25MM X 1.9MM CLASS 4 BS 4607 P/E 3.0M",
+      "notes": "Conduit category with electrical standard"
+    }
+  ]
+}

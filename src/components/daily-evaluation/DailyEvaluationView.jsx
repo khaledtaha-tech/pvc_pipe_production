@@ -1695,10 +1695,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             </div>
           </div>
           <div
-            className="hidden xl:flex items-center px-3 py-1 rounded-md bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 text-xs font-medium text-slate-600 dark:text-slate-300 font-serif"
+            className="hidden md:flex items-center bismillah-calligraphy-banner"
             aria-label="Bismillah"
           >
-            {'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064E\u0647\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0652\u0645\u064E\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0650\u064A\u0645\u0650'}
+            <span className="bismillah-text">
+              {'\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064E\u0647\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0652\u0645\u064E\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064E\u062D\u0650\u064A\u0645\u0650'}
+            </span>
           </div>
         </div>
 

@@ -24,6 +24,7 @@ import {
 
 import harmonizerConfig from '../../data/harmonizerConfig.json' with { type: 'json' };
 import {
+  HARMONIZER_STORAGE_KEY,
   harmonizeCatalogItem,
   applyResolutionAction,
   exportCleanSpringWorkbook,

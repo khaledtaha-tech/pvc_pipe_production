@@ -19,7 +19,14 @@ import {
   Database,
   ArrowRight,
   Info,
-  ChevronRight
+  ChevronRight,
+  Target,
+  CheckSquare,
+  Layers,
+  ChevronLeft,
+  Trash2,
+  FileText,
+  CheckCheck
 } from 'lucide-react';
 
 import harmonizerConfig from '../../data/harmonizerConfig.json' with { type: 'json' };
@@ -34,7 +41,10 @@ import {
   promoteToMasterCatalog,
   loadArchetypes,
   applyArchetypeToItem,
-  synthesizeDescription
+  synthesizeDescription,
+  detectUnparsedTokens,
+  purgeGarbageTokens,
+  approveBatchItems
 } from '../../logic/catalogHarmonizer.js';
 
 import ArchetypePatternStudioModal from './ArchetypePatternStudioModal.jsx';
@@ -57,8 +67,19 @@ export default function CatalogHarmonizerLabView({
   });
 
   // Filter & search state
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'variance' | 'clean' | 'resolved'
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'anomaly' | 'variance' | 'clean' | 'resolved'
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Focus 10 Review Queue Mode state
+  const [isFocus10Mode, setIsFocus10Mode] = useState(false);
+  const [focusBatchIndex, setFocusBatchIndex] = useState(0);
+
+  // Raw Context modal/popover state
+  const [activeContextItem, setActiveContextItem] = useState(null);
+
+  // Inline editing of raw description to fix/purge garbage tokens
+  const [inlineEditingItemId, setInlineEditingItemId] = useState(null);
+  const [inlineEditText, setInlineEditText] = useState('');
 
   // Selected item for drawer
   const [selectedItem, setSelectedItem] = useState(null);
@@ -114,22 +135,47 @@ export default function CatalogHarmonizerLabView({
     }
   }, [selectedItem]);
 
-  // Compute metrics
+  // Compute metrics with 3-tier traffic light & approval counts
   const metrics = useMemo(() => {
     const total = stagedItems.length;
+    const anomalies = stagedItems.filter(i => i.status === 'anomaly' || i.hasAnomaly).length;
     const variances = stagedItems.filter(i => i.status === 'variance').length;
-    const clean = stagedItems.filter(i => i.status === 'clean').length;
-    const resolved = stagedItems.filter(i => ['overridden', 'snapped', 'custom'].includes(i.status)).length;
-    return { total, variances, clean, resolved };
+    const clean = stagedItems.filter(i => i.status === 'clean' && !i.hasAnomaly).length;
+    const resolved = stagedItems.filter(i => ['overridden', 'snapped', 'custom', 'approved'].includes(i.status) || i.isApproved).length;
+    const approved = stagedItems.filter(i => i.isApproved).length;
+    return { total, anomalies, variances, clean, resolved, approved };
   }, [stagedItems]);
 
-  // Filtered & searched items
+  // Focus 10 mode queue: prioritizes unapproved items with anomalies or variances first
+  const focusQueue = useMemo(() => {
+    const unapproved = stagedItems.filter(i => !i.isApproved);
+    return unapproved.slice().sort((a, b) => {
+      const scoreA = (a.status === 'anomaly' || a.hasAnomaly) ? 2 : (a.status === 'variance' ? 1 : 0);
+      const scoreB = (b.status === 'anomaly' || b.hasAnomaly) ? 2 : (b.status === 'variance' ? 1 : 0);
+      return scoreB - scoreA;
+    });
+  }, [stagedItems]);
+
+  const totalBatches = Math.max(1, Math.ceil(focusQueue.length / 10));
+
+  // Current batch slice of 10 items for Focus 10 mode
+  const currentBatchItems = useMemo(() => {
+    if (!isFocus10Mode) return [];
+    const start = focusBatchIndex * 10;
+    return focusQueue.slice(start, start + 10);
+  }, [isFocus10Mode, focusBatchIndex, focusQueue]);
+
+  // Filtered & searched items (switches to active batch if in Focus 10 mode)
   const filteredItems = useMemo(() => {
+    if (isFocus10Mode) {
+      return currentBatchItems;
+    }
     return stagedItems.filter((item) => {
       // Filter status
+      if (filterMode === 'anomaly' && item.status !== 'anomaly' && !item.hasAnomaly) return false;
       if (filterMode === 'variance' && item.status !== 'variance') return false;
       if (filterMode === 'clean' && item.status !== 'clean') return false;
-      if (filterMode === 'resolved' && !['overridden', 'snapped', 'custom'].includes(item.status)) return false;
+      if (filterMode === 'resolved' && !['overridden', 'snapped', 'custom', 'approved'].includes(item.status) && !item.isApproved) return false;
 
       // Search query
       if (searchQuery.trim()) {
@@ -138,13 +184,14 @@ export default function CatalogHarmonizerLabView({
         const rawMatch = (item.rawDescription || '').toLowerCase().includes(q);
         const canonMatch = (item.canonicalDescription || '').toLowerCase().includes(q);
         const notesMatch = (item.conflictNotes || '').toLowerCase().includes(q);
-        return codeMatch || rawMatch || canonMatch || notesMatch;
+        const fileMatch = (item.sourceFile || '').toLowerCase().includes(q);
+        return codeMatch || rawMatch || canonMatch || notesMatch || fileMatch;
       }
       return true;
     });
-  }, [stagedItems, filterMode, searchQuery]);
+  }, [isFocus10Mode, currentBatchItems, stagedItems, filterMode, searchQuery]);
 
-  // Ingestion: Load Active Planning Catalog
+  // Ingestion: Load Active Planning Catalog with provenance
   const handleLoadActivePlanningCatalog = () => {
     try {
       const activeProducts = getAllProducts();
@@ -152,11 +199,16 @@ export default function CatalogHarmonizerLabView({
         onNotify('No products found in active catalog', 'info');
         return;
       }
-      const harmonized = activeProducts.map((p) => harmonizeCatalogItem({
+      const harmonized = activeProducts.map((p, idx) => harmonizeCatalogItem({
         itemCode: p.itemCode || p.code,
         description: p.productDescription || p.description,
         odMm: p.odMm,
-        wallThicknessMm: p.wallThicknessMm
+        wallThicknessMm: p.wallThicknessMm,
+        sourceFile: 'Active_Catalog.json',
+        sourceSheet: 'Planning Matrix',
+        sourceRow: `Row #${idx + 1}`,
+        ingestionType: 'ERP_CACHE',
+        rawImportData: p
       }));
       setStagedItems(harmonized);
       onNotify(`Loaded ${harmonized.length} products from Active Planning Catalog`, 'success');
@@ -166,13 +218,18 @@ export default function CatalogHarmonizerLabView({
     }
   };
 
-  // Ingestion: Load Al-Manar Sample Fixtures
+  // Ingestion: Load Al-Manar Sample Fixtures with provenance
   const handleLoadSampleFixtures = () => {
     try {
       const fixtures = harmonizerConfig.sampleAlManarFixtures || [];
-      const harmonized = fixtures.map((f) => harmonizeCatalogItem({
+      const harmonized = fixtures.map((f, idx) => harmonizeCatalogItem({
         itemCode: f.itemCode,
-        description: f.rawDescription
+        description: f.rawDescription,
+        sourceFile: f.sourceFile || 'AlManar_9.xlsb',
+        sourceSheet: f.sourceSheet || 'Unique Planning',
+        sourceRow: f.sourceRow || `Row #${idx + 1}`,
+        ingestionType: f.ingestionType || 'PLANNING_CATALOG',
+        rawImportData: f
       }));
       setStagedItems(harmonized);
       onNotify(`Loaded ${harmonized.length} representative Al-Manar test fixtures`, 'success');
@@ -182,7 +239,7 @@ export default function CatalogHarmonizerLabView({
     }
   };
 
-  // Ingestion: Upload Workbook (.xlsb / .xlsx)
+  // Ingestion: Upload Workbook (.xlsb / .xlsx) with provenance
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -214,7 +271,8 @@ export default function CatalogHarmonizerLabView({
         }
 
         const items = [];
-        for (const row of jsonRows) {
+        for (let rIdx = 0; rIdx < jsonRows.length; rIdx++) {
+          const row = jsonRows[rIdx];
           const code = String(row['Item Code'] || row['itemCode'] || row['Code'] || row['Product Code'] || '').trim();
           const desc = String(row['Product Description & Specs'] || row['Description'] || row['Pipe Description'] || row['description'] || '').trim();
           if (code && desc) {
@@ -222,7 +280,12 @@ export default function CatalogHarmonizerLabView({
               itemCode: code,
               description: desc,
               odMm: parseFloat(row['Pipe OD (mm) & Nominal Size'] || row['OD (mm)']) || null,
-              wallThicknessMm: parseFloat(row['Wall Thickness / SDR'] || row['Wall Thickness']) || null
+              wallThicknessMm: parseFloat(row['Wall Thickness / SDR'] || row['Wall Thickness']) || null,
+              sourceFile: file.name,
+              sourceSheet: sheetName,
+              sourceRow: `Row #${rIdx + 2}`,
+              ingestionType: /daily/i.test(sheetName) ? 'DAILY_LOG' : 'PLANNING_CATALOG',
+              rawImportData: row
             }));
           }
         }
@@ -242,6 +305,84 @@ export default function CatalogHarmonizerLabView({
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // Focus 10: Toggle Mode
+  const handleToggleFocus10Mode = () => {
+    setIsFocus10Mode(prev => {
+      const next = !prev;
+      if (next) {
+        setFocusBatchIndex(0);
+        onNotify(
+          isAr
+            ? '\u062A\u0645 \u062A\u0641\u0639\u064A\u0644 \u0648\u0636\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632: \u0641\u062D\u0635 10 \u0623\u0635\u0646\u0627\u0641'
+            : 'Activated Focus 10 Mode: Review queue in batches of 10',
+          'info'
+        );
+      }
+      return next;
+    });
+  };
+
+  // Focus 10: Approve Current Batch & Fetch Next 10
+  const handleApproveCurrentBatch = () => {
+    if (currentBatchItems.length === 0) return;
+    const idsToApprove = currentBatchItems.map(i => i.id);
+    const updated = approveBatchItems(stagedItems, idsToApprove);
+    setStagedItems(updated);
+
+    const remainingCount = Math.max(0, focusQueue.length - currentBatchItems.length);
+    onNotify(
+      isAr
+        ? `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F ${idsToApprove.length} \u0635\u0646\u0641 \u0628\u0646\u062C\u0627\u062D (${remainingCount} \u0645\u062A\u0628\u0642\u064A)`
+        : `Approved batch of ${idsToApprove.length} items successfully (${remainingCount} remaining in queue)`,
+      'success'
+    );
+
+    const nextTotalBatches = Math.ceil(remainingCount / 10);
+    if (focusBatchIndex >= nextTotalBatches) {
+      setFocusBatchIndex(Math.max(0, nextTotalBatches - 1));
+    }
+  };
+
+  // Purge unparsed garbage tokens on the spot
+  const handlePurgeGarbage = (item, e) => {
+    e.stopPropagation();
+    const cleanedDesc = purgeGarbageTokens(item.rawDescription, item.unparsedTokens);
+    const updated = harmonizeCatalogItem({
+      ...item,
+      description: cleanedDesc,
+      rawDescription: cleanedDesc
+    });
+    setStagedItems(prev => prev.map(i => i.id === item.id ? updated : i));
+    if (selectedItem?.id === item.id) setSelectedItem(updated);
+    onNotify(
+      isAr
+        ? `\u062A\u0645 \u062A\u0646\u0642\u064A\u0629 \u0627\u0644\u0631\u0645\u0648\u0632 \u063A\u064A\u0631 \u0627\u0644\u0645\u0639\u0631\u0648\u0641\u0629 \u0644\u0644\u0635\u0646\u0641 ${item.itemCode}`
+        : `Purged garbage tokens for ${item.itemCode}`,
+      'success'
+    );
+  };
+
+  // Inline edit save
+  const handleSaveInlineEdit = (item, e) => {
+    e.stopPropagation();
+    if (!inlineEditText.trim()) return;
+    const updated = harmonizeCatalogItem({
+      ...item,
+      description: inlineEditText.trim(),
+      rawDescription: inlineEditText.trim()
+    });
+    setStagedItems(prev => prev.map(i => i.id === item.id ? updated : i));
+    if (selectedItem?.id === item.id) setSelectedItem(updated);
+    setInlineEditingItemId(null);
+    setInlineEditText('');
+    onNotify(
+      isAr
+        ? `\u062A\u0645 \u062A\u062D\u062F\u064A\u062B \u0648\u062A\u0648\u062D\u064A\u062F \u0627\u0644\u0635\u0646\u0641 ${item.itemCode}`
+        : `Updated & re-harmonized description for ${item.itemCode}`,
+      'success'
+    );
   };
 
   // Export: Clean Spring Excel Workbook
@@ -426,6 +567,27 @@ export default function CatalogHarmonizerLabView({
 
             <button
               type="button"
+              onClick={handleToggleFocus10Mode}
+              className={`h-9 inline-flex items-center gap-2 text-xs font-bold px-3.5 rounded-xl border transition cursor-pointer shadow-xs ${
+                isFocus10Mode
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-rose-600/30 ring-2 ring-rose-500/40'
+                  : isLight 
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300' 
+                  : 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border-rose-700/60'
+              }`}
+              title="Focus 10 Mode: Review unapproved items in bite-sized batches of 10"
+            >
+              <Target className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+              <span>{isAr ? '\u0641\u062D\u0635 10 \u0623\u0635\u0646\u0627\u0641 (Review Queue)' : '🎯 Inspect Next 10'}</span>
+              {focusQueue.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-rose-500 text-white font-black leading-none">
+                  {focusQueue.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={handleExportCleanSpring}
               disabled={stagedItems.length === 0}
               className="h-9 inline-flex items-center gap-2 text-xs font-semibold px-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
@@ -481,8 +643,8 @@ export default function CatalogHarmonizerLabView({
         </div>
       </div>
 
-      {/* Metric KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Metric KPI Summary Cards (3-Tier Traffic Light + Resolved) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         <div className={`p-4 rounded-xl border ${
           isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#0f172a] border-slate-800'
         }`}>
@@ -520,11 +682,22 @@ export default function CatalogHarmonizerLabView({
           isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#0f172a] border-slate-800'
         }`}>
           <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-1">
+            <span>{isAr ? '\u0634\u0630\u0648\u0630 / \u0631\u0645\u0648\u0632 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629' : 'Syntax Anomalies'}</span>
+            <AlertTriangle className="w-4 h-4 text-rose-500" />
+          </div>
+          <div className="text-2xl font-black text-rose-500">{metrics.anomalies}</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Garbage tokens flagged</div>
+        </div>
+
+        <div className={`p-4 rounded-xl border ${
+          isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#0f172a] border-slate-800'
+        }`}>
+          <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-1">
             <span>{isAr ? '\u062A\u0645 \u0627\u0644\u062A\u0648\u062D\u064A\u062F \u0648\u0627\u0644\u062D\u0633\u0645' : 'Harmonized / Resolved'}</span>
             <ShieldCheck className="w-4 h-4 text-teal-500" />
           </div>
           <div className="text-2xl font-black text-teal-500">{metrics.resolved}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Snapped or accepted</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Approved or snapped</div>
         </div>
       </div>
 
@@ -548,6 +721,18 @@ export default function CatalogHarmonizerLabView({
               }`}
             >
               All Items ({metrics.total})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('anomaly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                filterMode === 'anomaly'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : isLight ? 'text-rose-700 bg-rose-50 hover:bg-rose-100' : 'text-rose-400 bg-rose-950/40 hover:bg-rose-900/40'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+              <span>Anomalies ({metrics.anomalies})</span>
             </button>
             <button
               type="button"
@@ -613,6 +798,102 @@ export default function CatalogHarmonizerLabView({
           </div>
         </div>
 
+        {/* Focus 10 Mode Stepper Banner */}
+        {isFocus10Mode && (
+          <div className={`p-4 border-b transition-all ${
+            isLight
+              ? 'bg-rose-50/80 border-rose-200 text-rose-950'
+              : 'bg-rose-950/30 border-rose-900/60 text-rose-100'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold shadow-sm shadow-rose-600/30 shrink-0">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-xs uppercase tracking-wide text-rose-600 dark:text-rose-400">
+                      {isAr ? '\u0648\u0636\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632 10 \u0623\u0635\u0646\u0627\u0641 (Focus 10 Mode)' : 'Focus 10 Review Mode'}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30">
+                      {isAr
+                        ? `\u062F\u0641\u0639\u0629 ${focusBatchIndex + 1} \u0645\u0646 ${totalBatches}`
+                        : `Batch ${focusBatchIndex + 1} of ${totalBatches}`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {focusQueue.length === 0
+                      ? (isAr ? '\u0627\u0643\u062A\u0645\u0644 \u0641\u062D\u0635 \u0648\u0627\u0639\u062A\u0645\u0627\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0635\u0646\u0627\u0641!' : 'All queued items in sandbox have been reviewed and approved!')
+                      : (isAr
+                        ? `${focusQueue.length} \u0635\u0646\u0641 \u0645\u062A\u0628\u0642\u064A \u0641\u064A \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0641\u062D\u0635 \u2022 \u064A\u062A\u0645 \u0639\u0631\u0636 10 \u0623\u0635\u0646\u0627\u0641 \u062A\u062F\u0631\u064A\u062C\u064A\u0627\u064B \u0644\u062A\u0641\u0627\u062F\u064A \u0627\u0644\u062A\u0634\u062A\u062A`
+                        : `${focusQueue.length} items remaining in queue • Prioritizing anomalies & variances in bite-sized batches`)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stepper Navigation & Batch Actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-lg p-0.5 bg-slate-100 dark:bg-slate-900">
+                  <button
+                    type="button"
+                    disabled={focusBatchIndex === 0}
+                    onClick={() => setFocusBatchIndex(prev => Math.max(0, prev - 1))}
+                    className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                    title="Previous Batch"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="font-mono text-xs px-2 font-bold">
+                    {focusBatchIndex + 1} / {totalBatches}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={focusBatchIndex >= totalBatches - 1}
+                    onClick={() => setFocusBatchIndex(prev => Math.min(totalBatches - 1, prev + 1))}
+                    className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                    title="Next Batch"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {currentBatchItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleApproveCurrentBatch}
+                    className="h-8 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/30"
+                    title="Approve all items in this 10-item batch and fetch the next batch"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span>{isAr ? '\u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062F\u0641\u0639\u0629 \u0648\u062C\u0644\u0628 \u0627\u0644\u062A\u0627\u0644\u064A\u0629' : 'Approve Batch & Fetch Next 10'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsFocus10Mode(false)}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                    isLight ? 'border-slate-300 hover:bg-slate-200 text-slate-700' : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                  }`}
+                  title="Exit Focus Mode and view all items"
+                >
+                  <span>{isAr ? '\u0625\u0646\u0647\u0627\u0621 \u0627\u0644\u062A\u0631\u0643\u064A\u0632' : 'Exit Focus'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Stepper Progress Bar */}
+            <div className="mt-2.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full transition-all duration-300"
+                style={{
+                  width: `${metrics.total > 0 ? Math.round(((metrics.total - focusQueue.length) / metrics.total) * 100) : 0}%`
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Diagnostic Table */}
         <div className="overflow-x-auto max-h-[640px]">
           <table className="w-full text-left border-collapse text-xs">
@@ -621,33 +902,56 @@ export default function CatalogHarmonizerLabView({
             }`}>
               <tr>
                 <th className="py-3 px-3.5 font-bold w-24">Item Code</th>
+                <th className="py-3 px-3 font-bold w-36">Source Origin</th>
                 <th className="py-3 px-3.5 font-bold min-w-[220px]">Original Raw Description</th>
-                <th className="py-3 px-3.5 font-bold min-w-[280px]">Standardized Clean Description</th>
+                <th className="py-3 px-3.5 font-bold min-w-[260px]">Standardized Clean Description</th>
                 <th className="py-3 px-2 font-bold text-center w-16">OD</th>
                 <th className="py-3 px-2 font-bold text-center w-20">WT (mm)</th>
                 <th className="py-3 px-2.5 font-bold text-center w-24">Rating / SDR</th>
                 <th className="py-3 px-2.5 font-bold text-center w-28">Standard</th>
                 <th className="py-3 px-2 font-bold text-center w-16">Joint</th>
                 <th className="py-3 px-2 font-bold text-center w-16">Length</th>
-                <th className="py-3 px-3 font-bold text-center min-w-[140px]">Matched Archetype</th>
-                <th className="py-3 px-3 font-bold text-center w-44">Governance Status</th>
+                <th className="py-3 px-3 font-bold text-center min-w-[130px]">Matched Archetype</th>
+                <th className="py-3 px-3 font-bold text-center w-40">Governance Status</th>
                 <th className="py-3 px-3.5 font-bold text-center w-36">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400">
-                    <Sliders className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="font-semibold">No staged products found in sandbox.</p>
-                    <p className="text-[11px] mt-1 text-slate-500">
-                      Click <strong>"Load Active Catalog"</strong>, <strong>"Upload Workbook"</strong>, or <strong>"Load Test Fixtures"</strong> above to begin.
-                    </p>
+                  <td colSpan={13} className="py-12 text-center text-slate-400">
+                    {isFocus10Mode && focusQueue.length === 0 ? (
+                      <div className="space-y-2">
+                        <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 animate-bounce" />
+                        <p className="font-bold text-sm text-emerald-500">
+                          {isAr ? '\u0627\u0643\u062A\u0645\u0644 \u0641\u062D\u0635 \u0648\u0627\u0639\u062A\u0645\u0627\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0635\u0646\u0627\u0641 \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u062C\u0627\u0631\u0628!' : 'All staged items in sandbox have been reviewed and approved!'}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {isAr ? '\u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0622\u0646 \u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0645\u0648\u062D\u062F \u0623\u0648 \u0627\u0639\u062A\u0645\u0627\u062F\u0647 \u0643\u062F\u0644\u064A\u0644 \u0631\u0626\u064A\u0633\u064A.' : 'You can now export the Clean Spring catalog or promote to Master Catalog.'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsFocus10Mode(false)}
+                          className="mt-2 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+                        >
+                          {isAr ? '\u0639\u0631\u0636 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0635\u0646\u0627\u0641' : 'View All Staged Items'}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Sliders className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        <p className="font-semibold">No staged products found in sandbox.</p>
+                        <p className="text-[11px] mt-1 text-slate-500">
+                          Click <strong>"Load Active Catalog"</strong>, <strong>"Upload Workbook"</strong>, or <strong>"Load Test Fixtures"</strong> above to begin.
+                        </p>
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (
                 filteredItems.map((item) => {
                   const isVariance = item.status === 'variance';
+                  const isAnomaly = item.status === 'anomaly' || item.hasAnomaly;
                   return (
                     <tr
                       key={item.id}
@@ -656,7 +960,11 @@ export default function CatalogHarmonizerLabView({
                         setIsDrawerOpen(true);
                       }}
                       className={`transition-colors cursor-pointer ${
-                        isVariance
+                        isAnomaly
+                          ? isLight
+                            ? 'bg-rose-50/70 hover:bg-rose-100/70'
+                            : 'bg-rose-950/20 hover:bg-rose-900/30'
+                          : isVariance
                           ? isLight
                             ? 'bg-amber-50/60 hover:bg-amber-100/60'
                             : 'bg-amber-950/15 hover:bg-amber-900/25'
@@ -668,9 +976,119 @@ export default function CatalogHarmonizerLabView({
                       <td className="py-2.5 px-3.5 font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {item.itemCode || '-'}
                       </td>
-                      <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                        {item.rawDescription}
+
+                      {/* Source Origin Column */}
+                      <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 font-mono text-[10px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            item.ingestionType === 'DAILY_LOG'
+                              ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
+                              : item.ingestionType === 'ERP_CACHE'
+                              ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                              : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                          }`}>
+                            {item.ingestionType || 'PLANNING_CATALOG'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveContextItem(item);
+                            }}
+                            className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-cyan-400 transition cursor-pointer"
+                            title="View Raw Source Record Context"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate max-w-[130px] mt-0.5" title={item.sourceFile}>
+                          {item.sourceFile || 'AlManar_9.xlsb'}
+                        </div>
+                        <div className="text-[9px] text-slate-500 truncate max-w-[130px]">
+                          {item.sourceSheet || 'Unique Planning'} • {item.sourceRow || 'Row #1'}
+                        </div>
                       </td>
+
+                      {/* Original Raw Description Column with Anomaly Highlighting & Inline Editing */}
+                      <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 font-mono text-[11px] group">
+                        {inlineEditingItemId === item.id ? (
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={inlineEditText}
+                              onChange={(e) => setInlineEditText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveInlineEdit(item, e);
+                                if (e.key === 'Escape') {
+                                  setInlineEditingItemId(null);
+                                  setInlineEditText('');
+                                }
+                              }}
+                              autoFocus
+                              className={`h-7 px-2 text-xs rounded border w-full font-mono ${
+                                isLight ? 'bg-white border-cyan-500 text-slate-900' : 'bg-slate-900 border-cyan-500 text-slate-100'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => handleSaveInlineEdit(item, e)}
+                              className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                              title="Save Clean Description"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setInlineEditingItemId(null);
+                                setInlineEditText('');
+                              }}
+                              className="p-1 rounded bg-slate-600 hover:bg-slate-700 text-white cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="break-all">{item.rawDescription}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setInlineEditingItemId(item.id);
+                                  setInlineEditText(item.rawDescription);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-cyan-400 transition cursor-pointer shrink-0"
+                                title="Edit Raw Description"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {item.unparsedTokens && item.unparsedTokens.length > 0 && (
+                              <div className="mt-1 flex flex-wrap items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-500 border border-rose-500/30">
+                                  <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                  <span>Unparsed: "{item.unparsedTokens.join(', ')}"</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handlePurgeGarbage(item, e)}
+                                  className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition flex items-center gap-1 cursor-pointer"
+                                  title="Purge unparsed garbage tokens"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5" />
+                                  <span>{isAr ? '\u062A\u0646\u0642\u064A\u0629' : 'Purge'}</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
                       <td className="py-2.5 px-3.5 font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
                         {item.canonicalDescription}
                       </td>
@@ -703,8 +1121,25 @@ export default function CatalogHarmonizerLabView({
                           {item.matchedArchetypeBadge || item.matchedArchetypeName || '#1 Metric'}
                         </span>
                       </td>
+
+                      {/* 3-Tier Traffic Light Governance Status */}
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        {item.status === 'variance' && (
+                        {isAnomaly && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                            title={item.conflictNotes}
+                          >
+                            <AlertTriangle className="w-3 h-3 text-rose-500" />
+                            <span>Anomaly / Garbage</span>
+                          </span>
+                        )}
+                        {!isAnomaly && item.isApproved && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                            <CheckSquare className="w-3 h-3" />
+                            <span>Batch Approved</span>
+                          </span>
+                        )}
+                        {!isAnomaly && !item.isApproved && item.status === 'variance' && (
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                             title={item.conflictNotes}
@@ -713,33 +1148,60 @@ export default function CatalogHarmonizerLabView({
                             <span>Spec Variance (Std: {item.officialStandardWtMm}mm)</span>
                           </span>
                         )}
-                        {item.status === 'clean' && (
+                        {!isAnomaly && !item.isApproved && item.status === 'clean' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Standard Matched</span>
                           </span>
                         )}
-                        {item.status === 'overridden' && (
+                        {!isAnomaly && !item.isApproved && item.status === 'overridden' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
                             <Check className="w-3 h-3" />
                             <span>Commercial Override</span>
                           </span>
                         )}
-                        {item.status === 'snapped' && (
+                        {!isAnomaly && !item.isApproved && item.status === 'snapped' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/30">
                             <Check className="w-3 h-3" />
                             <span>Snapped to Standard</span>
                           </span>
                         )}
-                        {item.status === 'custom' && (
+                        {!isAnomaly && !item.isApproved && item.status === 'custom' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30">
                             <Edit3 className="w-3 h-3" />
                             <span>Custom Edit</span>
                           </span>
                         )}
                       </td>
+
                       <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                        {isVariance ? (
+                        {isAnomaly ? (
+                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            {item.unparsedTokens?.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => handlePurgeGarbage(item, e)}
+                                className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs flex items-center gap-1"
+                                title="Purge Garbage Tokens"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Purge</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setIsDrawerOpen(true);
+                              }}
+                              className={`px-2 py-1 rounded text-[10px] font-semibold border transition cursor-pointer ${
+                                isLight ? 'hover:bg-slate-200 border-slate-300' : 'hover:bg-slate-700 border-slate-700'
+                              }`}
+                            >
+                              Fix / Edit
+                            </button>
+                          </div>
+                        ) : isVariance ? (
                           <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
@@ -828,6 +1290,87 @@ export default function CatalogHarmonizerLabView({
                 <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 break-all">
                   "{selectedItem.rawDescription}"
                 </p>
+              </div>
+
+              {/* Anomaly & Unparsed Tokens Warning Card */}
+              {selectedItem.unparsedTokens && selectedItem.unparsedTokens.length > 0 && (
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-bold text-rose-500 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-500" />
+                      <span>{isAr ? '\u062A\u0645 \u0627\u0643\u062A\u0634\u0627\u0641 \u0631\u0645\u0648\u0632 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629 (Anomaly)' : 'Unparsed Garbage Tokens Detected'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handlePurgeGarbage(selectedItem, e)}
+                      className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer shadow-xs"
+                      title="Purge unparsed garbage tokens"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isAr ? '\u062A\u0646\u0642\u064A\u0629 \u0627\u0644\u0631\u0645\u0648\u0632' : 'Purge Garbage'}</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {selectedItem.unparsedTokens.map((tok, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                        "{tok}"
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    {isAr ? '\u0647\u0630\u0647 \u0627\u0644\u0643\u0644\u0645\u0627\u062A \u0644\u0645 \u064A\u062A\u0639\u0631\u0641 \u0639\u0644\u064A\u0647\u0627 \u0645\u062D\u0631\u0643 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u0629. \u064A\u0645\u0643\u0646\u0643 \u062D\u0630\u0641\u0647\u0627 \u0628\u0636\u063A\u0637\u0629 \u0632\u0631.' : 'These words or symbols are unrecognized and can be purged automatically.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Source Provenance Card in Drawer */}
+              <div className={`p-4 rounded-xl border ${
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/60 border-slate-800'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {isAr ? '\u0645\u0635\u062F\u0631 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0627\u0644\u062A\u062A\u0628\u0639 (Source Provenance)' : 'Source Origin & Provenance'}
+                  </div>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                    selectedItem.ingestionType === 'DAILY_LOG'
+                      ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
+                      : selectedItem.ingestionType === 'ERP_CACHE'
+                      ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                      : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                  }`}>
+                    {selectedItem.ingestionType || 'PLANNING_CATALOG'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
+                  <div>
+                    <div className="text-[10px] text-slate-400">File</div>
+                    <div className="truncate font-semibold text-slate-300" title={selectedItem.sourceFile}>
+                      {selectedItem.sourceFile || 'AlManar_9.xlsb'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Sheet</div>
+                    <div className="truncate font-semibold text-slate-300">
+                      {selectedItem.sourceSheet || 'Unique Planning'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Row</div>
+                    <div className="truncate font-semibold text-slate-300">
+                      {selectedItem.sourceRow || 'Row #1'}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setActiveContextItem(selectedItem)}
+                    className="text-[10px] font-bold text-cyan-500 hover:text-cyan-400 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Info className="w-3 h-3" />
+                    <span>{isAr ? '\u0639\u0631\u0636 \u0627\u0644\u0633\u062C\u0644 \u0627\u0644\u062E\u0627\u0645 \u0627\u0644\u0623\u0635\u0644\u064A' : 'View Raw Source JSON'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Standardized Canonical Output */}
@@ -1184,6 +1727,79 @@ export default function CatalogHarmonizerLabView({
                 className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-md shadow-emerald-600/30 flex items-center gap-2"
               >
                 {isProcessing ? 'Promoting...' : 'Authorize & Promote'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Raw Source Record Context Modal */}
+      {activeContextItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            onClick={() => setActiveContextItem(null)}
+          />
+          <div className={`relative w-full max-w-lg rounded-2xl shadow-2xl p-5 border z-10 ${
+            isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-[#0f172a] border-slate-800 text-slate-100'
+          }`}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-cyan-500" />
+                <div>
+                  <h3 className="text-sm font-black">
+                    {isAr ? '\u0633\u064A\u0627\u0642 \u0648\u0645\u0635\u062F\u0631 \u0627\u0644\u0633\u062C\u0644 \u0627\u0644\u062E\u0627\u0645' : 'Raw Source Provenance & Context'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {activeContextItem.itemCode} • {activeContextItem.sourceFile}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveContextItem(null)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-[11px] p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div>
+                  <span className="text-slate-400 text-[10px]">Ingestion Type:</span>
+                  <div className="font-mono font-bold text-cyan-400">{activeContextItem.ingestionType || 'PLANNING_CATALOG'}</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px]">Row Position:</span>
+                  <div className="font-mono font-bold text-slate-200">{activeContextItem.sourceRow || 'Row #1'}</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px]">Source Sheet:</span>
+                  <div className="font-mono text-slate-200 truncate">{activeContextItem.sourceSheet || 'Unique Planning'}</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px]">Source Workbook:</span>
+                  <div className="font-mono text-slate-200 truncate">{activeContextItem.sourceFile || 'AlManar_9.xlsb'}</div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                  Raw Imported Record Data (As Ingested)
+                </label>
+                <pre className="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] overflow-auto max-h-60 text-emerald-400">
+                  {JSON.stringify(activeContextItem.rawImportData || activeContextItem, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4 pt-3 border-t border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setActiveContextItem(null)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

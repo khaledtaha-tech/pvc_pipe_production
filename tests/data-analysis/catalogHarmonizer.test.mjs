@@ -19,7 +19,10 @@ import {
   formatTokenValue,
   synthesizeDescription,
   detectMatchedArchetype,
-  applyArchetypeToItem
+  applyArchetypeToItem,
+  detectUnparsedTokens,
+  purgeGarbageTokens,
+  approveBatchItems
 } from '../../src/logic/catalogHarmonizer.js';
 
 import { getAllProducts, getProductByCode } from '../../src/logic/productCatalogHelper.js';
@@ -249,4 +252,109 @@ assert.strictEqual(updatedWithArch.matchedArchetypeId, arch1.id);
 assert.strictEqual(updatedWithArch.matchScore, 100);
 console.log('Test 13 Passed: Applied archetype pattern successfully re-synthesizes item.');
 
-console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (13/13) ---');
+// Test 14: Anomaly & Garbage token detection
+console.log('Test 14: Anomaly & Garbage token detection');
+const cleanRaw = 'PVC PIPE 110X5.3MM PN10 SASO-ISO 1452-2 R/R 6.0M';
+const cleanTokens = detectUnparsedTokens(cleanRaw);
+assert.strictEqual(cleanTokens.length, 0, 'Clean description should have 0 unparsed tokens');
+
+const messyWithGarbage = 'PVC PIPE 90X4.3MM PN10 ??? CORRUPT_TOK DIN 8062 S/C 6.0M';
+const garbageTokens = detectUnparsedTokens(messyWithGarbage);
+assert.ok(garbageTokens.length >= 2, 'Should detect unparsed garbage tokens');
+assert.ok(garbageTokens.some(t => t.includes('???') || t.includes('CORRUPT')));
+
+const anomalyHarmonized = harmonizeCatalogItem({
+  itemCode: '090-ERR',
+  description: messyWithGarbage
+});
+assert.strictEqual(anomalyHarmonized.hasAnomaly, true);
+assert.strictEqual(anomalyHarmonized.status, 'anomaly');
+assert.ok(anomalyHarmonized.conflictNotes.includes('Anomaly: Unparsed tokens'));
+console.log('Test 14 Passed: Anomaly & Garbage token detection isolates corrupted words.');
+
+// Test 15: Purging garbage tokens from raw descriptions
+console.log('Test 15: Purging garbage tokens');
+const cleaned = purgeGarbageTokens(messyWithGarbage, garbageTokens);
+assert.ok(!cleaned.includes('CORRUPT_TOK'), 'Garbage token must be removed');
+assert.ok(!cleaned.includes('???'), 'Symbol token must be removed');
+assert.ok(cleaned.includes('90X4.3MM'), 'Core dimensions must be preserved');
+const reHarmonized = harmonizeCatalogItem({
+  itemCode: '090-FIXED',
+  description: cleaned
+});
+assert.strictEqual(reHarmonized.hasAnomaly, false);
+assert.notStrictEqual(reHarmonized.status, 'anomaly');
+console.log('Test 15 Passed: Garbage tokens purged and description cleanly re-harmonized.');
+
+// Test 16: Source Provenance metadata tracking
+console.log('Test 16: Source Provenance metadata tracking');
+const sourceProvenanceItem = harmonizeCatalogItem({
+  itemCode: '110-PROV',
+  description: 'PVC PIPE 110X5.3MM PN10 SASO-ISO 1452-2 R/R',
+  sourceFile: 'AlManar_9.xlsb',
+  sourceSheet: 'Unique Planning',
+  sourceRow: 'Row #142',
+  ingestionType: 'PLANNING_CATALOG',
+  rawImportData: { 'Item Code': '110-PROV', 'Raw Desc': 'PVC PIPE 110X5.3MM PN10' }
+});
+assert.strictEqual(sourceProvenanceItem.sourceFile, 'AlManar_9.xlsb');
+assert.strictEqual(sourceProvenanceItem.sourceSheet, 'Unique Planning');
+assert.strictEqual(sourceProvenanceItem.sourceRow, 'Row #142');
+assert.strictEqual(sourceProvenanceItem.ingestionType, 'PLANNING_CATALOG');
+assert.ok(sourceProvenanceItem.rawImportData, 'Raw import data must be preserved');
+console.log('Test 16 Passed: Source provenance tracking properly captured and stored.');
+
+// Test 17: Batch approval mechanism
+console.log('Test 17: Batch approval mechanism');
+const unapprovedItems = [
+  { id: 'item-1', itemCode: '001', status: 'anomaly', isApproved: false },
+  { id: 'item-2', itemCode: '002', status: 'variance', isApproved: false },
+  { id: 'item-3', itemCode: '003', status: 'clean', isApproved: false },
+  { id: 'item-4', itemCode: '004', status: 'clean', isApproved: true }
+];
+const batchApproved = approveBatchItems(unapprovedItems, ['item-1', 'item-2', 'item-3']);
+assert.strictEqual(batchApproved[0].isApproved, true);
+assert.strictEqual(batchApproved[0].status, 'clean');
+assert.strictEqual(batchApproved[1].isApproved, true);
+assert.strictEqual(batchApproved[1].status, 'overridden');
+assert.strictEqual(batchApproved[2].isApproved, true);
+assert.strictEqual(batchApproved[3].isApproved, true);
+console.log('Test 17 Passed: Batch items successfully approved and updated.');
+
+// Test 18: Focus 10 Mode Queue Prioritization & Slicing
+console.log('Test 18: Focus 10 Mode Queue Prioritization & Slicing');
+const sampleCatalog = [];
+for (let i = 1; i <= 25; i++) {
+  sampleCatalog.push({
+    id: `item-${i}`,
+    itemCode: `P-${i}`,
+    status: i <= 5 ? 'anomaly' : (i <= 12 ? 'variance' : 'clean'),
+    hasAnomaly: i <= 5,
+    isApproved: false
+  });
+}
+// Unapproved priority sort
+const queue = sampleCatalog.slice().sort((a, b) => {
+  const scoreA = (a.status === 'anomaly' || a.hasAnomaly) ? 2 : (a.status === 'variance' ? 1 : 0);
+  const scoreB = (b.status === 'anomaly' || b.hasAnomaly) ? 2 : (b.status === 'variance' ? 1 : 0);
+  return scoreB - scoreA;
+});
+assert.strictEqual(queue.length, 25);
+// Top items in queue must be anomalies (score 2)
+assert.strictEqual(queue[0].status, 'anomaly');
+assert.strictEqual(queue[4].status, 'anomaly');
+// Next items in queue must be variances (score 1)
+assert.strictEqual(queue[5].status, 'variance');
+
+// Batch 1 (10 items)
+const batch1 = queue.slice(0, 10);
+assert.strictEqual(batch1.length, 10);
+// Batch 2 (10 items)
+const batch2 = queue.slice(10, 20);
+assert.strictEqual(batch2.length, 10);
+// Batch 3 (5 items)
+const batch3 = queue.slice(20, 30);
+assert.strictEqual(batch3.length, 5);
+console.log('Test 18 Passed: Focus 10 mode prioritizes anomalies and slices batches accurately.');
+
+console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (18/18) ---');

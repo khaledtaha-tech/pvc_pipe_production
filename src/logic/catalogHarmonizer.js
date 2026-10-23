@@ -664,6 +664,95 @@ export function checkSpecificationVariance(odMm, ratingClass, factoryWtMm, stand
 }
 
 /**
+ * Detects unrecognized or garbage tokens in a raw product description
+ * @param {string} rawDesc Messy raw product description
+ * @param {Object} [decomposed={}] Optional decomposed fields
+ * @returns {Array<string>} Array of unparsed / garbage token strings
+ */
+export function detectUnparsedTokens(rawDesc = '', decomposed = {}) {
+  if (!rawDesc || typeof rawDesc !== 'string') return [];
+
+  let remaining = String(rawDesc);
+
+  // 1. Mask out multi-part standard patterns
+  remaining = remaining.replace(/\bSASO[- ]?ISO[- ]?1452(?:-2)?\b/gi, ' ');
+  remaining = remaining.replace(/\bISO[- ]?1452(?:-2)?\b/gi, ' ');
+  remaining = remaining.replace(/\bDIN[- ]?806[12]\b/gi, ' ');
+  remaining = remaining.replace(/\bASTM[- ]?[DF]\d+\b/gi, ' ');
+  remaining = remaining.replace(/\bEN[- ]?1401(?:-1)?\b/gi, ' ');
+  remaining = remaining.replace(/\bBS[- ]?\d+\b/gi, ' ');
+  remaining = remaining.replace(/\bSASO[- ]?14\/15\b/gi, ' ');
+
+  // 2. Metric dimension OD x WT (e.g. 110X5.2MM, 75X3.6, 25 x 1.9, 110 x 5.3mm)
+  remaining = remaining.replace(/\b\d+(?:\.\d+)?\s*[xX*]\s*\d+(?:\.\d+)?(?:\s*MM)?\b/gi, ' ');
+
+  // 3. Inch dimensions (e.g. 1/2", 3/4", 1-1/4", 4 INCH, 4", 4 IN)
+  remaining = remaining.replace(/\b\d+(?:-\d+\/\d+|\/\d+)?(?:"|''|\s*INCH\b|\s*IN\b)/gi, ' ');
+
+  // 4. Standalone mm or meter (e.g. 160MM, 110 MM, 7.7MM, 6.0M, 6M, 3.0M, 5.8M)
+  remaining = remaining.replace(/\b\d+(?:\.\d+)?\s*MM\b/gi, ' ');
+  remaining = remaining.replace(/\b\d+(?:\.\d+)?\s*M(?:ETER)?\b/gi, ' ');
+
+  // 5. Ratings, schedules, SDR, Class (e.g. PN10, PN12.5, SCH40, SCH80, SDR41, CL4, CLASS 4, SN4, SN8)
+  remaining = remaining.replace(/\bPN\s*[-:]?\s*\d+(?:\.\d+)?\b/gi, ' ');
+  remaining = remaining.replace(/\bSCH\s*[-:]?\s*\d+\b/gi, ' ');
+  remaining = remaining.replace(/\bSDR\s*[-:]?\s*\d+(?:\.\d+)?\b/gi, ' ');
+  remaining = remaining.replace(/\bSN\s*[-:]?\s*\d+\b/gi, ' ');
+  remaining = remaining.replace(/\b(?:CLASS|CL)\s*[-:]?\s*[0-9A-Za-z]+\b/gi, ' ');
+
+  // 6. Compound applications & grades
+  remaining = remaining.replace(/\bFOR\s+(?:INJECTION|EXTRUSION|FITTINGS|BOTTLES|PROFILE)\b/gi, ' ');
+  remaining = remaining.replace(/\bGRADE[- ]?[A-Z0-9]+\b/gi, ' ');
+  remaining = remaining.replace(/\bK[- ]?\d+\b/gi, ' ');
+
+  // 7. Joints
+  remaining = remaining.replace(/\b(?:R\/R|S\/C|P\/E|RR|SC|PE|RUBBER\s*RING|PUSH[- ]?FIT|SOLVENT\s*CEMENT|PLAIN\s*(?:END|SOCKET)?|GASKET|BELL)\b/gi, ' ');
+
+  // 8. Colors
+  remaining = remaining.replace(/\b(?:GREY|GRAY|BLACK|WHITE|ORANGE|BLUE|RED|YELLOW|TERRACOTTA)\b/gi, ' ');
+
+  // 9. Product Types & Core Categories
+  remaining = remaining.replace(/\b(?:PVC|UPVC|CPVC|PIPE|PIPES|CONDUIT|DUCT|ELECTRICAL|COMPOUND|DRYBLEND|REGRIND|CRUSH)\b/gi, ' ');
+
+  // 10. Drainage / common technical specs
+  remaining = remaining.replace(/\b(?:DWV|DRAIN|DRAINAGE|SEWER|SOIL|WASTE|VENT|PRESSURE|WATER|SUPPLY)\b/gi, ' ');
+
+  // 11. Normalize common separators and punctuation
+  remaining = remaining.replace(/[\s,;:()\[\]/\\*+]+/g, ' ');
+
+  // Split into candidate tokens
+  const rawTokens = remaining.trim().split(/\s+/).filter(Boolean);
+
+  const garbage = rawTokens.filter(tok => {
+    const clean = tok.replace(/^[#?!\-_]+|[#?!\-_]+$/g, '').trim();
+    if (!clean) return true; // purely symbols like ??? or #
+    if (!isNaN(Number(clean)) && clean.length > 0) return false;
+    if (tok.length === 1 && /^[xX\-+*\/]$/.test(tok)) return false;
+    return true;
+  });
+
+  return Array.from(new Set(garbage));
+}
+
+/**
+ * Purges specified unparsed garbage tokens from a raw description string
+ * @param {string} rawDesc Original raw description
+ * @param {Array<string>} tokens Tokens to remove
+ * @returns {string} Cleaned raw description
+ */
+export function purgeGarbageTokens(rawDesc = '', tokens = []) {
+  if (!rawDesc) return '';
+  let cleaned = String(rawDesc);
+  (tokens || []).forEach(tok => {
+    if (!tok) return;
+    const escaped = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    cleaned = cleaned.replace(new RegExp(`(?:^|\\s|[.,;:])${escaped}(?:\\s|[.,;:]|$)`, 'gi'), ' ');
+    cleaned = cleaned.replace(new RegExp(escaped, 'gi'), ' ');
+  });
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Harmonizes a catalog item and returns a staging item with variance diagnostic metrics
  * @param {Object} item Raw catalog item
  * @returns {Object} Staged harmonized item
@@ -676,6 +765,9 @@ export function harmonizeCatalogItem(item = {}) {
     odMm: item.odMm || item.od_mm,
     wallThicknessMm: item.wallThicknessMm || item.wall_thickness_mm
   });
+
+  const unparsedTokens = detectUnparsedTokens(rawDesc, decomposed);
+  const hasAnomaly = unparsedTokens.length > 0 || (!decomposed.odMm && !decomposed.sizeDisplay && decomposed.productType !== 'PVC COMPOUND');
 
   const varianceCheck = checkSpecificationVariance(
     decomposed.odMm,
@@ -702,8 +794,28 @@ export function harmonizeCatalogItem(item = {}) {
 
   const unitWeight6mKg = linearWeightKgM ? Number((linearWeightKgM * 6.0).toFixed(3)) : null;
 
+  // Determine 3-tier status:
+  // 1. Red (anomaly) if unparsed tokens or missing critical size
+  // 2. Amber (variance) if dimension deviates from standard
+  // 3. Green (clean) if 100% compliant
+  let status = 'clean';
+  let conflictNotes = varianceCheck.note;
+  if (hasAnomaly) {
+    status = 'anomaly';
+    conflictNotes = unparsedTokens.length > 0
+      ? `Anomaly: Unparsed tokens detected [${unparsedTokens.join(', ')}]`
+      : 'Anomaly: Critical dimension / size missing or corrupt';
+  } else if (varianceCheck.hasVariance) {
+    status = 'variance';
+  }
+
+  // Preserve any previously resolved status if item is passed through
+  if (['overridden', 'snapped', 'custom', 'approved'].includes(item.status)) {
+    status = item.status;
+  }
+
   return {
-    id: `harm_${itemCode}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    id: item.id || `harm_${itemCode}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     itemCode,
     rawDescription: rawDesc,
     productType: decomposed.productType,
@@ -725,10 +837,19 @@ export function harmonizeCatalogItem(item = {}) {
     hasVariance: varianceCheck.hasVariance,
     varianceDiffMm: varianceCheck.diffMm,
     standardRef: varianceCheck.standardRef,
-    conflictNotes: varianceCheck.note,
-    status: varianceCheck.hasVariance ? 'variance' : 'clean',
-    actionTaken: null,
-    timestamp: new Date().toISOString()
+    conflictNotes,
+    unparsedTokens,
+    hasAnomaly,
+    isApproved: item.isApproved || status === 'approved',
+    // Source Provenance
+    sourceFile: item.sourceFile || item.source_file || 'AlManar_9.xlsb',
+    sourceSheet: item.sourceSheet || item.source_sheet || 'Unique Planning',
+    sourceRow: item.sourceRow || item.source_row || (item.rowIndex ? `Row #${item.rowIndex}` : 'Row #1'),
+    ingestionType: item.ingestionType || item.ingestion_type || 'PLANNING_CATALOG',
+    rawImportData: item.rawImportData || item,
+    status,
+    actionTaken: item.actionTaken || null,
+    timestamp: item.timestamp || new Date().toISOString()
   };
 }
 
@@ -808,6 +929,31 @@ export function applyResolutionAction(item, action, customData = {}) {
 }
 
 /**
+ * Approves a batch of staged items by IDs
+ * @param {Array<Object>} stagedItems Full staged items list
+ * @param {Array<string>} itemIds List of item IDs to approve
+ * @returns {Array<Object>} Updated staged items list
+ */
+export function approveBatchItems(stagedItems = [], itemIds = []) {
+  const idsSet = new Set(itemIds);
+  return stagedItems.map(item => {
+    if (idsSet.has(item.id)) {
+      return {
+        ...item,
+        isApproved: true,
+        status: item.status === 'anomaly' ? 'clean' : (item.status === 'variance' ? 'overridden' : item.status),
+        actionTaken: item.actionTaken || 'batch_approved',
+        conflictNotes: item.status === 'variance' && !item.actionTaken
+          ? 'Approved in Batch Review (Commercial Override)'
+          : (item.conflictNotes || 'Approved in Batch Review'),
+        timestamp: new Date().toISOString()
+      };
+    }
+    return item;
+  });
+}
+
+/**
  * Exports staged harmonized items to a pristine 'Clean Spring' Excel workbook (.xlsx)
  * @param {Array<Object>} stagedItems
  * @returns {Object} SheetJS Workbook
@@ -854,6 +1000,11 @@ export function exportCleanSpringWorkbook(stagedItems = []) {
     'Item Code': item.itemCode,
     'Original Raw Description': item.rawDescription,
     'Standardized Canonical Name': item.canonicalDescription,
+    'Source File': item.sourceFile || 'AlManar_9.xlsb',
+    'Source Sheet': item.sourceSheet || 'Unique Planning',
+    'Source Row': item.sourceRow || 'Row #1',
+    'Ingestion Type': item.ingestionType || 'PLANNING_CATALOG',
+    'Unparsed Tokens': item.unparsedTokens?.join(', ') || 'None',
     'Factory WT (mm)': item.wallThicknessMm,
     'Official Standard WT (mm)': item.officialStandardWtMm || 'N/A',
     'Variance Delta (mm)': item.varianceDiffMm || 0,
@@ -867,6 +1018,11 @@ export function exportCleanSpringWorkbook(stagedItems = []) {
     { wch: 16 },
     { wch: 46 },
     { wch: 48 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 12 },
+    { wch: 18 },
+    { wch: 20 },
     { wch: 16 },
     { wch: 22 },
     { wch: 18 },

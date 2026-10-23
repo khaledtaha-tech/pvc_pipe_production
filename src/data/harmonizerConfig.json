@@ -297,42 +297,92 @@
     {
       "itemCode": "110-PN10-52-COM",
       "rawDescription": "PVC PIPE 110X5.2MM PN10 SASO-ISO 1452-2 R/R",
-      "notes": "Classic Al-Manar commercial override: 5.2mm factory thickness vs 5.3mm official standard"
+      "notes": "Classic Al-Manar commercial override: 5.2mm factory thickness vs 5.3mm official standard",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #45",
+      "ingestionType": "PLANNING_CATALOG"
     },
     {
       "itemCode": "075-PN10-CL4",
       "rawDescription": "PVC PIPE 75X3.6MM PN10 CL4 DIN 8062 S/C 6.0M",
-      "notes": "Clean standard match: 75mm x 3.6mm PN10"
+      "notes": "Clean standard match: 75mm x 3.6mm PN10",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #12",
+      "ingestionType": "PLANNING_CATALOG"
     },
     {
       "itemCode": "004-SCH40-DWV",
       "rawDescription": "PVC PIPE 4 INCH X 6.0MM SCH40 DWV ASTM D2665 P/E",
-      "notes": "Imperial nominal size 4 inch SCH40 (6.0mm commercial approx for 6.02mm standard)"
+      "notes": "Imperial nominal size 4 inch SCH40 (6.0mm commercial approx for 6.02mm standard)",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Daily Production Log",
+      "sourceRow": "Row #94",
+      "ingestionType": "DAILY_LOG"
     },
     {
       "itemCode": "160-PN125-RR",
       "rawDescription": "PVC PIPE 160MM SASO-ISO 1452-2 PN12.5 7.7MM R/R",
-      "notes": "Specification variance: PN12.5 for 160mm is 9.5mm; 7.7mm belongs to PN10"
+      "notes": "Specification variance: PN12.5 for 160mm is 9.5mm; 7.7mm belongs to PN10",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #63",
+      "ingestionType": "PLANNING_CATALOG"
     },
     {
       "itemCode": "200-PN10-RR",
       "rawDescription": "PVC PIPE 200X9.6MM PN10 SASO-ISO 1452-2 R/R 5.8M",
-      "notes": "Clean standard match with 5.8M custom length"
+      "notes": "Clean standard match with 5.8M custom length",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #78",
+      "ingestionType": "PLANNING_CATALOG"
     },
     {
       "itemCode": "050-PN16-SC",
       "rawDescription": "PVC PIPE 50MM PN16 3.7MM DIN 8062 S/C",
-      "notes": "Clean standard match: 50mm x 3.7mm PN16"
+      "notes": "Clean standard match: 50mm x 3.7mm PN16",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "ERP Master Export",
+      "sourceRow": "Row #102",
+      "ingestionType": "ERP_CACHE"
     },
     {
       "itemCode": "063-PN10-RR",
       "rawDescription": "PVC PIPE 63X3.0MM PN10 SASO-ISO 1452-2 R/R",
-      "notes": "Clean standard match: 63mm x 3.0mm PN10"
+      "notes": "Clean standard match: 63mm x 3.0mm PN10",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #51",
+      "ingestionType": "PLANNING_CATALOG"
     },
     {
       "itemCode": "025-CND-MED",
       "rawDescription": "PVC CONDUIT 25MM X 1.9MM CLASS 4 BS 4607 P/E 3.0M",
-      "notes": "Conduit category with electrical standard"
+      "notes": "Conduit category with electrical standard",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #22",
+      "ingestionType": "PLANNING_CATALOG"
+    },
+    {
+      "itemCode": "090-ERR-ANOMALY",
+      "rawDescription": "PVC PIPE 90MM PN10 ??? CORRUPT_TOK SASO-ISO 1452-2 R/R",
+      "notes": "Anomaly case: Contains unparsed garbage tokens '???' and 'CORRUPT_TOK'",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Daily Production Log",
+      "sourceRow": "Row #142",
+      "ingestionType": "DAILY_LOG"
+    },
+    {
+      "itemCode": "110-MISPRINT",
+      "rawDescription": "PVC PIPE 110X5.3MM PN10 #ERR_SYMBOL R/R 6.0M",
+      "notes": "Anomaly case: Misplaced error symbol inside raw description",
+      "sourceFile": "AlManar_9.xlsb",
+      "sourceSheet": "Unique Planning",
+      "sourceRow": "Row #88",
+      "ingestionType": "PLANNING_CATALOG"
     }
   ]
 }

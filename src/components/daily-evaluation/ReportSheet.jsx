@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { SHIFT1_SPAN, SHIFT2_SPAN, DOC_STATUS } from '../../config/machines.js';
 import { buildRefDerived } from '../../logic/engine.js';
 import RateEstimatorPopover from './RateEstimatorPopover.jsx';
+import { tDaily } from '../../utils/dailyEvaluationTranslations.js';
 
 export const SHEET_WIDTH = 1100;
 
@@ -36,12 +37,13 @@ function EditableNum({ value, onChange, step = 1 }) {
 }
 
 const ReportSheet = forwardRef(function ReportSheet(
-  { report, derived, onPatchSlot, onPatchRef, isMonochrome = false, isExporting = false, viewMode = 'hourly' },
+  { report, derived, onPatchSlot, onPatchRef, isMonochrome = false, isExporting = false, viewMode = 'hourly', lang = 'en' },
   ref
 ) {
   const innerRef = useRef(null);
   useImperativeHandle(ref, () => innerRef.current, []);
 
+  const t = (k) => tDaily(k, lang);
   const header = report.header;
   const summary = report.summary;
   const ref1 = buildRefDerived(report.refs['1'] || {});
@@ -74,7 +76,7 @@ const ReportSheet = forwardRef(function ReportSheet(
         .map((s) => s.reason.trim())
     )
   );
-  const s1Reasons = s1ReasonsList.length > 0 ? s1ReasonsList.join(' • ') : 'Normal Continuous Extrusion';
+  const s1Reasons = s1ReasonsList.length > 0 ? s1ReasonsList.join(' • ') : t('rsNormalContinuous');
 
   const s2ReasonsList = Array.from(
     new Set(
@@ -83,7 +85,7 @@ const ReportSheet = forwardRef(function ReportSheet(
         .map((s) => s.reason.trim())
     )
   );
-  const s2Reasons = s2ReasonsList.length > 0 ? s2ReasonsList.join(' • ') : 'Normal Continuous Extrusion';
+  const s2Reasons = s2ReasonsList.length > 0 ? s2ReasonsList.join(' • ') : t('rsNormalContinuous');
 
   return (
     <div
@@ -108,32 +110,32 @@ const ReportSheet = forwardRef(function ReportSheet(
       {/* 1. Header Block */}
       <div className="sec-head">
         <div className="tcell plant-cell">
-          <div className="plant-line">{header.plantName || 'PVC PIPE EXTRUSION PLANT'}</div>
-          <div className="plant-sub">Standard SOP: SOP-EXT-PVC-01</div>
+          <div className="plant-line">{header.plantName || t('rsPlantName')}</div>
+          <div className="plant-sub">{t('rsPlantSub')}</div>
         </div>
         <div className="tcell title-cell">
-          <div className="sheet-title">PVC PIPE EXTRUSION DAILY MONITORING REPORT (24 HRS)</div>
-          <div className="sheet-subtitle">LINE SPEED, PRODUCTION, QUALITY &amp; DOWNTIME LOG</div>
+          <div className="sheet-title">{t('rsSheetTitle')}</div>
+          <div className="sheet-subtitle">{t('rsSheetSub')}</div>
         </div>
         <div className="tcell doc-cell">
-          <div className="doc-line">Doc: Version 04 | Status: {DOC_STATUS}</div>
+          <div className="doc-line">{t('rsDocLine')} {DOC_STATUS}</div>
         </div>
       </div>
 
       {/* 2. Date & Line Bar */}
       <div className="sec-date">
         <div className="tcell tcell-soft">
-          <span className="labeltext">Date:</span> <span className="value-strong">{header.date || '_____________'}</span>
+          <span className="labeltext">{t('rsDate')}</span> <span className="value-strong">{header.date || '_____________'}</span>
         </div>
         <div className="tcell tcell-soft text-center">
           {nominalCapacityKgH ? (
             <span className="capacity-strip">
-              Nominal Capacity: <b>{nominalCapacityKgH} kg/h</b> &middot; Actual Output: <b>{actualRateKgH} kg/h</b> &middot; Utilization: <b>{capacityUtilizationPct}%</b>
+              {t('rsNominalCap')} <b>{nominalCapacityKgH} kg/h</b> &middot; {t('rsActualOut')} <b>{actualRateKgH} kg/h</b> &middot; {t('rsUtil')} <b>{capacityUtilizationPct}%</b>
             </span>
           ) : null}
         </div>
         <div className="tcell tcell-soft text-right">
-          <span className="labeltext">Line:</span>{' '}
+          <span className="labeltext">{t('rsLine')}</span>{' '}
           <span className="value-strong">
             {(() => {
               const id = (header.lineId || '').trim();
@@ -151,24 +153,24 @@ const ReportSheet = forwardRef(function ReportSheet(
       {/* 3. Product & Line Reference Parameters */}
       <div className="refs-header">
         {[
-          'Item Reference',
-          'Pipe Specification (OD x WT x Length)',
-          'Standard Class / PN',
-          'Line Speed (m/min)',
-          'Cycle / Cut Time (s)',
-          'Target Output (Pcs/h)',
-          'Std Weight (kg/pipe)',
-          'Shift Supervisors & Extrusion Techs'
-        ].map((t, i) => (
+          t('rsRefItem'),
+          t('rsRefSpec'),
+          t('rsRefClass'),
+          t('rsRefSpeed'),
+          t('rsRefCycle'),
+          t('rsRefTargetRate'),
+          t('rsRefStdWeight'),
+          t('rsRefSupervisors')
+        ].map((headingText, i) => (
           <div className="tcell refh" key={i}>
-            {t}
+            {headingText}
           </div>
         ))}
       </div>
 
       {[
-        { key: 1, label: 'Reference 1', spec: ref1 },
-        { key: 2, label: 'Reference 2', spec: ref2 }
+        { key: 1, label: t('rsRef1'), spec: ref1 },
+        { key: 2, label: t('rsRef2'), spec: ref2 }
       ].map(({ key, label, spec }) => {
         const itemCode = (spec?.itemCode || (key === 1 ? header?.itemCode : '') || '').trim();
         const displayLabel = itemCode ? `[${itemCode}] ${label}` : label;
@@ -237,15 +239,15 @@ const ReportSheet = forwardRef(function ReportSheet(
       {/* 4. Counters Row */}
       <div className="counters-row">
         <div className="tcell counter-item">
-          <span className="labeltext">Initial Pipe Counter:</span>{' '}
+          <span className="labeltext">{t('rsInitialPipeCounter')}</span>{' '}
           <span className="value-strong">{num(summary.startCounter)}</span>
         </div>
         <div className="tcell counter-item">
-          <span className="labeltext">Extruder Resin Lot / Batch:</span>{' '}
+          <span className="labeltext">{t('rsResinLot')}</span>{' '}
           <span className="value-strong">{summary.resinLot || ''}</span>
         </div>
         <div className="tcell counter-item">
-          <span className="labeltext">Initial Haul-off Meter:</span>{' '}
+          <span className="labeltext">{t('rsInitialHaulOff')}</span>{' '}
           <span className="value-strong">{num(summary.haulOffMeter)}</span>
         </div>
       </div>
@@ -253,13 +255,13 @@ const ReportSheet = forwardRef(function ReportSheet(
       {/* 5. Production Grid Headers (7 Columns - Purge Scrap Removed) */}
       <div className="table-head-row">
         {[
-          { c: 'A', text: 'Shift' },
-          { c: 'B', text: viewMode === 'shift' ? 'Shift Window (12 Hours)' : 'Hour Window' },
-          { c: 'C', text: 'Actual Output (Pcs)' },
-          { c: 'D', text: 'Target Output (Pcs)' },
-          { c: 'E', text: 'Downtime (min)' },
-          { c: 'F', text: 'PVC Extrusion Breakdown / Downtime Reason' },
-          { c: 'G', text: 'Scrap Pipes (Pcs)' }
+          { c: 'A', text: t('rsShift') },
+          { c: 'B', text: viewMode === 'shift' ? t('rsShiftWindow') : t('rsHourWindow') },
+          { c: 'C', text: t('rsActualPcs') },
+          { c: 'D', text: t('rsTargetPcs') },
+          { c: 'E', text: t('rsDowntimeMin') },
+          { c: 'F', text: t('rsDowntimeReason') },
+          { c: 'G', text: t('rsScrapPcs') }
         ].map((h) => (
           <Cell c={h.c} key={h.c} className="th">
             {h.text}
@@ -271,7 +273,7 @@ const ReportSheet = forwardRef(function ReportSheet(
         <>
           {/* Shift 1 Consolidated Row */}
           <div className="trow shift-summary-row shift1-summary" key="shift1">
-            <Cell c="A" className="shiftcell">Shift 1 (Day)</Cell>
+            <Cell c="A" className="shiftcell">{t('rsShift1Day')}</Cell>
             <Cell c="B" className="windowcell">{SHIFT1_SPAN} (12h)</Cell>
             <Cell c="C" className="numcell summary-val">{num(s1.actual)}</Cell>
             <Cell c="D" className="numcell target summary-val">{num(s1.target)}</Cell>
@@ -282,7 +284,7 @@ const ReportSheet = forwardRef(function ReportSheet(
 
           {/* Shift 2 Consolidated Row */}
           <div className="trow shift-summary-row shift2-summary shift2" key="shift2">
-            <Cell c="A" className="shiftcell">Shift 2 (Night)</Cell>
+            <Cell c="A" className="shiftcell">{t('rsShift2Night')}</Cell>
             <Cell c="B" className="windowcell">{SHIFT2_SPAN} (12h)</Cell>
             <Cell c="C" className="numcell summary-val">{num(s2.actual)}</Cell>
             <Cell c="D" className="numcell target summary-val">{num(s2.target)}</Cell>
@@ -294,15 +296,15 @@ const ReportSheet = forwardRef(function ReportSheet(
           {/* Grand Total (24 Hours) */}
           <div className="trow grand shift-summary-grand" key="grand-total">
             <Cell c="A" span={2} className="totallabel">
-              GRAND TOTAL (24 HOURS)
+              {t('rsGrandTotal24')}
             </Cell>
             <Cell c="C" className="numcell">{num(totals.actual)}</Cell>
             <Cell c="D" className="numcell">{num(totals.target)}</Cell>
             <Cell c="E" className="numcell">{num(totals.downtime)}</Cell>
             <Cell c="F" className="reasoncell summary-note">
               {derived.totalDowntimeHours > 0
-                ? `Total Downtime: ${derived.totalDowntimeHours} h • Operating: ${derived.operatingHours} h`
-                : 'Full Continuous Operation (24.0 h)'}
+                ? `${t('rsTotalDowntimeNote')} ${derived.totalDowntimeHours} h • ${t('rsOperatingNote')} ${derived.operatingHours} h`
+                : t('rsFullContinuous')}
             </Cell>
             <Cell c="G" className="numcell">{num(totals.scrap)}</Cell>
           </div>
@@ -315,7 +317,7 @@ const ReportSheet = forwardRef(function ReportSheet(
             const isZebra = i % 2 === 1 ? ' zebra' : '';
             return (
               <div className={'trow' + (s.shift === 2 ? ' shift2' : '') + isZebra} key={i} data-idx={i}>
-                <Cell c="A" className={'shiftcell' + fullDt}>{'Shift ' + s.shift}</Cell>
+                <Cell c="A" className={'shiftcell' + fullDt}>{t('rsShift') + ' ' + s.shift}</Cell>
                 <Cell c="B" className={'windowcell' + fullDt}>{s.window}</Cell>
                 <Cell c="C" className={'numcell' + fullDt}>{num(s.actual)}</Cell>
                 <Cell c="D" className={'numcell target' + fullDt}>{num(s.target)}</Cell>
@@ -352,9 +354,9 @@ const ReportSheet = forwardRef(function ReportSheet(
 
           {/* 7. Subtotals & Grand Total Rows */}
           {[
-            { label: 'SUBTOTAL SHIFT 1 (' + SHIFT1_SPAN + ')', t: s1, tone: 'subtotal' },
-            { label: 'SUBTOTAL SHIFT 2 (' + SHIFT2_SPAN + ')', t: s2, tone: 'subtotal' },
-            { label: 'GRAND TOTAL (24 HOURS)', t: totals, tone: 'grand' }
+            { label: t('rsSubtotalShift1') + ' (' + SHIFT1_SPAN + ')', t: s1, tone: 'subtotal' },
+            { label: t('rsSubtotalShift2') + ' (' + SHIFT2_SPAN + ')', t: s2, tone: 'subtotal' },
+            { label: t('rsGrandTotal24'), t: totals, tone: 'grand' }
           ].map((row) => (
             <div className={'trow ' + row.tone} key={row.label}>
               <Cell c="A" span={2} className="totallabel">
@@ -373,15 +375,15 @@ const ReportSheet = forwardRef(function ReportSheet(
       {/* 8. Daily OEE & Performance Summary Block */}
       <div className="oee-labels">
         {[
-          'Operating Hours (h)',
-          'Total Downtime (h)',
-          'Availability Rate % (A)',
-          'Performance Rate % (P)',
-          'Quality Rate % (Q)',
-          'Overall OEE % (A × P × Q)'
-        ].map((t, i) => (
+          t('rsOeeOperatingHours'),
+          t('rsOeeTotalDowntime'),
+          t('rsOeeAvailability'),
+          t('rsOeePerformance'),
+          t('rsOeeQuality'),
+          t('rsOeeOverall')
+        ].map((headingText, i) => (
           <div className="tcell oee-label" key={i}>
-            {t}
+            {headingText}
           </div>
         ))}
       </div>
@@ -403,14 +405,14 @@ const ReportSheet = forwardRef(function ReportSheet(
       {/* 8b. Explicit OEE Formula Strip */}
       <div className="oee-formula-row">
         <div className="tcell oee-formula-cell">
-          <span className="formula-kicker">ENGINEERING OEE FORMULA:</span>{' '}
+          <span className="formula-kicker">{t('rsEngineeringOeeFormula')}</span>{' '}
           <span className="formula-math">
-            OEE = Availability ({derived.aStr}) &times; Performance ({derived.pStr}) &times; Quality ({derived.qStr}) ={' '}
+            OEE = {t('kpiFormulaAvail')} ({derived.aStr}) &times; {t('kpiFormulaPerf')} ({derived.pStr}) &times; {t('kpiFormulaQual')} ({derived.qStr}) ={' '}
             <b className="formula-final">{derived.oeeStr}</b>
           </span>
           {nominalCapacityKgH ? (
             <span className="capacity-math">
-              &middot; Capacity Benchmark: <b>{nominalCapacityKgH} kg/h</b> &middot; Actual Output: <b>{actualRateKgH} kg/h</b> (<b>{capacityUtilizationPct}%</b> utilization)
+              &middot; {t('rsCapacityBenchmark')} <b>{nominalCapacityKgH} kg/h</b> &middot; {t('rsActualOut')} <b>{actualRateKgH} kg/h</b> (<b>{capacityUtilizationPct}%</b> {t('rsUtil')})
             </span>
           ) : null}
         </div>
@@ -427,15 +429,15 @@ const ReportSheet = forwardRef(function ReportSheet(
         }}
       >
         <div className="tcell sign-item">
-          <span className="labeltext">Shift 1 Lead (Day):</span>{' '}
+          <span className="labeltext">{t('rsSignShift1Lead')}</span>{' '}
           <span className="sign-line">{summary.shift1Lead || '______________________'}</span>
         </div>
         <div className="tcell sign-item">
-          <span className="labeltext">Shift 2 Lead (Night):</span>{' '}
+          <span className="labeltext">{t('rsSignShift2Lead')}</span>{' '}
           <span className="sign-line">{summary.shift2Lead || '______________________'}</span>
         </div>
         <div className="tcell sign-item">
-          <span className="labeltext">Plant Production Manager:</span>{' '}
+          <span className="labeltext">{t('rsSignPlantManager')}</span>{' '}
           <span className="sign-line">{summary.plantManager || '______________________'}</span>
         </div>
       </div>

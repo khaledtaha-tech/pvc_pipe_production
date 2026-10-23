@@ -16,7 +16,8 @@ export default function PlantAnalytics({
   onNotify,
   isMonochrome = false,
   onToggleMonochrome,
-  onExportSop
+  onExportSop,
+  lang = 'en'
 }) {
   // Extract all available unique dates sorted chronologically
   const availableDates = useMemo(() => {
@@ -135,9 +136,9 @@ export default function PlantAnalytics({
       <section className="card analytics-header-card">
         <div className="card-head">
           <div>
-            <h2>Plant Analytics &amp; Performance Dashboard</h2>
+            <h2>{lang === 'ar' ? '\u0644\u0648\u062d\u0629 \u062a\u062d\u0644\u064a\u0644\u0627\u062a \u0648\u0623\u062f\u0627\u0621 \u0627\u0644\u0645\u0635\u0646\u0639' : 'Plant Analytics & Performance Dashboard'}</h2>
             <span className="card-note">
-              Executive multi-line OEE, capacity utilization, scrap analysis, and downtime Pareto statistics
+              {lang === 'ar' ? '\u0627\u0644\u0643\u0641\u0627\u0621\u0629 \u0627\u0644\u0643\u0644\u064a\u0629 \u0644\u0644\u062e\u0637\u0648\u0637\u060c \u0627\u0633\u062a\u063a\u0644\u0627\u0644 \u0627\u0644\u0637\u0627\u0642\u0629\u060c \u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0647\u0627\u0644\u0643\u060c \u0648\u0625\u062d\u0635\u0627\u0626\u064a\u0627\u062a \u0628\u0627\u0631\u064a\u062a\u0648 \u0644\u0644\u062a\u0648\u0642\u0641\u0627\u062a' : 'Executive multi-line OEE, capacity utilization, scrap analysis, and downtime Pareto statistics'}
             </span>
           </div>
           <div className="analytics-header-actions no-print">
@@ -151,7 +152,7 @@ export default function PlantAnalytics({
                   checked={isMonochrome}
                   onChange={(e) => onToggleMonochrome(e.target.checked)}
                 />
-                <span>Laser B&amp;W Theme</span>
+                <span>{lang === 'ar' ? '\u0646\u0645\u0637 \u0627\u0644\u0644\u064a\u0632\u0631 \u0623\u0633\u0648\u062f/\u0623\u0628\u064a\u0638' : 'Laser B&W Theme'}</span>
               </label>
             )}
             {typeof onExportSop === 'function' && (
@@ -161,7 +162,7 @@ export default function PlantAnalytics({
                 onClick={onExportSop}
                 title="Download active machine's official SOP (DOC-Ext.-03) follow sheet PDF"
               >
-                Download SOP (DOC-Ext.-03) PDF
+                {lang === 'ar' ? '\u062a\u062d\u0645\u064a\u0644 SOP (DOC-Ext.-03) PDF' : 'Download SOP (DOC-Ext.-03) PDF'}
               </button>
             )}
             <button
@@ -170,7 +171,7 @@ export default function PlantAnalytics({
               onClick={handlePrintAnalytics}
               title="Print clean executive summary"
             >
-              Print Analytics Report
+              {lang === 'ar' ? '\u0637\u0628\u0627\u0639\u0629 \u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u062a\u062d\u0644\u064a\u0644\u0627\u062a' : 'Print Analytics Report'}
             </button>
           </div>
         </div>
@@ -179,7 +180,7 @@ export default function PlantAnalytics({
         <div className="analytics-toolbar no-print">
           <div className="toolbar-group">
             <label className="field narrow">
-              <span className="field-label">From Date</span>
+              <span className="field-label">{lang === 'ar' ? '\u0645\u0646 \u062a\u0627\u0631\u064a\u062e' : 'From Date'}</span>
               <select
                 className="input"
                 value={fromDate}
@@ -194,7 +195,7 @@ export default function PlantAnalytics({
             </label>
 
             <label className="field narrow">
-              <span className="field-label">To Date</span>
+              <span className="field-label">{lang === 'ar' ? '\u0625\u0644\u0649 \u062a\u0627\u0631\u064a\u062e' : 'To Date'}</span>
               <select
                 className="input"
                 value={toDate}
@@ -209,40 +210,40 @@ export default function PlantAnalytics({
             </label>
 
             <div className="preset-btn-group">
-              <span className="preset-label">Presets:</span>
+              <span className="preset-label">{lang === 'ar' ? '\u0641\u062a\u0631\u0627\u062a \u062c\u0627\u0647\u0632\u0629:' : 'Presets:'}</span>
               <button
                 type="button"
                 className="btn btn-ghost btn-xs"
                 onClick={handlePresetAll}
               >
-                All Dates
+                {lang === 'ar' ? '\u0643\u0627\u0641\u0629 \u0627\u0644\u062a\u0648\u0627\u0631\u064a\u062e' : 'All Dates'}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost btn-xs"
                 onClick={handlePresetLast7}
               >
-                Last 7 Days
+                {lang === 'ar' ? '\u0622\u062e\u0631 7 \u0623\u064a\u0627\u0645' : 'Last 7 Days'}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost btn-xs"
                 onClick={handlePresetSingle}
               >
-                Single Day
+                {lang === 'ar' ? '\u064a\u0648\u0645 \u0648\u0627\u062d\u062f' : 'Single Day'}
               </button>
             </div>
           </div>
 
           <div className="toolbar-group">
             <label className="field medium">
-              <span className="field-label">Extrusion Line Scope</span>
+              <span className="field-label">{lang === 'ar' ? '\u0646\u0637\u0627\u0642 \u062e\u0637\u0648\u0637 \u0627\u0644\u0628\u062b\u0642' : 'Extrusion Line Scope'}</span>
               <select
                 className="input"
                 value={selectedLine}
                 onChange={(e) => setSelectedLine(e.target.value)}
               >
-                <option value="ALL">All Lines (Entire Factory Scope)</option>
+                <option value="ALL">{lang === 'ar' ? '\u0643\u0627\u0641\u0629 \u0627\u0644\u062e\u0637\u0648\u0637 (\u0646\u0637\u0627\u0642 \u0627\u0644\u0645\u0635\u0646\u0639 \u0628\u0627\u0644\u0643\u0627\u0645\u0644)' : 'All Lines (Entire Factory Scope)'}</option>
                 {machineMaster.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.id} - {m.name} ({m.capacityKgH ? `${m.capacityKgH} kg/h` : m.detail})
@@ -257,16 +258,20 @@ export default function PlantAnalytics({
       {records.length === 0 ? (
         <section className="card analytics-table-card">
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <h3 style={{ margin: '0 0 8px', color: '#1e293b' }}>No Production Data Loaded</h3>
+            <h3 style={{ margin: '0 0 8px', color: '#1e293b' }}>
+              {lang === 'ar' ? '\u0644\u0627 \u062a\u0648\u062c\u062f \u0628\u064a\u0627\u0646\u0627\u062a \u0625\u0646\u062a\u0627\u062c \u0645\u062d\u0645\u0644\u0629' : 'No Production Data Loaded'}
+            </h3>
             <p style={{ margin: '0 0 20px', color: '#64748b', fontSize: '13px' }}>
-              All imported production records have been cleared. Upload an Excel workbook in the Uploader or reload the demo file to view plant analytics.
+              {lang === 'ar'
+                ? '\u062a\u0645 \u0645\u0633\u062d \u0643\u0627\u0641\u0629 \u0633\u062c\u0644\u0627\u062a \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0645\u0633\u062a\u0648\u0631\u062f\u0629. \u0642\u0645 \u0628\u0631\u0641\u0639 \u0645\u0644\u0641 \u0625\u0643\u0633\u0644 \u0623\u0648 \u0625\u0639\u0627\u062f\u0629 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u062a\u062c\u0631\u064a\u0628\u064a \u0644\u0639\u0631\u0638 \u062a\u062d\u0644\u064a\u0644\u0627\u062a \u0627\u0644\u0645\u0635\u0646\u0639.'
+                : 'All imported production records have been cleared. Upload an Excel workbook in the Uploader or reload the demo file to view plant analytics.'}
             </p>
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => onSwitchTab && onSwitchTab('uploader')}
             >
-              Go to Excel Uploader
+              {lang === 'ar' ? '\u0627\u0644\u0627\u0646\u062a\u0642\u0627\u0644 \u0625\u0644\u0649 \u0631\u0627\u0641\u0639 \u0627\u0644\u0625\u0643\u0633\u0644' : 'Go to Excel Uploader'}
             </button>
           </div>
         </section>
@@ -275,10 +280,12 @@ export default function PlantAnalytics({
           {/* Scope Banner (Visible in Print & Screen) */}
           <div className="analytics-scope-banner">
             <div className="scope-text">
-              <b>Active Scope:</b>{' '}
+              <b>{lang === 'ar' ? '\u0627\u0644\u0646\u0637\u0627\u0642 \u0627\u0644\u0646\u0634\u0637:' : 'Active Scope:'}</b>{' '}
               {fromDate === toDate ? `Date: ${fromDate}` : `Period: ${fromDate || 'Start'} to ${toDate || 'End'}`} &middot;{' '}
-              {selectedLine === 'ALL' ? 'Plant-Wide (9 Extrusion Lines)' : `Extruder: ${selectedLine}`} &middot;{' '}
-              <b>{filtered.length}</b> Production Logs Aggregated
+              {selectedLine === 'ALL'
+                ? (lang === 'ar' ? '\u0643\u0627\u0641\u0629 \u062e\u0637\u0648\u0637 \u0627\u0644\u0645\u0635\u0646\u0639 (9 \u062e\u0637\u0648\u0637 \u0628\u062b\u0642)' : 'Plant-Wide (9 Extrusion Lines)')
+                : `Extruder: ${selectedLine}`} &middot;{' '}
+              <b>{filtered.length}</b> {lang === 'ar' ? '\u0633\u062c\u0644\u0627\u062a \u0625\u0646\u062a\u0627\u062c \u0645\u062c\u0645\u0639\u0629' : 'Production Logs Aggregated'}
             </div>
           </div>
 
@@ -287,7 +294,9 @@ export default function PlantAnalytics({
         {/* Card 1: Total Good Output */}
         <div className="analytics-kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-card-title">TOTAL GOOD PRODUCTION</span>
+            <span className="kpi-card-title">
+              {lang === 'ar' ? '\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0635\u0627\u0644\u062d' : 'TOTAL GOOD PRODUCTION'}
+            </span>
             <span className="kpi-tag kpi-tag-blue">Output FG</span>
           </div>
           <div className="kpi-card-main">
@@ -296,7 +305,7 @@ export default function PlantAnalytics({
           </div>
           <div className="kpi-sub-row">
             <span className="kpi-sub-item">
-              <b>{plantMetrics.totalPcs.toLocaleString()}</b> Finished Pipes (FG)
+              <b>{plantMetrics.totalPcs.toLocaleString()}</b> {lang === 'ar' ? '\u0645\u0627\u0633\u0648\u0631\u0629 \u062a\u0627\u0645\u0629 (FG)' : 'Finished Pipes (FG)'}
             </span>
           </div>
           <div className="kpi-sub-row text-muted">
@@ -307,7 +316,9 @@ export default function PlantAnalytics({
         {/* Card 2: Scrap & Scrap Rate */}
         <div className="analytics-kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-card-title">SCRAP WEIGHT &amp; RATE</span>
+            <span className="kpi-card-title">
+              {lang === 'ar' ? '\u0648\u0632\u0646 \u0648\u0646\u0633\u0628\u0629 \u0627\u0644\u0647\u0627\u0644\u0643' : 'SCRAP WEIGHT & RATE'}
+            </span>
             <span
               className={
                 'kpi-tag ' +
@@ -340,7 +351,9 @@ export default function PlantAnalytics({
         {/* Card 3: Plant Average OEE */}
         <div className="analytics-kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-card-title">PLANT AVERAGE OEE</span>
+            <span className="kpi-card-title">
+              {lang === 'ar' ? '\u0645\u062a\u0648\u0633\u0637 \u0643\u0641\u0627\u0621\u0629 \u0627\u0644\u0645\u0635\u0646\u0639 OEE' : 'PLANT AVERAGE OEE'}
+            </span>
             <span
               className={
                 'kpi-tag ' +
@@ -381,7 +394,9 @@ export default function PlantAnalytics({
         {/* Card 4: Capacity Utilization */}
         <div className="analytics-kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-card-title">CAPACITY UTILIZATION</span>
+            <span className="kpi-card-title">
+              {lang === 'ar' ? '\u0627\u0633\u062a\u063a\u0644\u0627\u0644 \u0627\u0644\u0637\u0627\u0642\u0629 \u0627\u0644\u062a\u0635\u0645\u064a\u0645\u064a\u0629' : 'CAPACITY UTILIZATION'}
+            </span>
             <span className="kpi-tag kpi-tag-blue">Benchmark</span>
           </div>
           <div className="kpi-card-main">
@@ -400,7 +415,9 @@ export default function PlantAnalytics({
         {/* Card 5: Operating vs Downtime */}
         <div className="analytics-kpi-card">
           <div className="kpi-card-header">
-            <span className="kpi-card-title">OPERATING VS DOWNTIME</span>
+            <span className="kpi-card-title">
+              {lang === 'ar' ? '\u0633\u0627\u0639\u0627\u062a \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u0645\u0642\u0627\u0628\u0644 \u0627\u0644\u062a\u0648\u0642\u0641' : 'OPERATING VS DOWNTIME'}
+            </span>
             <span className="kpi-tag kpi-tag-gray">{plantMetrics.totalPlannedHours}h Planned</span>
           </div>
           <div className="kpi-card-main">
@@ -455,12 +472,12 @@ export default function PlantAnalytics({
         <section className="card analytics-table-card">
           <div className="card-head">
             <div>
-              <h3>Downtime &amp; Stoppage Analysis (Reason Breakdown)</h3>
+              <h3>{lang === 'ar' ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u062a\u0648\u0642\u0641\u0627\u062a \u0648\u0627\u0644\u0623\u0639\u0637\u0627\u0644 (\u062a\u0641\u0635\u064a\u0644 \u0627\u0644\u0623\u0633\u0628\u0627\u0628)' : 'Downtime & Stoppage Analysis (Reason Breakdown)'}</h3>
               <span className="card-note">
-                Aggregated from Column J stoppage logs &middot; Ranked by total lost duration
+                {lang === 'ar' ? '\u0645\u062c\u0645\u0639 \u0645\u0646 \u0633\u062c\u0644\u0627\u062a \u0627\u0644\u062a\u0648\u0642\u0641 \u2022 \u0645\u0631\u062a\u0628 \u062d\u0633\u0628 \u0625\u062c\u0645\u0627\u0644\u064a \u0632\u0645\u0646 \u0627\u0644\u0641\u0642\u062f' : 'Aggregated from Column J stoppage logs \u00b7 Ranked by total lost duration'}
               </span>
             </div>
-            <span className="table-count-badge">{downtimeList.length} Categories</span>
+            <span className="table-count-badge">{downtimeList.length} {lang === 'ar' ? '\u062a\u0635\u0646\u064a\u0641\u0627\u062a' : 'Categories'}</span>
           </div>
 
           <div className="table-responsive">
@@ -468,12 +485,12 @@ export default function PlantAnalytics({
               <thead>
                 <tr>
                   <th style={{ width: '40px' }}>#</th>
-                  <th>Breakdown / Downtime Reason</th>
-                  <th style={{ textAlign: 'center' }}>Events</th>
-                  <th style={{ textAlign: 'right' }}>Duration (Hours)</th>
-                  <th style={{ textAlign: 'right' }}>Duration (Min)</th>
-                  <th style={{ textAlign: 'right' }}>% of Lost Time</th>
-                  <th style={{ width: '140px' }}>Pareto Share</th>
+                  <th>{lang === 'ar' ? '\u0633\u0628\u0628 \u0627\u0644\u062a\u0648\u0642\u0641 / \u0627\u0644\u0639\u0637\u0644' : 'Breakdown / Downtime Reason'}</th>
+                  <th style={{ textAlign: 'center' }}>{lang === 'ar' ? '\u0645\u0631\u0627\u062a \u0627\u0644\u062a\u0648\u0642\u0641' : 'Events'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0627\u0644\u0645\u062f\u0629 (\u0633\u0627\u0639\u0627\u062a)' : 'Duration (Hours)'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0627\u0644\u0645\u062f\u0629 (\u062f\u0642\u0627\u0626\u0642)' : 'Duration (Min)'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0646\u0633\u0628\u0629 \u0627\u0644\u0648\u0642\u062a \u0627\u0644\u0645\u0641\u0642\u0648\u062f %' : '% of Lost Time'}</th>
+                  <th style={{ width: '140px' }}>{lang === 'ar' ? '\u062d\u0635\u0629 \u0628\u0627\u0631\u064a\u062a\u0648' : 'Pareto Share'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -520,28 +537,28 @@ export default function PlantAnalytics({
         <section className="card analytics-table-card">
           <div className="card-head">
             <div>
-              <h3>Machine Performance Comparison Matrix</h3>
+              <h3>{lang === 'ar' ? '\u0645\u0635\u0641\u0648\u0641\u0629 \u0645\u0642\u0627\u0631\u0646\u0629 \u0623\u062f\u0627\u0621 \u0627\u0644\u0645\u0627\u0643\u064a\u0646\u0627\u062a' : 'Machine Performance Comparison Matrix'}</h3>
               <span className="card-note">
-                Multi-line benchmark evaluation: Output, Scrap %, Nominal vs Actual kg/h, Utilization &amp; OEE
+                {lang === 'ar' ? '\u062a\u0642\u064a\u064a\u0645 \u0645\u0639\u064a\u0627\u0631\u064a \u0644\u0644\u062e\u0637\u0648\u0637: \u0627\u0644\u0625\u0646\u062a\u0627\u062c\u060c \u0646\u0633\u0628\u0629 \u0627\u0644\u0647\u0627\u0644\u0643\u060c \u0627\u0644\u0641\u0639\u0644\u064a \u0645\u0642\u0627\u0628\u0644 \u0627\u0644\u0627\u0633\u0645\u064a\u060c \u0627\u0644\u0627\u0633\u062a\u063a\u0644\u0627\u0644 \u0648 OEE' : 'Multi-line benchmark evaluation: Output, Scrap %, Nominal vs Actual kg/h, Utilization & OEE'}
               </span>
             </div>
-            <span className="table-count-badge">{machineMatrix.length} Lines</span>
+            <span className="table-count-badge">{machineMatrix.length} {lang === 'ar' ? '\u062e\u0637\u0648\u0637' : 'Lines'}</span>
           </div>
 
           <div className="table-responsive">
             <table className="analytics-table">
               <thead>
                 <tr>
-                  <th>Line ID &amp; Extruder</th>
-                  <th style={{ textAlign: 'center' }}>Op / DT Hours</th>
-                  <th style={{ textAlign: 'right' }}>Good Output (MT)</th>
-                  <th style={{ textAlign: 'right' }}>FG Pcs</th>
-                  <th style={{ textAlign: 'right' }}>Scrap</th>
-                  <th style={{ textAlign: 'right' }}>Actual / Nominal</th>
-                  <th style={{ textAlign: 'right' }}>Util %</th>
+                  <th>{lang === 'ar' ? '\u0631\u0645\u0632 \u0627\u0644\u062e\u0637 \u0648\u0627\u0644\u0645\u0627\u0643\u064a\u0646\u0629' : 'Line ID & Extruder'}</th>
+                  <th style={{ textAlign: 'center' }}>{lang === 'ar' ? '\u0633\u0627\u0639\u0627\u062a \u062a\u0634\u063a\u064a\u0644 / \u062a\u0648\u0642\u0641' : 'Op / DT Hours'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0625\u0646\u062a\u0627\u062c \u0635\u0627\u0644\u062d (\u0637\u0646)' : 'Good Output (MT)'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0627\u0644\u062a\u0627\u0645 (\u062d\u0628\u0629)' : 'FG Pcs'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0627\u0644\u0647\u0627\u0644\u0643' : 'Scrap'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0627\u0644\u0641\u0639\u0644\u064a / \u0627\u0644\u0627\u0633\u0645\u064a' : 'Actual / Nominal'}</th>
+                  <th style={{ textAlign: 'right' }}>{lang === 'ar' ? '\u0627\u0644\u0627\u0633\u062a\u063a\u0644\u0627\u0644 %' : 'Util %'}</th>
                   <th style={{ textAlign: 'right' }}>OEE %</th>
-                  <th style={{ textAlign: 'center' }}>Operational Status</th>
-                  <th className="no-print" style={{ textAlign: 'center' }}>Action</th>
+                  <th style={{ textAlign: 'center' }}>{lang === 'ar' ? '\u062d\u0627\u0644\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644' : 'Operational Status'}</th>
+                  <th className="no-print" style={{ textAlign: 'center' }}>{lang === 'ar' ? '\u0625\u062c\u0631\u0627\u0621' : 'Action'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -610,7 +627,7 @@ export default function PlantAnalytics({
                           disabled={!m.latestRecord}
                           title="Open single-page 24-hour follow sheet for this line"
                         >
-                          View Sheet
+                          {lang === 'ar' ? '\u0639\u0631\u0638 \u0627\u0644\u0634\u064a\u062a' : 'View Sheet'}
                         </button>
                       </td>
                     </tr>

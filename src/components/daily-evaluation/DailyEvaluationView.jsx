@@ -57,6 +57,7 @@ import { syncBaselinesWithServer } from '../../logic/standardCatalogHelper.js';
 import DailyReconciliationMatrixView from './DailyReconciliationMatrixView.jsx';
 import { getMachineNominalCapacity, MACHINE_SETTINGS_CHANGED_EVENT } from '../../logic/machineSettingsConfig.js';
 import { buildUniversalBlankSopModel } from '../../logic/legacySopHelper.js';
+import { tDaily } from '../../utils/dailyEvaluationTranslations.js';
 import JSZip from 'jszip';
 import {
   exportSingleMachineToExcel,
@@ -124,6 +125,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
   ref
 ) {
   const isAr = lang === 'ar';
+  const t = useCallback((k) => tDaily(k, lang), [lang]);
   const [records, setRecords] = useState(() => {
     const persisted = loadPersistedRecords();
     return persisted.status === 'loaded' ? consolidateDailyMachineRecords(persisted.records) : [];
@@ -1684,14 +1686,14 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
-                PVC Pipe Daily Monitoring Report
+                {t('reportTitle')}
               </h1>
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                 v{DOC_VERSION}
               </span>
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {PLANT_NAME} &middot; {SOP_REF} &middot; Standardized Extrusion Audit
+              {PLANT_NAME} &middot; {SOP_REF} &middot; {t('auditSubtitle')}
             </div>
           </div>
           <div
@@ -1712,14 +1714,14 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             className="toolbar-btn toolbar-btn-primary h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3.5 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsPrintChoiceModalOpen(true)}
             style={{ backgroundColor: '#059669', color: '#ffffff' }}
-            title="Production Supervisor: Generate & Print Morning Blank SOP (DOC-Ext.-03)"
+            title={t('printMorningSopTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" className="flex-shrink-0" style={{ stroke: '#ffffff', color: '#ffffff' }}>
               <path d="M6 9V2h12v7" />
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
               <rect x="6" y="14" width="12" height="8" />
             </svg>
-            <span style={{ color: '#ffffff' }}>Print Morning SOP</span>
+            <span style={{ color: '#ffffff' }}>{t('printMorningSop')}</span>
           </button>
 
           {/* Daily PDF Report: Single-Page A4 Portrait Audit */}
@@ -1727,7 +1729,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsDailyAuditPdfOpen(true)}
-            title="Daily PDF Report: Generate & Print Single-Page A4 Portrait Operational Audit (Yesterday's Run)"
+            title={t('dailyPdfReportTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1736,7 +1738,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <line x1="16" y1="17" x2="8" y2="17" />
               <polyline points="10 9 9 9 8 9" />
             </svg>
-            <span>Daily PDF Report</span>
+            <span>{t('dailyPdfReport')}</span>
           </button>
 
           {/* Catalog Action: Standards Catalog */}
@@ -1744,14 +1746,14 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsCatalogModalOpen(true)}
-            title="Machine-Mold Standards Catalog: Manage approved operational rates (pcs/h)"
+            title={t('standardsCatalogTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
               <path d="M6 6h10" />
               <path d="M6 10h10" />
             </svg>
-            <span>Standards Catalog</span>
+            <span>{t('standardsCatalog')}</span>
           </button>
 
           {/* Provenance & Source Attribution: Catalog Inspector */}
@@ -1759,7 +1761,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsProvenanceModalOpen(true)}
-            title="Catalog Inspector: Audit and inspect specifications data provenance and origin files"
+            title={t('catalogInspectorTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <circle cx="11" cy="11" r="8" />
@@ -1767,7 +1769,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <line x1="11" y1="8" x2="11" y2="14" />
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
-            <span>Catalog Inspector</span>
+            <span>{t('catalogInspector')}</span>
           </button>
 
           {/* Engineering Governance Documentation Hub */}
@@ -1776,13 +1778,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               type="button"
               className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm text-teal-600 dark:text-teal-400 border-teal-500/40 hover:bg-teal-500/10"
               onClick={onOpenEngineeringDocs}
-              title="Engineering Governance & Sizing Documentation Hub"
+              title={t('engineeringDocsTitle')}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
               </svg>
-              <span>{isAr ? '\u062A\u0648\u062B\u064A\u0642 \u0627\u0644\u062D\u0648\u0643\u0645\u0629' : 'Engineering Docs'}</span>
+              <span>{t('engineeringDocs')}</span>
             </button>
           )}
 
@@ -1791,7 +1793,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setIsMachineSettingsOpen(true)}
-            title="Machine Master Settings: Configure and persist nominal machine rates (kg/h)"
+            title={t('machineSettingsTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <line x1="4" y1="21" x2="4" y2="14" />
@@ -1804,7 +1806,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <line x1="9" y1="8" x2="15" y2="8" />
               <line x1="17" y1="16" x2="23" y2="16" />
             </svg>
-            <span>Machine Settings</span>
+            <span>{t('machineSettings')}</span>
           </button>
 
           {/* Excel & Data: Upload Excel */}
@@ -1812,14 +1814,14 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={() => setTab('uploader')}
-            title="Open Excel Production Log Uploader"
+            title={t('uploadExcelTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <span>Upload Excel</span>
+            <span>{t('uploadExcel')}</span>
           </button>
 
           {/* History */}
@@ -1827,13 +1829,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={openHistory}
-            title="Browse Saved Daily Reports History"
+            title={t('historyTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-            <span>History</span>
+            <span>{t('history')}</span>
           </button>
 
           {/* New Report */}
@@ -1841,12 +1843,12 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
             type="button"
             className="toolbar-btn toolbar-btn-outline h-9 inline-flex items-center justify-center gap-2 text-xs font-semibold px-3 rounded-lg cursor-pointer transition-colors shadow-sm"
             onClick={handleReset}
-            title="Clear and Create New Report"
+            title={t('newReportTitle')}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="flex-shrink-0">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            <span>New Report</span>
+            <span>{t('newReport')}</span>
           </button>
         </div>
       </header>
@@ -1858,7 +1860,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           onClick={() => setTab('uploader')}
           style={tab === 'uploader' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
-          <span style={tab === 'uploader' ? { color: '#ffffff' } : {}}>Excel Production Log Uploader</span>
+          <span style={tab === 'uploader' ? { color: '#ffffff' } : {}}>{t('tabUploader')}</span>
         </button>
         <button
           type="button"
@@ -1866,7 +1868,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           onClick={() => setTab('analytics')}
           style={tab === 'analytics' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
-          <span style={tab === 'analytics' ? { color: '#ffffff' } : {}}>Plant Analytics</span>
+          <span style={tab === 'analytics' ? { color: '#ffffff' } : {}}>{t('tabAnalytics')}</span>
         </button>
         <button
           type="button"
@@ -1874,7 +1876,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           onClick={() => setTab('matrix')}
           style={tab === 'matrix' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
-          <span style={tab === 'matrix' ? { color: '#ffffff' } : {}}>Daily Reconciliation Matrix</span>
+          <span style={tab === 'matrix' ? { color: '#ffffff' } : {}}>{t('tabMatrix')}</span>
         </button>
         <button
           type="button"
@@ -1883,7 +1885,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           disabled={!derived}
           style={tab === 'sheet' ? { backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' } : {}}
         >
-          <span style={tab === 'sheet' ? { color: '#ffffff' } : {}}>24-Hour Production Sheet</span> {derived ? <span className="tab-badge" /> : null}
+          <span style={tab === 'sheet' ? { color: '#ffffff' } : {}}>{t('tabSheet')}</span> {derived ? <span className="tab-badge" /> : null}
         </button>
       </nav>
 
@@ -1895,6 +1897,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           onWorkbookParsed={handleWorkbookParsed}
           onSelectReport={handleSelectFromUploader}
           onNotify={notify}
+          lang={lang}
         />
       </main>
 
@@ -1912,6 +1915,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           isMonochrome={isLaserMonochrome}
           onToggleMonochrome={setIsLaserMonochrome}
           onExportSop={handleExportSop}
+          lang={lang}
         />
       </main>
 
@@ -1926,6 +1930,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           machineMaster={machineMaster}
           selectedDate={selectedDate}
           availableDates={selectableDates}
+          lang={lang}
           onDateChange={(newDate) => {
             handleToolbarDateChange(newDate);
           }}
@@ -1955,7 +1960,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <div className="sheet-toolbar-left">
                 <div className="sheet-selectors-row">
                   <div className="sheet-selector-group">
-                    <label htmlFor="sheet-date-select" className="sheet-selector-label">Date:</label>
+                    <label htmlFor="sheet-date-select" className="sheet-selector-label">{t('dateLabel')}</label>
                     <select
                       id="sheet-date-select"
                       className="sheet-select"
@@ -1970,7 +1975,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   </div>
 
                   <div className="sheet-selector-group machine-selector-group">
-                    <label htmlFor="sheet-machine-select" className="sheet-selector-label">Line / Machine:</label>
+                    <label htmlFor="sheet-machine-select" className="sheet-selector-label">{t('lineLabel')}</label>
                     <div className="machine-select-wrapper">
                       <select
                         id="sheet-machine-select"
@@ -1980,7 +1985,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                         disabled={displayLinesWithCurrent.length === 0}
                       >
                         {displayLinesWithCurrent.length === 0 ? (
-                          <option value="" disabled>No Active Lines (Factory Stop)</option>
+                          <option value="" disabled>{t('noActiveLinesOption')}</option>
                         ) : (
                           displayLinesWithCurrent.map((item) => (
                             <option key={item.lineId} value={item.lineId}>{item.label}</option>
@@ -1988,7 +1993,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                         )}
                         {hasOperatingLinesOnDate && (
                           <option value="__TOGGLE_ALL__">
-                            --- {showAllLines ? 'Filter Active Lines Only' : 'Show All Lines (Including Idle)'} ---
+                            --- {showAllLines ? t('filterActiveLinesOnly') : t('showAllLinesOption')} ---
                           </option>
                         )}
                       </select>
@@ -1998,9 +2003,9 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                           type="button"
                           className={`btn-line-toggle ${showAllLines ? 'active' : ''}`}
                           onClick={() => setShowAllLines((prev) => !prev)}
-                          title={showAllLines ? 'Filter to active operating lines only' : 'Show all factory lines including idle'}
+                          title={showAllLines ? t('filterActiveLinesOnly') : t('showAllLinesOption')}
                         >
-                          {showAllLines ? 'Active Only' : 'Show All'}
+                          {showAllLines ? t('activeOnlyBtn') : t('showAllBtn')}
                         </button>
                       )}
                     </div>
@@ -2013,7 +2018,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     if (!activeCode) return null;
                     return (
                       <div className="sheet-selector-group item-code-badge-group">
-                        <label className="sheet-selector-label">Item Code:</label>
+                        <label className="sheet-selector-label">{t('itemCodeLabel')}</label>
                         <div className="item-code-badge-pill" title={`Active Item Code: ${activeCode}`}>
                           <span className="item-code-badge-tag">[{activeCode}]</span>
                         </div>
@@ -2022,33 +2027,33 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   })()}
                 </div>
                 <span className="kicker-note">
-                  Auto-distributed 24-hour log. Hourly cells are editable; subtotals and OEE recompute live.
+                  {t('kickerNote')}
                 </span>
               </div>
               <div className="sheet-toolbar-right">
                 <div className="view-mode-selector" title="Select between detailed 24-hour hourly log, 12-hour mobile shift summary, and legacy plant SOP document">
-                  <span className="view-mode-label">View Mode:</span>
+                  <span className="view-mode-label">{t('viewModeLabel')}</span>
                   <div className="view-mode-toggle-group">
                     <button
                       type="button"
                       className={`view-mode-btn ${viewMode === 'hourly' ? 'active' : ''}`}
                       onClick={() => setViewMode('hourly')}
                     >
-                      24-Hour Hourly (Detailed)
+                      {t('viewModeHourly')}
                     </button>
                     <button
                       type="button"
                       className={`view-mode-btn ${viewMode === 'shift' ? 'active' : ''}`}
                       onClick={() => setViewMode('shift')}
                     >
-                      12-Hour Shift Summary (Mobile)
+                      {t('viewModeShift')}
                     </button>
                     <button
                       type="button"
                       className={`view-mode-btn ${viewMode === 'sop' ? 'active' : ''}`}
                       onClick={() => setViewMode('sop')}
                     >
-                      Legacy SOP (DOC-Ext.-03)
+                      {t('viewModeSop')}
                     </button>
                   </div>
                 </div>
@@ -2062,7 +2067,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     checked={isLaserMonochrome}
                     onChange={(e) => setIsLaserMonochrome(e.target.checked)}
                   />
-                  <span>Laser B&W Theme</span>
+                  <span>{t('laserTheme')}</span>
                 </label>
                 <button
                   type="button"
@@ -2070,15 +2075,15 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                   onClick={() => setIsReconcileModalOpen(true)}
                   disabled={activeLinesForDate.length === 0 || !report?.slots || report.slots.length === 0}
                   style={{ backgroundColor: '#059669', color: '#ffffff', borderColor: '#059669' }}
-                  title="Auto-reconcile 24h run and reverse estimate slot production across operating hours"
+                  title={t('autoReconcileTitle')}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" style={{ marginRight: 6, stroke: '#ffffff', color: '#ffffff' }}>
                     <path d="M12 20v-6M6 20V10M18 20V4" />
                   </svg>
-                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Auto-Reconcile Shift Run</span>
+                  <span style={{ color: '#ffffff', fontWeight: 600 }}>{t('autoReconcileBtn')}</span>
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={handleSave}>
-                  Save to History
+                  {t('saveToHistoryBtn')}
                 </button>
                 <button
                   type="button"
@@ -2092,7 +2097,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  Export Current Line
+                  {t('exportCurrentLineBtn')}
                 </button>
                 <button
                   type="button"
@@ -2105,7 +2110,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
                     <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                   </svg>
-                  Export All Lines
+                  {t('exportAllLinesBtn')}
                   {activeLinesForDate.length > 0 ? (
                     <span className="export-all-count-badge">{activeLinesForDate.length}</span>
                   ) : null}
@@ -2123,13 +2128,13 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <line x1="8" y1="2" x2="8" y2="6" />
                     <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
-                  Export Date Range
+                  {t('exportDateRangeBtn')}
                 </button>
                 <button
                   type="button"
                   className="btn btn-ghost btn-print"
                   onClick={() => {
-                    notify('Ensure Landscape orientation and A4 size in the print dialog for best fit.');
+                    notify(t('printHint'));
                     setTimeout(() => window.print(), 150);
                   }}
                   disabled={activeLinesForDate.length === 0}
@@ -2140,7 +2145,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
                     <rect x="6" y="14" width="12" height="8" />
                   </svg>
-                  Print
+                  {t('printBtn')}
                 </button>
               </div>
             </div>
@@ -2149,10 +2154,10 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
               <div className="factory-stop-banner no-print">
                 <div className="factory-stop-icon">🏭 🛑</div>
                 <div className="factory-stop-title">
-                  No Active Lines on {selectedDate}
+                  {t('factoryStopTitle')} {selectedDate}
                 </div>
                 <div className="factory-stop-text">
-                  All extrusion lines were idle or shut down on this date (Factory Stop / Weekend / 0 Operating Hours). No active production log was recorded.
+                  {t('factoryStopText')}
                 </div>
                 <div className="factory-stop-actions">
                   <button
@@ -2160,20 +2165,20 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                     className="btn btn-primary"
                     onClick={() => setTab('analytics')}
                   >
-                    View Plant Analytics
+                    {t('btnViewAnalytics')}
                   </button>
                   <button
                     type="button"
                     className="btn btn-ghost"
                     onClick={() => setTab('uploader')}
                   >
-                    Go to Excel Log Uploader
+                    {t('btnGoUploader')}
                   </button>
                 </div>
               </div>
             ) : (
               <>
-                <KpiStrip derived={derived} />
+                <KpiStrip derived={derived} lang={lang} />
 
                 <FitScale>
                   {isBlankSopPrint ? (
@@ -2199,6 +2204,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
                       isMonochrome={isLaserMonochrome}
                       isExporting={isExporting}
                       viewMode={viewMode}
+                      lang={lang}
                     />
                   )}
                 </FitScale>
@@ -2207,16 +2213,16 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
           </>
         ) : (
           <div className="sheet-empty no-print">
-            <div className="sheet-empty-title">No 24-hour log generated yet</div>
+            <div className="sheet-empty-title">{t('emptySheetTitle')}</div>
             <div className="sheet-empty-text">
-              Select a production record from the Excel Uploader or Plant Analytics dashboard to generate and inspect its 24-hour follow sheet.
+              {t('emptySheetText')}
             </div>
             <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button type="button" className="btn btn-primary" onClick={() => setTab('uploader')}>
-                Go to Excel Log Uploader
+                {t('btnGoUploader')}
               </button>
               <button type="button" className="btn btn-ghost" onClick={() => setTab('analytics')}>
-                Go to Plant Analytics
+                {t('btnViewAnalytics')}
               </button>
             </div>
           </div>
@@ -2429,6 +2435,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         selectedDate={selectedDate}
         machineMaster={machineMaster}
         onNotify={notify}
+        lang={lang}
       />
 
       {/* Product Provenance & Source Attribution Inspector Modal */}

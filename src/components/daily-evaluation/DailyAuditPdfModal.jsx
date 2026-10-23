@@ -7,6 +7,7 @@ import {
 } from '../../logic/dailyAuditPdfHelper.js';
 import DailyAuditPdfSheet from './DailyAuditPdfSheet.jsx';
 import { MACHINES } from '../../config/machines.js';
+import { tDaily } from '../../utils/dailyEvaluationTranslations.js';
 
 export default function DailyAuditPdfModal({
   isOpen,
@@ -14,8 +15,10 @@ export default function DailyAuditPdfModal({
   records = [],
   selectedDate = '',
   machineMaster = MACHINES,
-  onNotify = null
+  onNotify = null,
+  lang = 'en'
 }) {
+  const t = (k) => tDaily(k, lang);
   // 1. Automatic Yesterday Binding (relative to selectedDate or current system date)
   const [auditDate, setAuditDate] = useState(() => getYesterdayDate(selectedDate));
   const [isDownloading, setIsDownloading] = useState(false);
@@ -174,12 +177,12 @@ export default function DailyAuditPdfModal({
         <div className="daily-audit-toolbar flex items-center justify-between flex-wrap gap-2 px-4 py-2.5 bg-slate-950 border-b border-slate-800 text-white">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white uppercase tracking-wider">
-              Executive PDF
+              {t('executiveBadge')}
             </span>
             <h2 id="daily-audit-modal-title" className="text-sm font-bold text-slate-100">
-              Daily Operational Audit Report
+              {t('modalTitle')}
             </h2>
-            <span className="text-xs text-slate-400 hidden sm:inline">&bull; Single-Page A4 Landscape</span>
+            <span className="text-xs text-slate-400 hidden sm:inline">&bull; {t('landscapeSub')}</span>
           </div>
 
           {/* Quick Date Controls */}
@@ -214,7 +217,7 @@ export default function DailyAuditPdfModal({
               className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition cursor-pointer"
               title="Set to Yesterday relative to system"
             >
-              Yesterday
+              {t('yesterdayBtn')}
             </button>
 
             {latestRecordedDate && (
@@ -224,7 +227,7 @@ export default function DailyAuditPdfModal({
                 className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-900/60 hover:bg-blue-800/80 text-blue-200 border border-blue-700/60 transition cursor-pointer"
                 title={`Set to latest logged production date (${latestRecordedDate})`}
               >
-                Latest ({latestRecordedDate})
+                {t('latestBtn')} ({latestRecordedDate})
               </button>
             )}
           </div>
@@ -241,7 +244,7 @@ export default function DailyAuditPdfModal({
               }`}
               title="Display all extrusion lines (including idle lines)"
             >
-              All Lines ({totalLinesCount})
+              {t('allLinesBtn')} ({totalLinesCount})
             </button>
             <button
               type="button"
@@ -253,7 +256,7 @@ export default function DailyAuditPdfModal({
               }`}
               title="Filter to lines with active production or operating hours"
             >
-              Operating Only ({operatingLinesCount})
+              {t('operatingOnlyBtn')} ({operatingLinesCount})
             </button>
           </div>
 
@@ -269,7 +272,7 @@ export default function DailyAuditPdfModal({
               }`}
               title="Clean Executive view: Essential primary figures and clean metrics"
             >
-              Executive Clean
+              {t('cleanModeBtn')}
             </button>
             <button
               type="button"
@@ -281,7 +284,7 @@ export default function DailyAuditPdfModal({
               }`}
               title="Detailed Audit view: Full dual-metric breakdown with kg, pace, and speed efficiency"
             >
-              Detailed Audit
+              {t('detailedModeBtn')}
             </button>
           </div>
 
@@ -299,7 +302,7 @@ export default function DailyAuditPdfModal({
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
                 <rect x="6" y="14" width="12" height="8" />
               </svg>
-              <span>Print / Save as PDF</span>
+              <span>{t('printPdfBtn')}</span>
             </button>
 
             <button
@@ -315,7 +318,7 @@ export default function DailyAuditPdfModal({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>{isDownloading ? 'Generating...' : 'Download PDF'}</span>
+              <span>{isDownloading ? t('generatingPdf') : t('downloadPdfBtn')}</span>
             </button>
 
             <button
@@ -335,7 +338,7 @@ export default function DailyAuditPdfModal({
         {/* Modal Sheet Preview Container */}
         <div className="daily-audit-preview-body p-4 overflow-auto bg-slate-950/60 flex justify-center">
           <div className="daily-audit-preview-wrapper shadow-2xl rounded-sm border border-slate-300">
-            <DailyAuditPdfSheet ref={sheetRef} data={auditData} filterMode={filterMode} densityMode={densityMode} />
+            <DailyAuditPdfSheet ref={sheetRef} data={auditData} filterMode={filterMode} densityMode={densityMode} lang={lang} />
           </div>
         </div>
       </div>

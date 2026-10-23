@@ -17,14 +17,17 @@ import {
   savePersistedRecords,
   clearPersistedRecords
 } from '../../data/store.js';
+import { tDaily } from '../../utils/dailyEvaluationTranslations.js';
 
 export default function ExcelUploader({
   records: externalRecords,
   machineMaster: externalMaster,
   onWorkbookParsed,
   onSelectReport,
-  onNotify
+  onNotify,
+  lang = 'en'
 }) {
+  const t = (k) => tDaily(k, lang);
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState(() => loadPersistedMeta().fileName || '');
   const [sheetName, setSheetName] = useState(() => loadPersistedMeta().sheetName || '');
@@ -352,9 +355,9 @@ export default function ExcelUploader({
       <section className="card uploader-card">
         <div className="card-head">
           <div>
-            <h2>Factory Consolidated Excel Parser (Master_Upload.xlsx)</h2>
+            <h2>{t('uploaderHeading')}</h2>
             <span className="card-note">
-              Unified workbook parser: extracts <b>Machine_Master</b> capacities, <b>Daily Production Log</b>, and Column J <b>Reason of Stop</b>
+              {t('uploaderNote')}
             </span>
           </div>
           <div className="header-btn-wrap">
@@ -366,7 +369,7 @@ export default function ExcelUploader({
                 disabled={loading}
                 title="Clear all imported Excel production records from the application and local storage"
               >
-                Clear Data
+                {t('btnClearData')}
               </button>
             ) : null}
             <button
@@ -376,14 +379,14 @@ export default function ExcelUploader({
               disabled={loading}
               title="Load master production logs and machine capacities"
             >
-              {records.length > 0 ? 'Reload Master_Upload.xlsx' : 'Load Demo Sample (Master_Upload.xlsx)'}
+              {records.length > 0 ? t('btnReloadMaster') : t('btnLoadDemo')}
             </button>
           </div>
         </div>
 
         {/* Dynamic Machine Master Ribbon */}
         <div className="machine-master-ribbon">
-          <div className="ribbon-title">FACTORY MACHINE BENCHMARK CAPACITY (Machine_Master):</div>
+          <div className="ribbon-title">{t('ribbonTitle')}</div>
           <div className="ribbon-chips">
             {machineMaster.map((m) => (
               <span className="ribbon-chip" key={m.id}>
@@ -423,10 +426,10 @@ export default function ExcelUploader({
               ? 'Parsing Excel workbook & Machine_Master...'
               : fileName
               ? `Loaded: ${fileName} (Sheet: ${sheetName})`
-              : 'Drag & Drop Master_Upload.xlsx / .xlsb here, or click to browse'}
+              : t('dropTitleEmpty')}
           </div>
           <div className="drop-sub">
-            Reads Date, Line ID, Item Code, Specs, Production Qty, Total Weight, Scrap kg, Operating Hours, and Reason of Stop
+            {t('dropSub')}
           </div>
         </div>
       </section>

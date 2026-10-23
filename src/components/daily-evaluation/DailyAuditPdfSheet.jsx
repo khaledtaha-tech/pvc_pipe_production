@@ -6,7 +6,7 @@ import { getAuditDensityPreset } from '../../logic/dailyAuditPdfHelper.js';
  * Fits strictly onto exactly 1 single A4 Landscape page (297mm x 210mm) without multi-page spilling.
  */
 const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
-  { data, filterMode = 'all', densityMode = 'clean', className = '' },
+  { data, filterMode = 'all', densityMode = 'clean', lang = 'en', className = '' },
   ref
 ) {
   if (!data) return null;
@@ -59,7 +59,9 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                   {meta.title}
                 </h2>
                 <div className={`${scale.headerSubClass} font-semibold text-slate-500 uppercase tracking-wider`}>
-                  Extrusion Operational Reconciliation &bull; 24-Hour Continuous Run
+                  {lang === 'ar'
+                    ? '\u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u0644\u0644\u0628\u062b\u0642 \u2022 \u062a\u0634\u063a\u064a\u0644 \u0645\u062a\u0648\u0627\u0635\u0644 24 \u0633\u0627\u0639\u0629'
+                    : 'Extrusion Operational Reconciliation \u2022 24-Hour Continuous Run'}
                 </div>
               </div>
             </div>
@@ -72,7 +74,7 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
                 Ref: <span className="font-semibold text-slate-700">{meta.sopReference}</span> &bull; {meta.standardVersion}
               </div>
               <div className="text-[8px] text-slate-400 font-mono">
-                Generated: {meta.generatedTimestamp}
+                {lang === 'ar' ? '\u062a\u0645 \u0627\u0644\u062a\u0648\u0644\u064a\u062f:' : 'Generated:'} {meta.generatedTimestamp}
               </div>
             </div>
           </div>
@@ -83,20 +85,20 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
           {/* KPI 1: Total FG Output */}
           <div className={`audit-kpi-card bg-emerald-50/70 border border-emerald-300 rounded-md ${scale.kpiCardPaddingClass}`}>
             <div className={`${scale.kpiTitleClass} font-bold text-emerald-800 uppercase tracking-wider`}>
-              Total Finished Goods Output
+              {lang === 'ar' ? '\u0625\u062c\u0645\u0627\u0644\u064a \u0625\u0646\u062a\u0627\u062c \u0627\u0644\u062a\u0627\u0645' : 'Total Finished Goods Output'}
             </div>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`${scale.kpiMetricClass} font-black text-emerald-950 font-mono`}>
                 {kpis.totalActualPcs.toLocaleString()}
               </span>
-              <span className={`${scale.unitClass} font-bold text-emerald-700`}>pcs</span>
+              <span className={`${scale.unitClass} font-bold text-emerald-700`}>{lang === 'ar' ? '\u062d\u0628\u0629' : 'pcs'}</span>
               <span className="text-slate-400 text-xs mx-1">&bull;</span>
               <span className={`${scale.kpiSecondaryMetricClass} font-bold text-emerald-900 font-mono`}>
                 {kpis.totalActualMT} MT
               </span>
             </div>
             <div className={`${scale.kpiSubtextClass} text-emerald-700 font-medium flex items-center justify-between mt-0.5`}>
-              <span>Target: {kpis.totalExpectedPcs.toLocaleString()} pcs</span>
+              <span>{lang === 'ar' ? '\u0627\u0644\u0645\u0633\u062a\u0647\u062f\u0641:' : 'Target:'} {kpis.totalExpectedPcs.toLocaleString()} {lang === 'ar' ? '\u062d\u0628\u0629' : 'pcs'}</span>
               <span className={`font-bold ${kpis.totalVariancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                 {kpis.totalVariancePcs >= 0 ? '+' : ''}{kpis.totalVariancePct}%
               </span>
@@ -106,22 +108,22 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
           {/* KPI 2: Lost Time & Downtime */}
           <div className={`audit-kpi-card bg-amber-50/70 border border-amber-300 rounded-md ${scale.kpiCardPaddingClass}`}>
             <div className={`${scale.kpiTitleClass} font-bold text-amber-800 uppercase tracking-wider`}>
-              Time Accounting &amp; Lost Hours
+              {lang === 'ar' ? '\u062a\u0648\u0632\u064a\u0639 \u0627\u0644\u0648\u0642\u062a \u0648\u0627\u0644\u0633\u0627\u0639\u0627\u062a \u0627\u0644\u0645\u0641\u0642\u0648\u062f\u0629' : 'Time Accounting & Lost Hours'}
             </div>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`${scale.kpiMetricClass} font-black text-amber-950 font-mono`}>
                 {kpis.totalLostHours.toFixed(1)}
               </span>
-              <span className={`${scale.unitClass} font-bold text-amber-700`}>h lost</span>
+              <span className={`${scale.unitClass} font-bold text-amber-700`}>{lang === 'ar' ? '\u0633 \u0645\u0641\u0642\u0648\u062f' : 'h lost'}</span>
               <span className="text-slate-400 text-xs mx-1">&bull;</span>
               <span className={`${scale.kpiSecondaryMetricClass} font-bold text-amber-900 font-mono`}>
-                {kpis.totalOperatingHours.toFixed(1)}h run
+                {kpis.totalOperatingHours.toFixed(1)}{lang === 'ar' ? '\u0633 \u062a\u0634\u063a\u064a\u0644' : 'h run'}
               </span>
             </div>
             <div className={`${scale.kpiSubtextClass} text-amber-800 font-medium flex items-center justify-between mt-0.5`}>
-              <span>Downtime: {downtime.totalDowntimeHours.toFixed(1)}h</span>
+              <span>{lang === 'ar' ? '\u0627\u0644\u062a\u0648\u0642\u0641\u0627\u062a:' : 'Downtime:'} {downtime.totalDowntimeHours.toFixed(1)}h</span>
               <span className="font-bold text-rose-700">
-                Unjustified: {kpis.totalUnjustifiedHours.toFixed(1)}h
+                {lang === 'ar' ? '\u063a\u064a\u0631 \u0645\u0628\u0631\u0631:' : 'Unjustified:'} {kpis.totalUnjustifiedHours.toFixed(1)}h
               </span>
             </div>
           </div>
@@ -129,14 +131,14 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
           {/* KPI 3: Overall Plant OEE */}
           <div className={`audit-kpi-card bg-indigo-50/70 border border-indigo-300 rounded-md ${scale.kpiCardPaddingClass}`}>
             <div className={`${scale.kpiTitleClass} font-bold text-indigo-800 uppercase tracking-wider`}>
-              Overall Plant OEE
+              {lang === 'ar' ? '\u0627\u0644\u0643\u0641\u0627\u0621\u0629 \u0627\u0644\u0643\u0644\u064a\u0629 \u0644\u0644\u0645\u0635\u0646\u0639 OEE' : 'Overall Plant OEE'}
             </div>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`${scale.kpiMetricClass} font-black text-indigo-950 font-mono`}>
                 {kpis.plantOeePct.toFixed(1)}%
               </span>
               <span className={`${scale.unitClass} font-semibold text-indigo-700 ml-1`}>
-                ({kpis.activeLineCount}/{kpis.totalLineCount} lines active)
+                ({kpis.activeLineCount}/{kpis.totalLineCount} {lang === 'ar' ? '\u062e\u0637\u0648\u0637 \u0646\u0634\u0637\u0629' : 'lines active'})
               </span>
             </div>
             <div className={`${scale.kpiSubtextClass} text-indigo-800 font-mono flex items-center justify-between mt-0.5`}>
@@ -149,21 +151,21 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
           {/* KPI 4: Scrap Output & Scrap Ratio */}
           <div className={`audit-kpi-card bg-rose-50/70 border border-rose-300 rounded-md ${scale.kpiCardPaddingClass}`}>
             <div className={`${scale.kpiTitleClass} font-bold text-rose-800 uppercase tracking-wider`}>
-              Scrap Output &amp; Quality Ratio
+              {lang === 'ar' ? '\u0627\u0644\u0647\u0627\u0644\u0643 \u0648\u0646\u0633\u0628\u0629 \u0627\u0644\u062c\u0648\u062f\u0629' : 'Scrap Output & Quality Ratio'}
             </div>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`${scale.kpiMetricClass} font-black text-rose-950 font-mono`}>
                 {kpis.totalScrapKg.toLocaleString()}
               </span>
-              <span className={`${scale.unitClass} font-bold text-rose-700`}>kg scrap</span>
+              <span className={`${scale.unitClass} font-bold text-rose-700`}>{lang === 'ar' ? '\u0643\u062c\u0645 \u0647\u0627\u0644\u0643' : 'kg scrap'}</span>
               <span className="text-slate-400 text-xs mx-1">&bull;</span>
               <span className={`${scale.kpiSecondaryMetricClass} font-black text-rose-900 font-mono`}>
                 {kpis.scrapRatioPct.toFixed(1)}%
               </span>
             </div>
             <div className={`${scale.kpiSubtextClass} text-rose-800 font-medium flex items-center justify-between mt-0.5`}>
-              <span>Total Melt: {kpis.totalMeltKg.toLocaleString()} kg</span>
-              <span className="font-bold text-emerald-700">Good: {kpis.totalActualKg.toLocaleString()} kg</span>
+              <span>{lang === 'ar' ? '\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0635\u0647\u0648\u0631:' : 'Total Melt:'} {kpis.totalMeltKg.toLocaleString()} kg</span>
+              <span className="font-bold text-emerald-700">{lang === 'ar' ? '\u0635\u0627\u0644\u062d:' : 'Good:'} {kpis.totalActualKg.toLocaleString()} kg</span>
             </div>
           </div>
         </section>
@@ -174,41 +176,63 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <h3 className={`${scale.downtimeHeaderClass} font-extrabold uppercase tracking-wider text-slate-800`}>
-              Machine-by-Machine Production Reconciliation &amp; Operational Standards
+              {lang === 'ar'
+                ? '\u0645\u0637\u0627\u0628\u0642\u0629 \u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0645\u0627\u0643\u064a\u0646\u0627\u062a \u0648\u0627\u0644\u0645\u0639\u0627\u064a\u064a\u0631 \u0627\u0644\u062a\u0634\u063a\u064a\u0644\u064a\u0629'
+                : 'Machine-by-Machine Production Reconciliation & Operational Standards'}
             </h3>
             {filterMode === 'operating' && (
               <span className={`${scale.downtimeBadgeClass} font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded`}>
-                Displaying {displayedRows.length} Active Operating {displayedRows.length === 1 ? 'Line' : 'Lines'}
+                {lang === 'ar'
+                  ? `\u0639\u0631\u0638 ${displayedRows.length} \u062e\u0637\u0648\u0637 \u0646\u0634\u0637\u0629`
+                  : `Displaying ${displayedRows.length} Active Operating ${displayedRows.length === 1 ? 'Line' : 'Lines'}`}
               </span>
             )}
             <span className={`${scale.downtimeBadgeClass} font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded`}>
-              {densityMode === 'clean' ? 'Executive Clean View' : 'Detailed Audit View'}
+              {densityMode === 'clean'
+                ? (lang === 'ar' ? '\u0639\u0631\u0638 \u062a\u0646\u0641\u064a\u0630\u064a \u0645\u0628\u0633\u0637' : 'Executive Clean View')
+                : (lang === 'ar' ? '\u0639\u0631\u0638 \u062a\u062f\u0642\u064a\u0642\u064a \u0645\u0641\u0635\u0644' : 'Detailed Audit View')}
             </span>
           </div>
           <span className={`${scale.subtextClass} font-mono text-slate-500`}>
-            24h Theoretical Standard vs Actual Reported Telemetry
+            {lang === 'ar'
+              ? '\u0627\u0644\u0645\u0639\u064a\u0627\u0631 \u0627\u0644\u0646\u0638\u0631\u064a 24 \u0633\u0627\u0639\u0629 \u0645\u0642\u0627\u0628\u0644 \u0627\u0644\u0642\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0641\u0639\u0644\u064a\u0629 \u0627\u0644\u0645\u0633\u062c\u0644\u0629'
+              : '24h Theoretical Standard vs Actual Reported Telemetry'}
           </span>
         </div>
 
         <table className={`audit-table w-full border-collapse text-left ${scale.tableTextClass}`}>
           <thead>
             <tr className="bg-slate-800 text-white font-bold uppercase tracking-wider">
-              <th className={`${scale.tableHeaderClass} border border-slate-700 w-[18%]`}>Line &amp; Machine</th>
-              <th className={`${scale.tableHeaderClass} border border-slate-700 w-[20%]`}>Product Code &amp; Mold Specs</th>
+              <th className={`${scale.tableHeaderClass} border border-slate-700 w-[18%]`}>
+                {lang === 'ar' ? '\u062e\u0637 \u0627\u0644\u0625\u0646\u062a\u0627\u062c / \u0627\u0644\u0645\u0627\u0643\u064a\u0646\u0629' : 'Line & Machine'}
+              </th>
+              <th className={`${scale.tableHeaderClass} border border-slate-700 w-[20%]`}>
+                {lang === 'ar' ? '\u0643\u0648\u062f \u0627\u0644\u0645\u0646\u062a\u062c \u0648\u0645\u0648\u0627\u0635\u0641\u0627\u062a \u0627\u0644\u0642\u0627\u0644\u0628' : 'Product Code & Mold Specs'}
+              </th>
               <th className={`${scale.tableHeaderClass} border border-slate-700 text-center w-[11%]`}>
-                {densityMode === 'clean' ? 'Std Target (24h)' : 'Std Pace (24h / Rate)'}
+                {lang === 'ar'
+                  ? (densityMode === 'clean' ? '\u0627\u0644\u0645\u0633\u062a\u0647\u062f\u0641 (24 \u0633)' : '\u0627\u0644\u0645\u0639\u062f\u0644 \u0627\u0644\u0642\u064a\u0627\u0633\u064a (24 \u0633)')
+                  : (densityMode === 'clean' ? 'Std Target (24h)' : 'Std Pace (24h / Rate)')}
               </th>
               <th className={`${scale.tableHeaderClass} border border-slate-700 text-right w-[11%]`}>
-                {densityMode === 'clean' ? 'Actual FG Output' : 'Actual FG Output (pcs / kg)'}
+                {lang === 'ar'
+                  ? (densityMode === 'clean' ? '\u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u062a\u0627\u0645 \u0627\u0644\u0641\u0639\u0644\u064a' : '\u0627\u0644\u062a\u0627\u0645 \u0627\u0644\u0641\u0639\u0644\u064a (\u062d\u0628\u0629 / \u0643\u062c\u0645)')
+                  : (densityMode === 'clean' ? 'Actual FG Output' : 'Actual FG Output (pcs / kg)')}
               </th>
               <th className={`${scale.tableHeaderClass} border border-slate-700 text-right w-[11%]`}>
-                {densityMode === 'clean' ? 'Variance (Pcs)' : 'Variance (&Delta; Deficit)'}
+                {lang === 'ar'
+                  ? (densityMode === 'clean' ? '\u0627\u0644\u0641\u0627\u0631\u0642 (\u062d\u0628\u0629)' : '\u0627\u0644\u0639\u062c\u0632 / \u0627\u0644\u0641\u0627\u0631\u0642')
+                  : (densityMode === 'clean' ? 'Variance (Pcs)' : 'Variance (\u0394 Deficit)')}
               </th>
               <th className={`${scale.tableHeaderClass} border border-slate-700 text-center w-[14%]`}>
-                {densityMode === 'clean' ? 'Realized Pace' : 'Realized Pace &amp; Eff'}
+                {lang === 'ar'
+                  ? (densityMode === 'clean' ? '\u0627\u0644\u0645\u0639\u062f\u0644 \u0627\u0644\u0645\u062d\u0642\u0642' : '\u0627\u0644\u0645\u0639\u062f\u0644 \u0648\u0627\u0644\u0643\u0641\u0627\u0621\u0629')
+                  : (densityMode === 'clean' ? 'Realized Pace' : 'Realized Pace & Eff')}
               </th>
               <th className={`${scale.tableHeaderClass} border border-slate-700 text-center w-[15%]`}>
-                {densityMode === 'clean' ? 'Line OEE' : 'Line OEE &amp; Status'}
+                {lang === 'ar'
+                  ? (densityMode === 'clean' ? 'OEE \u0627\u0644\u062e\u0637' : 'OEE \u0648\u0627\u0644\u062d\u0627\u0644\u0629')
+                  : (densityMode === 'clean' ? 'Line OEE' : 'Line OEE & Status')}
               </th>
             </tr>
           </thead>
@@ -382,29 +406,29 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
             {/* Total Summary Row */}
             <tr className={`bg-slate-100 border-t-2 border-slate-800 font-bold ${scale.summaryRowClass}`}>
               <td className={`${scale.cellPaddingClass} text-slate-900 uppercase`}>
-                Plant Totals
+                {lang === 'ar' ? '\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0635\u0646\u0639' : 'Plant Totals'}
               </td>
               <td className={`${scale.cellPaddingClass} text-slate-600 font-mono`}>
-                {kpis.activeLineCount} Active Lines &bull; {kpis.totalOperatingHours.toFixed(1)}h Run
+                {kpis.activeLineCount} {lang === 'ar' ? '\u062e\u0637\u0648\u0637 \u0646\u0634\u0637\u0629' : 'Active Lines'} &bull; {kpis.totalOperatingHours.toFixed(1)}{lang === 'ar' ? '\u0633 \u062a\u0634\u063a\u064a\u0644' : 'h Run'}
               </td>
               <td className={`${scale.cellPaddingClass} text-center font-mono text-slate-900`}>
-                {kpis.totalExpectedPcs.toLocaleString()} pcs
+                {kpis.totalExpectedPcs.toLocaleString()} {lang === 'ar' ? '\u062d\u0628\u0629' : 'pcs'}
               </td>
               <td className={`${scale.cellPaddingClass} text-right font-mono text-emerald-950`}>
-                {kpis.totalActualPcs.toLocaleString()} pcs
+                {kpis.totalActualPcs.toLocaleString()} {lang === 'ar' ? '\u062d\u0628\u0629' : 'pcs'}
               </td>
               <td
                 className={`${scale.cellPaddingClass} text-right font-mono ${
                   kpis.totalVariancePcs >= 0 ? 'text-emerald-700' : 'text-rose-700'
                 }`}
               >
-                {kpis.totalVariancePcs >= 0 ? '+' : ''}{kpis.totalVariancePcs.toLocaleString()} pcs
+                {kpis.totalVariancePcs >= 0 ? '+' : ''}{kpis.totalVariancePcs.toLocaleString()} {lang === 'ar' ? '\u062d\u0628\u0629' : 'pcs'}
               </td>
               <td className={`${scale.cellPaddingClass} text-center font-mono text-cyan-950`}>
-                {kpis.plantPerformancePct.toFixed(1)}% Pace
+                {kpis.plantPerformancePct.toFixed(1)}% {lang === 'ar' ? '\u0627\u0644\u0633\u0631\u0639\u0629' : 'Pace'}
               </td>
               <td className={`${scale.cellPaddingClass} text-center font-mono text-indigo-950 font-black`}>
-                {kpis.plantOeePct.toFixed(1)}% Plant OEE
+                {kpis.plantOeePct.toFixed(1)}% {lang === 'ar' ? 'OEE \u0627\u0644\u0645\u0635\u0646\u0639' : 'Plant OEE'}
               </td>
             </tr>
           </tbody>
@@ -416,18 +440,20 @@ const DailyAuditPdfSheet = forwardRef(function DailyAuditPdfSheet(
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <h3 className={`${scale.downtimeHeaderClass} font-extrabold uppercase tracking-wider text-slate-800`}>
-              Plant Downtime Allocation &amp; Root Cause Accounting
+              {lang === 'ar'
+                ? '\u062a\u0648\u0632\u064a\u0639 \u0627\u0644\u062a\u0648\u0642\u0641\u0627\u062a \u0648\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0623\u0633\u0628\u0627\u0628 \u0627\u0644\u062c\u0630\u0631\u064a\u0629'
+                : 'Plant Downtime Allocation & Root Cause Accounting'}
             </h3>
             <span className={`${scale.downtimeBadgeClass} font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded`}>
-              6 Audit Categories
+              {lang === 'ar' ? '6 \u062a\u0635\u0646\u064a\u0641\u0627\u062a \u062a\u062f\u0642\u064a\u0642' : '6 Audit Categories'}
             </span>
           </div>
           <div className={`${scale.downtimeSubtextClass} font-mono text-slate-500 flex items-center gap-2`}>
-            <span>Total Downtime: <strong className="text-slate-800">{downtime.totalDowntimeHours.toFixed(1)}h</strong></span>
+            <span>{lang === 'ar' ? '\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u062a\u0648\u0642\u0641:' : 'Total Downtime:'} <strong className="text-slate-800">{downtime.totalDowntimeHours.toFixed(1)}h</strong></span>
             <span>&bull;</span>
-            <span>Lost Time: <strong className="text-amber-800">{kpis.totalLostHours.toFixed(1)}h</strong></span>
+            <span>{lang === 'ar' ? '\u0627\u0644\u0648\u0642\u062a \u0627\u0644\u0645\u0641\u0642\u0648\u062f:' : 'Lost Time:'} <strong className="text-amber-800">{kpis.totalLostHours.toFixed(1)}h</strong></span>
             <span>&bull;</span>
-            <span>Unjustified Gap: <strong className={kpis.totalUnjustifiedHours > 0.05 ? 'text-rose-700 font-bold' : 'text-slate-700'}>{kpis.totalUnjustifiedHours.toFixed(1)}h</strong></span>
+            <span>{lang === 'ar' ? '\u0641\u062c\u0648\u0629 \u063a\u064a\u0631 \u0645\u0628\u0631\u0631\u0629:' : 'Unjustified Gap:'} <strong className={kpis.totalUnjustifiedHours > 0.05 ? 'text-rose-700 font-bold' : 'text-slate-700'}>{kpis.totalUnjustifiedHours.toFixed(1)}h</strong></span>
           </div>
         </div>
 

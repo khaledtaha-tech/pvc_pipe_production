@@ -38,6 +38,7 @@ import {
 } from '../../logic/reconciliationMatrixHelper.js';
 import { getMachineNominalCapacity } from '../../logic/machineSettingsConfig.js';
 import RateEstimatorPopover from './RateEstimatorPopover.jsx';
+import { tDaily } from '../../utils/dailyEvaluationTranslations.js';
 import * as XLSX from 'xlsx';
 
 export default function DailyReconciliationMatrixView({
@@ -49,8 +50,10 @@ export default function DailyReconciliationMatrixView({
   onSelectMachineAndOpenSheet,
   onReportSaved,
   onNotify,
-  availableDates = []
+  availableDates = [],
+  lang = 'en'
 }) {
+  const t = useCallback((k) => tDaily(k, lang), [lang]);
   const [selectedDate, setSelectedDate] = useState(() => {
     if (initialSelectedDate && !initialSelectedDate.startsWith('2024-')) {
       return initialSelectedDate;
@@ -350,14 +353,14 @@ export default function DailyReconciliationMatrixView({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-wide">
-                Daily Production &amp; Lost Hours Reconciliation Matrix
+                {t('matrixTitle')}
               </h2>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
-                All Lines 24h
+                {lang === 'ar' ? '\u0643\u0627\u0641\u0629 \u0627\u0644\u062e\u0637\u0648\u0637 24 \u0633' : 'All Lines 24h'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Consolidated operational view: Lost output calculation, lost hours conversion, and inline 24h downtime allocation.
+              {t('matrixSubtitle')}
             </p>
           </div>
         </div>
@@ -397,7 +400,7 @@ export default function DailyReconciliationMatrixView({
             onClick={handleToday}
             className="px-2.5 py-1 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg transition cursor-pointer shadow-xs ml-1"
           >
-            Today
+            {lang === 'ar' ? '\u0627\u0644\u064a\u0648\u0645' : 'Today'}
           </button>
         </div>
 
@@ -410,7 +413,7 @@ export default function DailyReconciliationMatrixView({
             title="Automatically balance all lines with remaining unaccounted hours to 24.0h"
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Auto-Balance All to 24h</span>
+            <span>{lang === 'ar' ? '\u0645\u0648\u0627\u0632\u0646\u0629 \u062c\u0645\u064a\u0639 \u0627\u0644\u062e\u0637\u0648\u0637 \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b (24 \u0633)' : 'Auto-Balance All to 24h'}</span>
           </button>
 
           <button
@@ -421,7 +424,7 @@ export default function DailyReconciliationMatrixView({
             title="Calculate distribution, apply 24h slots, and save reports for all lines"
           >
             <Save className="w-3.5 h-3.5 text-white" />
-            <span className="text-white font-bold">{isSavingAll ? 'Saving All...' : 'Reconcile & Save All Lines'}</span>
+            <span className="text-white font-bold">{isSavingAll ? (lang === 'ar' ? '\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0641\u0638...' : 'Saving All...') : (lang === 'ar' ? '\u0645\u0637\u0627\u0628\u0642\u0629 \u0648\u062d\u0641\u0638 \u0643\u0627\u0641\u0629 \u0627\u0644\u062e\u0637\u0648\u0637' : 'Reconcile & Save All Lines')}</span>
           </button>
 
           <button
@@ -431,7 +434,7 @@ export default function DailyReconciliationMatrixView({
             title="Download Matrix as formatted Excel spreadsheet"
           >
             <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-            <span>Export Matrix</span>
+            <span>{t('btnExportMatrix')}</span>
           </button>
         </div>
       </div>
@@ -439,7 +442,7 @@ export default function DailyReconciliationMatrixView({
       {/* Summary KPI Cards Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <div className="app-card rounded-xl p-3 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Theoretical Expected</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">{t('cardTheoretical')}</span>
           <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1">
             {plantSummary.totalExpectedKg.toLocaleString()} <span className="text-xs font-normal text-slate-400">kg</span>
           </div>
@@ -449,7 +452,7 @@ export default function DailyReconciliationMatrixView({
         </div>
 
         <div className="app-card rounded-xl p-3 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Reported Actual (FG)</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">{t('cardActualFg')}</span>
           <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-1">
             {plantSummary.totalActualKg.toLocaleString()} <span className="text-xs font-normal text-slate-400">kg</span>
           </div>
@@ -462,7 +465,7 @@ export default function DailyReconciliationMatrixView({
         </div>
 
         <div className="app-card rounded-xl p-3 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Lost Production Time</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">{t('cardLostTime')}</span>
           <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-1">
             {plantSummary.totalLostHours.toFixed(1)} <span className="text-xs font-normal text-slate-400">hrs</span>
           </div>
@@ -474,7 +477,7 @@ export default function DailyReconciliationMatrixView({
         </div>
 
         <div className="app-card rounded-xl p-3 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">24h Balanced Lines</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">{t('cardBalanced')}</span>
           <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1">
             <span className={plantSummary.balancedCount === rows.length ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
               {plantSummary.balancedCount}
@@ -489,7 +492,7 @@ export default function DailyReconciliationMatrixView({
         </div>
 
         <div className="app-card rounded-xl p-3 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Plant Availability</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">{t('cardAvailability')}</span>
           <div className="text-sm font-bold text-emerald-600 dark:text-cyan-400 mt-1">
             {plantSummary.avgAvailability.toFixed(1)}%
           </div>
@@ -499,7 +502,7 @@ export default function DailyReconciliationMatrixView({
         </div>
 
         <div className="app-card rounded-xl p-3 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Average Line OEE</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">{t('cardAverageOee')}</span>
           <div className="text-sm font-bold text-teal-600 dark:text-teal-400 mt-1">
             {plantSummary.avgOee.toFixed(1)}%
           </div>
@@ -514,7 +517,7 @@ export default function DailyReconciliationMatrixView({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
             <Filter className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Show:</span>
+            <span>{t('filterShow')}</span>
           </div>
           <button
             type="button"
@@ -525,14 +528,14 @@ export default function DailyReconciliationMatrixView({
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700/60 font-medium'
             }`}
           >
-            {showOperatingOnly ? 'Operating Only' : 'All Plant Machines (Including Idle)'}
+            {showOperatingOnly ? t('filterOperatingOnly') : t('filterAllMachines')}
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Search line or product..."
+            placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="px-2.5 py-1 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-48 sm:w-64 shadow-xs"
@@ -548,73 +551,73 @@ export default function DailyReconciliationMatrixView({
             <thead className="sticky top-0 z-20 shadow-md bg-slate-100 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800">
               <tr className="bg-slate-200 dark:bg-slate-950 text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px] border-b border-slate-300 dark:border-slate-800 font-bold">
                 <th colSpan={3} className="px-3 py-2 border-r border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-200 bg-slate-200 dark:bg-slate-950">
-                  Machine &amp; Running Job Info
+                  {t('thGroupMachine')}
                 </th>
                 <th colSpan={3} className="px-3 py-2 border-r border-slate-300 dark:border-slate-800 text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/40">
-                  Job Engineering Specs
+                  {t('thGroupEngineering')}
                 </th>
                 <th colSpan={5} className="px-3 py-2 border-r border-slate-300 dark:border-slate-800 text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/30">
-                  Production Balance (Theoretical vs Actual)
+                  {t('thGroupBalance')}
                 </th>
                 <th colSpan={8} className="px-3 py-2 border-r border-slate-300 dark:border-slate-800 text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/30">
-                  24-Hour Time Allocation &amp; Realized Pace
+                  {t('thGroupTime')}
                 </th>
                 <th colSpan={6} className="px-3 py-2 border-r border-slate-300 dark:border-slate-800 text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/30">
                   <div className="flex items-center justify-between">
-                    <span>Audit &amp; Telemetry</span>
+                    <span>{t('thGroupAudit')}</span>
                     <span className="text-[9px] font-mono text-teal-800 dark:text-teal-300/90 lowercase tracking-normal bg-teal-50 dark:bg-teal-950/80 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800/60">
                       Avail &times; Perf &times; Qual = OEE
                     </span>
                   </div>
                 </th>
                 <th className="px-3 py-2 text-center text-slate-800 dark:text-slate-200 bg-slate-200 dark:bg-slate-950">
-                  Actions
+                  {t('thGroupActions')}
                 </th>
               </tr>
 
               {/* Specific Column Names */}
               <tr className="matrix-sub-header-row bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-semibold border-b border-slate-300 dark:border-slate-800 text-xs uppercase tracking-wider">
                 {/* Machine & Running Job Info */}
-                <th className="matrix-sub-th px-3 py-2.5">Line ID</th>
-                <th className="matrix-sub-th px-3 py-2.5">Line &amp; Machine</th>
+                <th className="matrix-sub-th px-3 py-2.5">{lang === 'ar' ? t('colLineId') : 'Line ID'}</th>
+                <th className="matrix-sub-th px-3 py-2.5">{lang === 'ar' ? t('colLineMachine') : <>Line &amp; Machine</>}</th>
                 <th className="matrix-sub-th px-3 py-2.5 border-r border-slate-300 dark:border-slate-800" title="Product Code, Running Pipe Size, Diameter, Wall Thickness &amp; Specs">
-                  Product Code &amp; Mold Specs
+                  {lang === 'ar' ? t('colProductSpecs') : <>Product Code &amp; Mold Specs</>}
                 </th>
 
                 {/* Job Engineering Specs */}
                 <th className="matrix-sub-th px-3 py-2.5" title="Configured Nominal Extrusion Capacity">
-                  Nominal Cap (kg/h)
+                  {lang === 'ar' ? t('colNominalCap') : 'Nominal Cap (kg/h)'}
                 </th>
                 <th className="matrix-sub-th px-3 py-2.5" title="Pipe Unit Weight in kg">
-                  Std Wt (kg/pc)
+                  {lang === 'ar' ? t('colStdWeight') : 'Std Wt (kg)'}
                 </th>
                 <th className="matrix-sub-th px-3 py-2.5 border-r border-slate-300 dark:border-slate-800" title="Standard Piece Rate per hour">
-                  Std Rate (Pcs/h)
+                  {lang === 'ar' ? t('colStdRate') : 'Std Rate (Pcs/h)'}
                 </th>
 
                 {/* Production Balance */}
                 <th className="matrix-sub-th px-3 py-2.5" title="24-Hour Theoretical Standard Target Capacity (Pcs &amp; Kg)">
-                  Std Target (Pcs / Kg)
+                  {lang === 'ar' ? t('colStdTarget') : 'Std Target (Pcs / Kg)'}
                 </th>
                 <th className="matrix-sub-th px-3 py-2.5" title="Reported Actual Finished Goods Output (Pcs &amp; Kg)">
-                  Actual FG Output
+                  {lang === 'ar' ? t('colActualFg') : 'Actual FG Output'}
                 </th>
                 <th className="matrix-sub-th px-2.5 py-2.5 text-amber-700 dark:text-amber-400 font-bold" title="Reported Scrap Output in kg">
-                  Scrap (kg)
+                  {lang === 'ar' ? t('colScrap') : 'Scrap (kg)'}
                 </th>
                 <th className="matrix-sub-th px-3 py-2.5 text-rose-700 dark:text-rose-400 font-bold" title="Variance / Deficit Loss (Expected Target - Actual Output in Pcs &amp; Kg)">
-                  Variance (Pcs / Kg)
+                  {lang === 'ar' ? t('colVariance') : 'Variance (Pcs / Kg)'}
                 </th>
                 <th className="matrix-sub-th px-3 py-2.5 text-rose-700 dark:text-rose-400 font-bold border-r border-slate-300 dark:border-slate-800" title="Direct conversion: Deficit Pcs / Std Rate">
-                  Lost Time (h)
+                  {lang === 'ar' ? t('colTotalLostHrs') : 'Lost Time (h)'}
                 </th>
 
                 {/* 24-Hour Time Allocation (Editable inputs & Realized Pace) */}
                 <th className="matrix-sub-th px-2.5 py-2.5 text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50/80 dark:bg-emerald-950/20" title="Reported Extrusion Operating Hours">
-                  Operating (h)
+                  {lang === 'ar' ? t('colOperatingHrs') : 'Operating (h)'}
                 </th>
                 <th className="matrix-sub-th px-2.5 py-2.5 text-center text-cyan-700 dark:text-cyan-400 font-bold bg-cyan-50/80 dark:bg-cyan-950/30" title="Actual realized pace during reported operating hours: Pcs/h, kg/h &amp; Speed Efficiency %">
-                  Actual Realized Rate (Pcs/h, Kg/h, Eff%)
+                  {lang === 'ar' ? t('colActualPace') : 'Actual Realized Rate (Pcs/h, Kg/h, Eff%)'}
                 </th>
                 <th className="matrix-sub-th px-2.5 py-2.5" title="Downtime: Die or Mold Changeover">Die/Mold (h)</th>
                 <th className="matrix-sub-th px-2.5 py-2.5" title="Downtime: Purging &amp; Screw/Barrel Cleaning">Purge/Clean (h)</th>
@@ -627,29 +630,29 @@ export default function DailyReconciliationMatrixView({
                 <th className="matrix-sub-th px-3 py-2.5 text-center font-bold">Total (h)</th>
                 <th className="matrix-sub-th px-3 py-2.5 text-center">24h Status</th>
                 <th className="matrix-sub-th px-2 py-2.5 text-center text-slate-700 dark:text-slate-300" title="Availability Rate (A): Operating Hours / 24.0h">
-                  Avail (%)
+                  {t('colAvailA')}
                 </th>
                 <th className="matrix-sub-th px-2 py-2.5 text-center text-cyan-700 dark:text-cyan-300" title="Performance / Speed Efficiency (P): Actual Pace / Nominal Capacity">
                   <div className="flex items-center justify-center gap-0.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">&times;</span>
-                    <span>Perf (%)</span>
+                    <span>{t('colPerfP')}</span>
                   </div>
                 </th>
                 <th className="matrix-sub-th px-2 py-2.5 text-center text-amber-700 dark:text-amber-300" title="Quality Rate (Q): Good Output (kg) / Total Melt (kg)">
                   <div className="flex items-center justify-center gap-0.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">&times;</span>
-                    <span>Qual (%)</span>
+                    <span>{t('colQualQ')}</span>
                   </div>
                 </th>
                 <th className="matrix-sub-th px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 text-teal-700 dark:text-teal-300 font-bold" title="Overall OEE: Availability &times; Performance &times; Quality = OEE">
                   <div className="flex items-center justify-center gap-0.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold select-none">=</span>
-                    <span>OEE (%)</span>
+                    <span>{t('colOverallOee')}</span>
                   </div>
                 </th>
 
                 {/* Actions */}
-                <th className="matrix-sub-th px-3 py-2.5 text-center">Reconcile / Save</th>
+                <th className="matrix-sub-th px-3 py-2.5 text-center">{lang === 'ar' ? '\u0645\u0637\u0627\u0628\u0642\u0629 / \u062d\u0641\u0638' : 'Reconcile / Save'}</th>
               </tr>
             </thead>
 

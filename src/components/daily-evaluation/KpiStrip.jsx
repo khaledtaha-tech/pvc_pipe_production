@@ -1,6 +1,9 @@
-export default function KpiStrip({ derived }) {
+import { tDaily } from '../../utils/dailyEvaluationTranslations.js';
+
+export default function KpiStrip({ derived, lang = 'en' }) {
   if (!derived) return null;
 
+  const t = (k) => tDaily(k, lang);
   const eng = derived.engineering || {};
   const operatingHours = Number(derived.operatingHours) || 0;
   const totalWeightKg = Number(eng.totalWeightKg) || 0;
@@ -28,7 +31,7 @@ export default function KpiStrip({ derived }) {
             {derived.operatingHours.toFixed(1)}
             <span className="kpi-unit">h</span>
           </div>
-          <div className="kpi-label">Operating Hours</div>
+          <div className="kpi-label">{t('kpiOperatingHours')}</div>
         </div>
 
         <div className="kpi-card">
@@ -36,7 +39,7 @@ export default function KpiStrip({ derived }) {
             {derived.totalDowntimeHours.toFixed(1)}
             <span className="kpi-unit">h</span>
           </div>
-          <div className="kpi-label">Total Downtime</div>
+          <div className="kpi-label">{t('kpiTotalDowntime')}</div>
         </div>
 
         <div className="kpi-card">
@@ -45,7 +48,7 @@ export default function KpiStrip({ derived }) {
             <span className="kpi-unit">kg</span>
           </div>
           <div className="kpi-label">
-            Total Daily Output {derived.grandTotals?.actual ? `(${derived.grandTotals.actual.toLocaleString()} Pcs)` : ''}
+            {t('kpiTotalOutput')} {derived.grandTotals?.actual ? `(${derived.grandTotals.actual.toLocaleString()} ${t('kpiPcs')})` : ''}
           </div>
         </div>
 
@@ -55,7 +58,7 @@ export default function KpiStrip({ derived }) {
             <span className="kpi-unit">kg/h</span>
           </div>
           <div className="kpi-label">
-            Actual Output Rate {hasCapacity ? `(${capacityUtilizationPct}% of ${nominalCapacityKgH} kg/h)` : ''}
+            {t('kpiActualRate')} {hasCapacity ? `(${capacityUtilizationPct}% of ${nominalCapacityKgH} kg/h)` : ''}
           </div>
         </div>
 
@@ -63,39 +66,39 @@ export default function KpiStrip({ derived }) {
           <div className="kpi-value">
             {derived.aStr}
           </div>
-          <div className="kpi-label">Availability (A = Op/24)</div>
+          <div className="kpi-label">{t('kpiAvailability')}</div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-value">
             {derived.pStr}
           </div>
-          <div className="kpi-label">Performance (P = Act/Tgt)</div>
+          <div className="kpi-label">{t('kpiPerformance')}</div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-value">
             {derived.qStr}
           </div>
-          <div className="kpi-label">Quality (Q = Good/Act)</div>
+          <div className="kpi-label">{t('kpiQuality')}</div>
         </div>
 
         <div className="kpi-card kpi-card-hl">
           <div className="kpi-value">
             {derived.oeeStr}
           </div>
-          <div className="kpi-label">Overall OEE (A × P × Q)</div>
+          <div className="kpi-label">{t('kpiOee')}</div>
         </div>
       </div>
 
       <div className="kpi-formula-bar">
-        <span className="formula-tag">ENGINEERING OEE BREAKDOWN</span>
+        <span className="formula-tag">{t('kpiFormulaTag')}</span>
         <span className="formula-text">
-          <b>Overall OEE</b> = <b>Availability</b> ({derived.aStr}) &times; <b>Performance</b> ({derived.pStr}) &times; <b>Quality</b> ({derived.qStr}) = <b className="formula-res">{derived.oeeStr}</b>
+          <b>{t('kpiFormulaOverall')}</b> = <b>{t('kpiFormulaAvail')}</b> ({derived.aStr}) &times; <b>{t('kpiFormulaPerf')}</b> ({derived.pStr}) &times; <b>{t('kpiFormulaQual')}</b> ({derived.qStr}) = <b className="formula-res">{derived.oeeStr}</b>
         </span>
         {hasCapacity ? (
           <span className="capacity-badge">
-            Capacity Utilization: <b>{capacityUtilizationPct}%</b> ({actualRateKgH} kg/h actual vs {nominalCapacityKgH} kg/h nominal)
+            {t('kpiCapacityUtil')} <b>{capacityUtilizationPct}%</b> ({actualRateKgH} kg/h {t('kpiActual')} vs {nominalCapacityKgH} kg/h {t('kpiNominal')})
           </span>
         ) : null}
       </div>

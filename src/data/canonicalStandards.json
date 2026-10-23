@@ -1,0 +1,225 @@
+{
+  "version": "1.0.0",
+  "defaultDensityGPerCm3": 1.43,
+  "standards": [
+    {
+      "id": "ISO_1452",
+      "code": "SASO-ISO 1452-2",
+      "name": "SASO-ISO 1452-2 / ISO 1452-2 (Metric Pressure)",
+      "organization": "ISO / SASO",
+      "standardFamily": "METRIC_PRESSURE",
+      "application": "Water supply, buried & above-ground drainage/sewerage under pressure",
+      "referenceDensityGPerCm3": 1.43,
+      "defaultLengthM": 6.0,
+      "defaultJoint": "R/R",
+      "supportedRatings": ["PN6", "PN8", "PN10", "PN12.5", "PN16", "PN20"],
+      "tables": [
+        {
+          "odMm": 63,
+          "ratings": {
+            "PN6": { "nominalWtMm": 2.0, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 0.548, "unitWeight6mKg": 3.288 },
+            "PN8": { "nominalWtMm": 2.5, "sdr": "SDR 26", "theoreticalLinearWeightKgM": 0.676, "unitWeight6mKg": 4.056 },
+            "PN10": { "nominalWtMm": 3.0, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 0.809, "unitWeight6mKg": 4.854 },
+            "PN12.5": { "nominalWtMm": 3.8, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 1.011, "unitWeight6mKg": 6.066 },
+            "PN16": { "nominalWtMm": 4.7, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 1.232, "unitWeight6mKg": 7.392 },
+            "PN20": { "nominalWtMm": 5.8, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 1.491, "unitWeight6mKg": 8.946 }
+          }
+        },
+        {
+          "odMm": 75,
+          "ratings": {
+            "PN6": { "nominalWtMm": 1.9, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 0.624, "unitWeight6mKg": 3.744 },
+            "PN8": { "nominalWtMm": 2.3, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 0.751, "unitWeight6mKg": 4.506 },
+            "PN10": { "nominalWtMm": 3.6, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 1.154, "unitWeight6mKg": 6.924 },
+            "PN12.5": { "nominalWtMm": 4.5, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 1.423, "unitWeight6mKg": 8.538 },
+            "PN16": { "nominalWtMm": 5.6, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 1.743, "unitWeight6mKg": 10.458 },
+            "PN20": { "nominalWtMm": 6.8, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 2.081, "unitWeight6mKg": 12.486 }
+          }
+        },
+        {
+          "odMm": 90,
+          "ratings": {
+            "PN6": { "nominalWtMm": 2.2, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 0.868, "unitWeight6mKg": 5.208 },
+            "PN8": { "nominalWtMm": 2.8, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 1.096, "unitWeight6mKg": 6.576 },
+            "PN10": { "nominalWtMm": 4.3, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 1.656, "unitWeight6mKg": 9.936 },
+            "PN12.5": { "nominalWtMm": 5.4, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 2.046, "unitWeight6mKg": 12.276 },
+            "PN16": { "nominalWtMm": 6.7, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 2.506, "unitWeight6mKg": 15.036 },
+            "PN20": { "nominalWtMm": 8.2, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 3.015, "unitWeight6mKg": 18.090 }
+          }
+        },
+        {
+          "odMm": 110,
+          "ratings": {
+            "PN6": { "nominalWtMm": 2.7, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 1.302, "unitWeight6mKg": 7.812 },
+            "PN8": { "nominalWtMm": 3.4, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 1.628, "unitWeight6mKg": 9.768 },
+            "PN10": { "nominalWtMm": 5.3, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 2.493, "unitWeight6mKg": 14.958 },
+            "PN12.5": { "nominalWtMm": 6.6, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 3.067, "unitWeight6mKg": 18.402 },
+            "PN16": { "nominalWtMm": 8.1, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 3.711, "unitWeight6mKg": 22.266 },
+            "PN20": { "nominalWtMm": 10.0, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 4.492, "unitWeight6mKg": 26.952 }
+          }
+        },
+        {
+          "odMm": 125,
+          "ratings": {
+            "PN6": { "nominalWtMm": 3.1, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 1.697, "unitWeight6mKg": 10.182 },
+            "PN8": { "nominalWtMm": 3.9, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 2.122, "unitWeight6mKg": 12.732 },
+            "PN10": { "nominalWtMm": 6.0, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 3.206, "unitWeight6mKg": 19.236 },
+            "PN12.5": { "nominalWtMm": 7.4, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 3.906, "unitWeight6mKg": 23.436 },
+            "PN16": { "nominalWtMm": 9.2, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 4.779, "unitWeight6mKg": 28.674 },
+            "PN20": { "nominalWtMm": 11.4, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 5.817, "unitWeight6mKg": 34.902 }
+          }
+        },
+        {
+          "odMm": 140,
+          "ratings": {
+            "PN6": { "nominalWtMm": 3.5, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 2.146, "unitWeight6mKg": 12.876 },
+            "PN8": { "nominalWtMm": 4.3, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 2.620, "unitWeight6mKg": 15.720 },
+            "PN10": { "nominalWtMm": 6.7, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 4.011, "unitWeight6mKg": 24.066 },
+            "PN12.5": { "nominalWtMm": 8.3, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 4.908, "unitWeight6mKg": 29.448 },
+            "PN16": { "nominalWtMm": 10.3, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 5.999, "unitWeight6mKg": 35.994 },
+            "PN20": { "nominalWtMm": 12.7, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 7.266, "unitWeight6mKg": 43.596 }
+          }
+        },
+        {
+          "odMm": 160,
+          "ratings": {
+            "PN6": { "nominalWtMm": 4.0, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 2.803, "unitWeight6mKg": 16.818 },
+            "PN8": { "nominalWtMm": 4.9, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 3.415, "unitWeight6mKg": 20.490 },
+            "PN10": { "nominalWtMm": 7.7, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 5.268, "unitWeight6mKg": 31.608 },
+            "PN12.5": { "nominalWtMm": 9.5, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 6.425, "unitWeight6mKg": 38.550 },
+            "PN16": { "nominalWtMm": 11.8, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 7.863, "unitWeight6mKg": 47.178 },
+            "PN20": { "nominalWtMm": 14.6, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 9.537, "unitWeight6mKg": 57.222 }
+          }
+        },
+        {
+          "odMm": 180,
+          "ratings": {
+            "PN6": { "nominalWtMm": 4.4, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 3.468, "unitWeight6mKg": 20.808 },
+            "PN8": { "nominalWtMm": 5.5, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 4.305, "unitWeight6mKg": 25.830 },
+            "PN10": { "nominalWtMm": 8.6, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 6.618, "unitWeight6mKg": 39.708 },
+            "PN12.5": { "nominalWtMm": 10.7, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 8.132, "unitWeight6mKg": 48.792 },
+            "PN16": { "nominalWtMm": 13.3, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 9.946, "unitWeight6mKg": 59.676 },
+            "PN20": { "nominalWtMm": 16.4, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 12.046, "unitWeight6mKg": 72.276 }
+          }
+        },
+        {
+          "odMm": 200,
+          "ratings": {
+            "PN6": { "nominalWtMm": 4.9, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 4.295, "unitWeight6mKg": 25.770 },
+            "PN8": { "nominalWtMm": 6.2, "sdr": "SDR 33", "theoreticalLinearWeightKgM": 5.394, "unitWeight6mKg": 32.364 },
+            "PN10": { "nominalWtMm": 9.6, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 8.217, "unitWeight6mKg": 49.302 },
+            "PN12.5": { "nominalWtMm": 11.9, "sdr": "SDR 17", "theoreticalLinearWeightKgM": 10.054, "unitWeight6mKg": 60.324 },
+            "PN16": { "nominalWtMm": 14.7, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 12.235, "unitWeight6mKg": 73.410 },
+            "PN20": { "nominalWtMm": 18.2, "sdr": "SDR 11", "theoreticalLinearWeightKgM": 14.858, "unitWeight6mKg": 89.148 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "DIN_8062",
+      "code": "DIN 8062",
+      "name": "DIN 8062 (Metric Dimensions)",
+      "organization": "DIN",
+      "standardFamily": "METRIC_PRESSURE",
+      "application": "Unplasticized polyvinyl chloride pipes - Dimensions",
+      "referenceDensityGPerCm3": 1.43,
+      "defaultLengthM": 6.0,
+      "defaultJoint": "S/C",
+      "supportedRatings": ["PN6", "PN10", "PN16"],
+      "tables": [
+        {
+          "odMm": 75,
+          "ratings": {
+            "PN10": { "nominalWtMm": 3.6, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 1.154, "unitWeight6mKg": 6.924 },
+            "PN16": { "nominalWtMm": 5.6, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 1.743, "unitWeight6mKg": 10.458 }
+          }
+        },
+        {
+          "odMm": 90,
+          "ratings": {
+            "PN10": { "nominalWtMm": 4.3, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 1.656, "unitWeight6mKg": 9.936 },
+            "PN16": { "nominalWtMm": 6.7, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 2.506, "unitWeight6mKg": 15.036 }
+          }
+        },
+        {
+          "odMm": 110,
+          "ratings": {
+            "PN6": { "nominalWtMm": 2.7, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 1.302, "unitWeight6mKg": 7.812 },
+            "PN10": { "nominalWtMm": 5.3, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 2.493, "unitWeight6mKg": 14.958 },
+            "PN16": { "nominalWtMm": 8.1, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 3.711, "unitWeight6mKg": 22.266 }
+          }
+        },
+        {
+          "odMm": 160,
+          "ratings": {
+            "PN6": { "nominalWtMm": 4.0, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 2.803, "unitWeight6mKg": 16.818 },
+            "PN10": { "nominalWtMm": 7.7, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 5.268, "unitWeight6mKg": 31.608 },
+            "PN16": { "nominalWtMm": 11.8, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 7.863, "unitWeight6mKg": 47.178 }
+          }
+        },
+        {
+          "odMm": 200,
+          "ratings": {
+            "PN6": { "nominalWtMm": 4.9, "sdr": "SDR 41", "theoreticalLinearWeightKgM": 4.295, "unitWeight6mKg": 25.770 },
+            "PN10": { "nominalWtMm": 9.6, "sdr": "SDR 21", "theoreticalLinearWeightKgM": 8.217, "unitWeight6mKg": 49.302 },
+            "PN16": { "nominalWtMm": 14.7, "sdr": "SDR 13.6", "theoreticalLinearWeightKgM": 12.235, "unitWeight6mKg": 73.410 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ASTM_D1785",
+      "code": "ASTM D1785",
+      "name": "ASTM D1785 (Schedule 40 / 80)",
+      "organization": "ASTM",
+      "standardFamily": "IMPERIAL_SCHEDULE",
+      "application": "Poly(Vinyl Chloride) (PVC) Plastic Pipe, Schedules 40 and 80",
+      "referenceDensityGPerCm3": 1.43,
+      "defaultLengthM": 6.0,
+      "defaultJoint": "P/E",
+      "supportedRatings": ["SCH40", "SCH80"],
+      "tables": [
+        {
+          "nominalInch": "2\"",
+          "odMm": 60.33,
+          "ratings": {
+            "SCH40": { "nominalWtMm": 3.91, "sdr": "SCH40", "theoreticalLinearWeightKgM": 0.991, "unitWeight6mKg": 5.946 },
+            "SCH80": { "nominalWtMm": 5.54, "sdr": "SCH80", "theoreticalLinearWeightKgM": 1.364, "unitWeight6mKg": 8.184 }
+          }
+        },
+        {
+          "nominalInch": "3\"",
+          "odMm": 88.90,
+          "ratings": {
+            "SCH40": { "nominalWtMm": 5.49, "sdr": "SCH40", "theoreticalLinearWeightKgM": 2.052, "unitWeight6mKg": 12.312 },
+            "SCH80": { "nominalWtMm": 7.62, "sdr": "SCH80", "theoreticalLinearWeightKgM": 2.775, "unitWeight6mKg": 16.650 }
+          }
+        },
+        {
+          "nominalInch": "4\"",
+          "odMm": 114.30,
+          "ratings": {
+            "SCH40": { "nominalWtMm": 6.02, "sdr": "SCH40", "theoreticalLinearWeightKgM": 2.926, "unitWeight6mKg": 17.556 },
+            "SCH80": { "nominalWtMm": 8.56, "sdr": "SCH80", "theoreticalLinearWeightKgM": 4.058, "unitWeight6mKg": 24.348 }
+          }
+        },
+        {
+          "nominalInch": "6\"",
+          "odMm": 168.28,
+          "ratings": {
+            "SCH40": { "nominalWtMm": 7.11, "sdr": "SCH40", "theoreticalLinearWeightKgM": 5.143, "unitWeight6mKg": 30.858 },
+            "SCH80": { "nominalWtMm": 10.97, "sdr": "SCH80", "theoreticalLinearWeightKgM": 7.747, "unitWeight6mKg": 46.482 }
+          }
+        },
+        {
+          "nominalInch": "8\"",
+          "odMm": 219.08,
+          "ratings": {
+            "SCH40": { "nominalWtMm": 8.18, "sdr": "SCH40", "theoreticalLinearWeightKgM": 7.745, "unitWeight6mKg": 46.470 },
+            "SCH80": { "nominalWtMm": 12.70, "sdr": "SCH80", "theoreticalLinearWeightKgM": 11.758, "unitWeight6mKg": 70.548 }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -29,7 +29,8 @@ import {
   CheckCheck,
   Copy,
   ClipboardCopy,
-  ClipboardCheck
+  ClipboardCheck,
+  Scale
 } from 'lucide-react';
 
 import harmonizerConfig from '../../data/harmonizerConfig.json' with { type: 'json' };
@@ -50,8 +51,19 @@ import {
   approveBatchItems,
   formatItemAnalysisMarkdown,
   formatBatchSummaryMarkdown,
-  copyToClipboard
+  copyToClipboard,
+  calculateTheoreticalLinearWeight,
+  calculateWeightVariance,
+  lookupCanonicalSpec,
+  diagnoseCatalogItem
 } from '../../logic/catalogHarmonizer.js';
+
+import {
+  mintCanonicalRecord,
+  mintAllStandardRecords,
+  getRegisteredStandards,
+  getStandardById
+} from '../../logic/canonicalStandardsEngine.js';
 
 import ArchetypePatternStudioModal from './ArchetypePatternStudioModal.jsx';
 
@@ -76,9 +88,20 @@ export default function CatalogHarmonizerLabView({
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'anomaly' | 'variance' | 'clean' | 'resolved'
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Focus 10 Review Queue Mode state
-  const [isFocus10Mode, setIsFocus10Mode] = useState(false);
+  // Focus 3 Review Queue Mode state
+  const [isFocus3Mode, setIsFocus3Mode] = useState(false);
   const [focusBatchIndex, setFocusBatchIndex] = useState(0);
+
+  // Mint from Canonical Standard Table Modal state
+  const [isMintModalOpen, setIsMintModalOpen] = useState(false);
+  const [mintSelectedStandardId, setMintSelectedStandardId] = useState('ISO_1452');
+  const [mintSelectedOd, setMintSelectedOd] = useState('110');
+  const [mintSelectedRating, setMintSelectedRating] = useState('PN10');
+  const [mintSelectedJoint, setMintSelectedJoint] = useState('R/R');
+  const [mintSelectedLength, setMintSelectedLength] = useState(6.0);
+
+  // Diagnostic Advice Modal / Drawer state
+  const [activeDiagnosticItem, setActiveDiagnosticItem] = useState(null);
 
   // Clipboard copy state for visual feedback
   const [copiedItemId, setCopiedItemId] = useState(null);
@@ -157,7 +180,7 @@ export default function CatalogHarmonizerLabView({
     return { total, anomalies, variances, clean, resolved, approved };
   }, [stagedItems]);
 
-  // Focus 10 mode queue: prioritizes unapproved items with anomalies or variances first
+  // Focus 3 mode queue: prioritizes unapproved items with anomalies or variances first
   const focusQueue = useMemo(() => {
     const unapproved = stagedItems.filter(i => !i.isApproved);
     return unapproved.slice().sort((a, b) => {
@@ -167,18 +190,19 @@ export default function CatalogHarmonizerLabView({
     });
   }, [stagedItems]);
 
-  const totalBatches = Math.max(1, Math.ceil(focusQueue.length / 10));
+  const BATCH_SIZE = 3;
+  const totalBatches = Math.max(1, Math.ceil(focusQueue.length / BATCH_SIZE));
 
-  // Current batch slice of 10 items for Focus 10 mode
+  // Current batch slice of 3 items for Focus 3 mode
   const currentBatchItems = useMemo(() => {
-    if (!isFocus10Mode) return [];
-    const start = focusBatchIndex * 10;
-    return focusQueue.slice(start, start + 10);
-  }, [isFocus10Mode, focusBatchIndex, focusQueue]);
+    if (!isFocus3Mode) return [];
+    const start = focusBatchIndex * BATCH_SIZE;
+    return focusQueue.slice(start, start + BATCH_SIZE);
+  }, [isFocus3Mode, focusBatchIndex, focusQueue]);
 
-  // Filtered & searched items (switches to active batch if in Focus 10 mode)
+  // Filtered & searched items (switches to active batch if in Focus 3 mode)
   const filteredItems = useMemo(() => {
-    if (isFocus10Mode) {
+    if (isFocus3Mode) {
       return currentBatchItems;
     }
     return stagedItems.filter((item) => {
@@ -318,16 +342,16 @@ export default function CatalogHarmonizerLabView({
     reader.readAsArrayBuffer(file);
   };
 
-  // Focus 10: Toggle Mode
-  const handleToggleFocus10Mode = () => {
-    setIsFocus10Mode(prev => {
+  // Focus 3: Toggle Mode
+  const handleToggleFocus3Mode = () => {
+    setIsFocus3Mode(prev => {
       const next = !prev;
       if (next) {
         setFocusBatchIndex(0);
         onNotify(
           isAr
-            ? '\u062A\u0645 \u062A\u0641\u0639\u064A\u0644 \u0648\u0636\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632: \u0641\u062D\u0635 10 \u0623\u0635\u0646\u0627\u0641'
-            : 'Activated Focus 10 Mode: Review queue in batches of 10',
+            ? '\u062A\u0645 \u062A\u0641\u0639\u064A\u0644 \u0648\u0636\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632: \u0641\u062D\u0635 3 \u0623\u0635\u0646\u0627\u0641'
+            : 'Activated Focus 3 Mode: Review queue in relaxed batches of 3',
           'info'
         );
       }
@@ -335,7 +359,7 @@ export default function CatalogHarmonizerLabView({
     });
   };
 
-  // Focus 10: Approve Current Batch & Fetch Next 10
+  // Focus 3: Approve Current Batch & Fetch Next 3
   const handleApproveCurrentBatch = () => {
     if (currentBatchItems.length === 0) return;
     const idsToApprove = currentBatchItems.map(i => i.id);
@@ -345,14 +369,109 @@ export default function CatalogHarmonizerLabView({
     const remainingCount = Math.max(0, focusQueue.length - currentBatchItems.length);
     onNotify(
       isAr
-        ? `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F ${idsToApprove.length} \u0635\u0646\u0641 \u0628\u0646\u062C\u0627\u062D (${remainingCount} \u0645\u062A\u0628\u0642\u064A)`
+        ? `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F ${idsToApprove.length} \u0623\u0635\u0646\u0627\u0641 \u0628\u0646\u062C\u0627\u062D (${remainingCount} \u0645\u062A\u0628\u0642\u064A)`
         : `Approved batch of ${idsToApprove.length} items successfully (${remainingCount} remaining in queue)`,
       'success'
     );
 
-    const nextTotalBatches = Math.ceil(remainingCount / 10);
+    const nextTotalBatches = Math.ceil(remainingCount / 3);
     if (focusBatchIndex >= nextTotalBatches) {
       setFocusBatchIndex(Math.max(0, nextTotalBatches - 1));
+    }
+  };
+
+  // Single Item: Direct Approval
+  const handleApproveSingleItem = (item, e) => {
+    if (e) e.stopPropagation();
+    if (!item) return;
+    const updated = approveBatchItems(stagedItems, [item.id]);
+    setStagedItems(updated);
+    if (selectedItem?.id === item.id) {
+      setSelectedItem({ ...selectedItem, isApproved: true, status: 'approved' });
+    }
+    if (activeDiagnosticItem?.id === item.id) {
+      setActiveDiagnosticItem({ ...activeDiagnosticItem, isApproved: true, status: 'approved' });
+    }
+    onNotify(
+      isAr
+        ? `\u062A\u0645 \u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u0635\u0646\u0641 ${item.itemCode}`
+        : `Approved item ${item.itemCode}`,
+      'success'
+    );
+  };
+
+  // Action Pipeline: Move to Clean Spring (Staging)
+  const handleMoveToCleanSpring = () => {
+    const approvedCount = stagedItems.filter(i => i.isApproved || ['clean', 'snapped', 'overridden'].includes(i.status)).length;
+    setFilterMode('clean');
+    onNotify(
+      isAr
+        ? `\u062A\u0645 \u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0623\u0635\u0646\u0627\u0641 \u0627\u0644\u0645\u0639\u062A\u0645\u062F\u0629 \u0641\u064A \u0627\u0644\u0646\u0628\u0639 \u0627\u0644\u0635\u0627\u0641\u064A (${approvedCount} \u0635\u0646\u0641)`
+        : `Moved & Filtered to Clean Spring Staging (${approvedCount} clean/approved items ready)`,
+      'success'
+    );
+  };
+
+  // Action Pipeline: Mint Pristine Items from Canonical Standards
+  const handleMintCanonical = () => {
+    try {
+      let newItems = [];
+      if (mintSelectedOd === 'all' && mintSelectedRating === 'all') {
+        newItems = mintAllStandardRecords(mintSelectedStandardId, {
+          joint: mintSelectedJoint,
+          lengthM: mintSelectedLength
+        });
+      } else if (mintSelectedOd === 'all') {
+        const std = getStandardById(mintSelectedStandardId);
+        (std?.tables || []).forEach(t => {
+          if (t.ratings && t.ratings[mintSelectedRating]) {
+            newItems.push(mintCanonicalRecord({
+              standardId: mintSelectedStandardId,
+              odMm: t.odMm,
+              rating: mintSelectedRating,
+              joint: mintSelectedJoint,
+              lengthM: mintSelectedLength
+            }));
+          }
+        });
+      } else if (mintSelectedRating === 'all') {
+        const std = getStandardById(mintSelectedStandardId);
+        const t = (std?.tables || []).find(e => e.odMm === Number(mintSelectedOd));
+        if (t && t.ratings) {
+          Object.keys(t.ratings).forEach(pn => {
+            newItems.push(mintCanonicalRecord({
+              standardId: mintSelectedStandardId,
+              odMm: t.odMm,
+              rating: pn,
+              joint: mintSelectedJoint,
+              lengthM: mintSelectedLength
+            }));
+          });
+        }
+      } else {
+        const item = mintCanonicalRecord({
+          standardId: mintSelectedStandardId,
+          odMm: Number(mintSelectedOd),
+          rating: mintSelectedRating,
+          joint: mintSelectedJoint,
+          lengthM: mintSelectedLength
+        });
+        newItems = [item];
+      }
+
+      if (newItems.length > 0) {
+        setStagedItems(prev => [...newItems, ...prev]);
+        setIsMintModalOpen(false);
+        onNotify(
+          isAr
+            ? `\u062A\u0645 \u062A\u0648\u0644\u064A\u062F ${newItems.length} \u0635\u0646\u0641 \u0642\u064A\u0627\u0633\u064A \u0645\u0646 \u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062A \u0628\u0646\u062C\u0627\u062D`
+            : `Minted ${newItems.length} pristine canonical record(s) directly from standard table`,
+          'success'
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      onNotify('Minting failed: ' + e.message, 'error');
     }
   };
 
@@ -625,23 +744,54 @@ export default function CatalogHarmonizerLabView({
 
             <button
               type="button"
-              onClick={handleToggleFocus10Mode}
+              onClick={handleToggleFocus3Mode}
               className={`h-9 inline-flex items-center gap-2 text-xs font-bold px-3.5 rounded-xl border transition cursor-pointer shadow-xs ${
-                isFocus10Mode
+                isFocus3Mode
                   ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-rose-600/30 ring-2 ring-rose-500/40'
                   : isLight 
                   ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300' 
                   : 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border-rose-700/60'
               }`}
-              title="Focus 10 Mode: Review unapproved items in bite-sized batches of 10"
+              title="Focus 3 Mode: Review unapproved items in relaxed batches of 3"
             >
               <Target className="w-4 h-4 text-rose-500 dark:text-rose-400" />
-              <span>{isAr ? '\u0641\u062D\u0635 10 \u0623\u0635\u0646\u0627\u0641 (Review Queue)' : '🎯 Inspect Next 10'}</span>
+              <span>{isAr ? '\u0641\u062D\u0635 3 \u0623\u0635\u0646\u0627\u0641 (Focus 3)' : '🎯 Inspect Next 3'}</span>
               {focusQueue.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-rose-500 text-white font-black leading-none">
                   {focusQueue.length}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMintModalOpen(true)}
+              className={`h-9 inline-flex items-center gap-2 text-xs font-bold px-3.5 rounded-xl border transition cursor-pointer shadow-xs ${
+                isLight 
+                  ? 'bg-violet-50 hover:bg-violet-100 text-violet-800 border-violet-300' 
+                  : 'bg-violet-950/40 hover:bg-violet-900/60 text-violet-300 border-violet-700/60'
+              }`}
+              title="Mint pristine canonical products directly from official standard tables"
+            >
+              <Database className="w-4 h-4 text-violet-500" />
+              <span>{isAr ? '\u062A\u0648\u0644\u064A\u062F \u0642\u064A\u0627\u0633\u064A (Mint)' : '🏛️ Mint Standard'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMoveToCleanSpring}
+              disabled={stagedItems.length === 0}
+              className={`h-9 inline-flex items-center gap-2 text-xs font-bold px-3.5 rounded-xl border transition cursor-pointer shadow-xs ${
+                filterMode === 'clean'
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white border-teal-500 shadow-teal-600/30'
+                  : isLight
+                  ? 'bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-300'
+                  : 'bg-teal-950/40 hover:bg-teal-900/60 text-teal-300 border-teal-700/60'
+              }`}
+              title="Move and filter to Clean Spring Staging items ready for master catalog"
+            >
+              <ShieldCheck className="w-4 h-4 text-teal-500" />
+              <span>{isAr ? '\u0627\u0644\u0646\u0628\u0639 \u0627\u0644\u0635\u0627\u0641\u064A (Clean Spring)' : '🌊 Clean Spring'}</span>
             </button>
 
             <button
@@ -856,8 +1006,8 @@ export default function CatalogHarmonizerLabView({
           </div>
         </div>
 
-        {/* Focus 10 Mode Stepper Banner */}
-        {isFocus10Mode && (
+        {/* Focus 3 Mode Stepper Banner */}
+        {isFocus3Mode && (
           <div className={`p-4 border-b transition-all ${
             isLight
               ? 'bg-rose-50/80 border-rose-200 text-rose-950'
@@ -871,20 +1021,20 @@ export default function CatalogHarmonizerLabView({
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-black text-xs uppercase tracking-wide text-rose-600 dark:text-rose-400">
-                      {isAr ? '\u0648\u0636\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632 10 \u0623\u0635\u0646\u0627\u0641 (Focus 10 Mode)' : 'Focus 10 Review Mode'}
+                      {isAr ? '\u0648\u0636\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632 3 \u0623\u0635\u0646\u0627\u0641 (Focus 3 Mode)' : 'Focus 3 Review Mode'}
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30">
                       {isAr
-                        ? `\u062F\u0641\u0639\u0629 ${focusBatchIndex + 1} \u0645\u0646 ${totalBatches}`
-                        : `Batch ${focusBatchIndex + 1} of ${totalBatches}`}
+                        ? `\u062F\u0641\u0639\u0629 ${focusBatchIndex + 1} \u0645\u0646 ${totalBatches} \u2022 ${currentBatchItems.length} \u0646\u0634\u0637`
+                        : `Batch ${focusBatchIndex + 1} of ${totalBatches} • ${currentBatchItems.length} items active`}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     {focusQueue.length === 0
                       ? (isAr ? '\u0627\u0643\u062A\u0645\u0644 \u0641\u062D\u0635 \u0648\u0627\u0639\u062A\u0645\u0627\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0635\u0646\u0627\u0641!' : 'All queued items in sandbox have been reviewed and approved!')
                       : (isAr
-                        ? `${focusQueue.length} \u0635\u0646\u0641 \u0645\u062A\u0628\u0642\u064A \u0641\u064A \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0641\u062D\u0635 \u2022 \u064A\u062A\u0645 \u0639\u0631\u0636 10 \u0623\u0635\u0646\u0627\u0641 \u062A\u062F\u0631\u064A\u062C\u064A\u0627\u064B \u0644\u062A\u0641\u0627\u062F\u064A \u0627\u0644\u062A\u0634\u062A\u062A`
-                        : `${focusQueue.length} items remaining in queue • Prioritizing anomalies & variances in bite-sized batches`)}
+                        ? `${focusQueue.length} \u0635\u0646\u0641 \u0645\u062A\u0628\u0642\u064A \u0641\u064A \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0641\u062D\u0635 \u2022 \u064A\u062A\u0645 \u0639\u0631\u0636 3 \u0623\u0635\u0646\u0627\u0641 \u062A\u062F\u0631\u064A\u062C\u064A\u0627\u064B \u0644\u0644\u062A\u062F\u0642\u064A\u0642 \u0627\u0644\u0647\u0646\u062F\u0633\u064A \u0627\u0644\u062F\u0642\u064A\u0642`
+                        : `${focusQueue.length} items remaining in queue • Prioritizing anomalies & variances in high-precision 3-item focus batches`)}
                   </p>
                 </div>
               </div>
@@ -926,17 +1076,17 @@ export default function CatalogHarmonizerLabView({
                         ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600'
                     }`}
-                    title="Copy active 10-item batch analysis summary to clipboard as Markdown"
+                    title="Copy active 3-item batch analysis summary to clipboard as Markdown"
                   >
                     {isBatchCopied ? (
                       <>
                         <Check className="w-3.5 h-3.5 text-white" />
-                        <span>{isAr ? '\u062A\u0645 \u0646\u0633\u062E \u0627\u0644\u062F\u0641\u0639\u0629!' : 'Copied Batch!'}</span>
+                        <span>{isAr ? '\u062A\u0645 \u0646\u0633\u062E \u0627\u0644\u062F\u0641\u0639\u0629!' : 'Copied 3 Items!'}</span>
                       </>
                     ) : (
                       <>
                         <ClipboardCopy className="w-3.5 h-3.5 text-cyan-500" />
-                        <span>{isAr ? '\u0646\u0633\u062E \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062F\u0641\u0639\u0629' : 'Copy Batch Summary'}</span>
+                        <span>{isAr ? '\u0646\u0633\u062E \u062A\u062D\u0644\u064A\u0644 3 \u0623\u0635\u0646\u0627\u0641' : '📋 Copy 3-Item Analysis'}</span>
                       </>
                     )}
                   </button>
@@ -947,16 +1097,16 @@ export default function CatalogHarmonizerLabView({
                     type="button"
                     onClick={handleApproveCurrentBatch}
                     className="h-8 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/30"
-                    title="Approve all items in this 10-item batch and fetch the next batch"
+                    title="Approve all items in this 3-item batch and fetch the next 3"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
-                    <span>{isAr ? '\u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062F\u0641\u0639\u0629 \u0648\u062C\u0644\u0628 \u0627\u0644\u062A\u0627\u0644\u064A\u0629' : 'Approve Batch & Fetch Next 10'}</span>
+                    <span>{isAr ? '\u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u062F\u0641\u0639\u0629 \u0648\u062C\u0644\u0628 \u0627\u0644\u062A\u0627\u0644\u064A\u0629' : 'Approve Batch & Fetch Next 3'}</span>
                   </button>
                 )}
 
                 <button
                   type="button"
-                  onClick={() => setIsFocus10Mode(false)}
+                  onClick={() => setIsFocus3Mode(false)}
                   className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
                     isLight ? 'border-slate-300 hover:bg-slate-200 text-slate-700' : 'border-slate-700 hover:bg-slate-800 text-slate-300'
                   }`}
@@ -992,20 +1142,21 @@ export default function CatalogHarmonizerLabView({
                 <th className="py-3 px-3.5 font-bold min-w-[260px]">Standardized Clean Description</th>
                 <th className="py-3 px-2 font-bold text-center w-16">OD</th>
                 <th className="py-3 px-2 font-bold text-center w-20">WT (mm)</th>
+                <th className="py-3 px-2.5 font-bold text-center w-28">Linear Wt (kg/m)</th>
                 <th className="py-3 px-2.5 font-bold text-center w-24">Rating / SDR</th>
                 <th className="py-3 px-2.5 font-bold text-center w-28">Standard</th>
                 <th className="py-3 px-2 font-bold text-center w-16">Joint</th>
                 <th className="py-3 px-2 font-bold text-center w-16">Length</th>
                 <th className="py-3 px-3 font-bold text-center min-w-[130px]">Matched Archetype</th>
                 <th className="py-3 px-3 font-bold text-center w-40">Governance Status</th>
-                <th className="py-3 px-3.5 font-bold text-center w-36">Actions</th>
+                <th className="py-3 px-3.5 font-bold text-center w-40">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-12 text-center text-slate-400">
-                    {isFocus10Mode && focusQueue.length === 0 ? (
+                  <td colSpan={14} className="py-12 text-center text-slate-400">
+                    {isFocus3Mode && focusQueue.length === 0 ? (
                       <div className="space-y-2">
                         <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 animate-bounce" />
                         <p className="font-bold text-sm text-emerald-500">
@@ -1189,6 +1340,29 @@ export default function CatalogHarmonizerLabView({
                           {item.wallThicknessMm ? `${item.wallThicknessMm}mm` : '-'}
                         </span>
                       </td>
+
+                      {/* Theoretical & Factory Linear Weight Benchmark Column */}
+                      <td className="py-2.5 px-2.5 text-center font-mono text-[11px]">
+                        <div className="font-bold text-slate-800 dark:text-slate-200">
+                          {item.theoreticalWeightKgM ? `${item.theoreticalWeightKgM} kg/m` : (item.linearWeightKgM ? `${item.linearWeightKgM} kg/m` : '-')}
+                        </div>
+                        {item.factoryLinearWeightKgM && item.theoreticalWeightKgM && item.hasWeightVariance ? (
+                          <div className="flex items-center justify-center gap-1 mt-0.5">
+                            <span className="text-[9px] text-slate-400">Fact: {item.factoryLinearWeightKgM}</span>
+                            <span className="px-1 rounded text-[9px] font-bold bg-amber-500/20 text-amber-500 dark:text-amber-400">
+                              Δ {item.weightVariancePercent > 0 ? '+' : ''}{item.weightVariancePercent}%
+                            </span>
+                          </div>
+                        ) : item.factoryLinearWeightKgM && item.theoreticalWeightKgM ? (
+                          <div className="text-[9px] text-emerald-500 font-medium">
+                            Fact: {item.factoryLinearWeightKgM} kg/m
+                          </div>
+                        ) : (
+                          <div className="text-[9px] text-slate-400">
+                            uPVC 1.43
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2.5 px-2.5 text-center font-mono text-[11px]">
                         {item.ratingClass || '-'}
                       </td>
@@ -1260,122 +1434,95 @@ export default function CatalogHarmonizerLabView({
                       </td>
 
                       <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                        {isAnomaly ? (
-                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            {item.unparsedTokens?.length > 0 && (
+                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          {/* Diagnose & Advise against Canonical Standards */}
+                          <button
+                            type="button"
+                            onClick={() => setActiveDiagnosticItem(item)}
+                            className="p-1 rounded-md border border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition cursor-pointer"
+                            title="Diagnose & Advise against Canonical Standards"
+                          >
+                            <Search className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* 1-Click Approve Item */}
+                          {!item.isApproved && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleApproveSingleItem(item, e)}
+                              className="p-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
+                              title="Approve Item Directly"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {isAnomaly && item.unparsedTokens?.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => handlePurgeGarbage(item, e)}
+                              className="px-1.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs flex items-center gap-1"
+                              title="Purge Garbage Tokens"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Purge</span>
+                            </button>
+                          )}
+
+                          {isVariance && (
+                            <>
                               <button
                                 type="button"
-                                onClick={(e) => handlePurgeGarbage(item, e)}
-                                className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs flex items-center gap-1"
-                                title="Purge Garbage Tokens"
+                                onClick={(e) => handleQuickSnap(item, e)}
+                                className="px-1.5 py-1 rounded bg-teal-600 hover:bg-teal-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs"
+                                title={`Snap to Official Standard (${item.officialStandardWtMm}mm)`}
                               >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Purge</span>
+                                Snap
                               </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleQuickKeep(item, e)}
+                                className="px-1.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs"
+                                title="Keep Factory Dimension as Commercial Override"
+                              >
+                                Keep
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setIsDrawerOpen(true);
+                            }}
+                            className={`px-2 py-1 rounded text-[10px] font-medium border transition cursor-pointer ${
+                              isLight ? 'hover:bg-slate-200 border-slate-300' : 'hover:bg-slate-700 border-slate-700'
+                            }`}
+                          >
+                            Details
+                          </button>
+
+                          {/* Copy Markdown Analysis */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyRowAnalysis(item, e)}
+                            className={`p-1 rounded-md border transition cursor-pointer flex items-center justify-center shrink-0 ${
+                              copiedItemId === item.id
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                                : isLight
+                                ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
+                            }`}
+                            title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
+                          >
+                            {copiedItemId === item.id ? (
+                              <Check className="w-3.5 h-3.5 text-white" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
                             )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setIsDrawerOpen(true);
-                              }}
-                              className={`px-2 py-1 rounded text-[10px] font-semibold border transition cursor-pointer ${
-                                isLight ? 'hover:bg-slate-200 border-slate-300' : 'hover:bg-slate-700 border-slate-700'
-                              }`}
-                            >
-                              Fix / Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleCopyRowAnalysis(item, e)}
-                              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center shrink-0 ${
-                                copiedItemId === item.id
-                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-                                  : isLight
-                                  ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
-                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
-                              }`}
-                              title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
-                            >
-                              {copiedItemId === item.id ? (
-                                <Check className="w-3.5 h-3.5 text-white" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        ) : isVariance ? (
-                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={(e) => handleQuickSnap(item, e)}
-                              className="px-2 py-1 rounded bg-teal-600 hover:bg-teal-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs"
-                              title={`Snap to Official Standard (${item.officialStandardWtMm}mm)`}
-                            >
-                              Snap {item.officialStandardWtMm}mm
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleQuickKeep(item, e)}
-                              className="px-2 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[10px] cursor-pointer shadow-xs"
-                              title="Keep Factory Dimension as Commercial Override"
-                            >
-                              Keep {item.wallThicknessMm}mm
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleCopyRowAnalysis(item, e)}
-                              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center shrink-0 ${
-                                copiedItemId === item.id
-                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-                                  : isLight
-                                  ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
-                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
-                              }`}
-                              title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
-                            >
-                              {copiedItemId === item.id ? (
-                                <Check className="w-3.5 h-3.5 text-white" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedItem(item);
-                                setIsDrawerOpen(true);
-                              }}
-                              className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
-                                isLight ? 'hover:bg-slate-200 border-slate-300' : 'hover:bg-slate-700 border-slate-700'
-                              }`}
-                            >
-                              Details / Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleCopyRowAnalysis(item, e)}
-                              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center shrink-0 ${
-                                copiedItemId === item.id
-                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
-                                  : isLight
-                                  ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
-                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
-                              }`}
-                              title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
-                            >
-                              {copiedItemId === item.id ? (
-                                <Check className="w-3.5 h-3.5 text-white" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1599,6 +1746,50 @@ export default function CatalogHarmonizerLabView({
 
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
                   {selectedItem.conflictNotes}
+                </p>
+              </div>
+
+              {/* Linear Weight Benchmark Card in Drawer */}
+              <div className={`p-4 rounded-xl border ${
+                selectedItem.hasWeightVariance
+                  ? 'bg-amber-500/10 border-amber-500/30'
+                  : isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/40 border-slate-800'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
+                    <Scale className="w-4 h-4 text-cyan-500" />
+                    <span>Linear Weight Benchmark (uPVC 1.43 g/cm³)</span>
+                  </div>
+                  {selectedItem.hasWeightVariance && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-500 font-bold border border-amber-500/30">
+                      Δ Weight: {selectedItem.weightVariancePercent > 0 ? '+' : ''}{selectedItem.weightVariancePercent}%
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 py-2 text-center border-y border-slate-200/60 dark:border-slate-800/60 my-2 text-xs">
+                  <div>
+                    <div className="text-[10px] text-slate-400">Theoretical (kg/m)</div>
+                    <div className="font-mono font-bold text-sm text-cyan-500">
+                      {selectedItem.theoreticalWeightKgM ? `${selectedItem.theoreticalWeightKgM} kg/m` : '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Factory Recorded</div>
+                    <div className="font-mono font-bold text-sm text-slate-700 dark:text-slate-300">
+                      {selectedItem.factoryLinearWeightKgM ? `${selectedItem.factoryLinearWeightKgM} kg/m` : 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">6M Piece Weight</div>
+                    <div className="font-mono font-bold text-sm text-emerald-500">
+                      {selectedItem.unitWeight6mKg ? `${selectedItem.unitWeight6mKg} kg` : '-'}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-1">
+                  Formula: π × (OD - WT) × WT × (1.43 / 1000)
                 </p>
               </div>
 
@@ -2000,6 +2191,328 @@ export default function CatalogHarmonizerLabView({
           </div>
         </div>
       )}
+
+      {/* Mint from Canonical Standard Table Modal */}
+      {isMintModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            onClick={() => setIsMintModalOpen(false)}
+          />
+          <div className={`relative w-full max-w-xl rounded-2xl shadow-2xl p-6 border z-10 ${
+            isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-[#0f172a] border-slate-800 text-slate-100'
+          }`}>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700/60 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-violet-500/20 text-violet-500 flex items-center justify-center font-bold">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">
+                    {isAr ? '\u062A\u0648\u0644\u064A\u062F \u0623\u0635\u0646\u0627\u0641 \u0642\u064A\u0627\u0633\u064A\u0629 \u0645\u0646 \u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062A' : 'Mint Pristine Standard Products'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isAr ? '\u0625\u0646\u0634\u0627\u0621 \u0633\u062C\u0644\u0627\u062A \u0645\u0637\u0627\u0628\u0642\u0629 100% \u0645\u0628\u0627\u0634\u0631\u0629 \u062F\u0648\u0646 \u0627\u0644\u0631\u062C\u0648\u0639 \u0644\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u064A\u0648\u0645\u064A\u0629' : 'Generate pristine canonical items directly from official standard tables'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMintModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Standard Selection */}
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                  Canonical Reference Standard
+                </label>
+                <select
+                  value={mintSelectedStandardId}
+                  onChange={(e) => setMintSelectedStandardId(e.target.value)}
+                  className={`w-full h-9 px-3 text-xs rounded-xl border font-semibold ${
+                    isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-100'
+                  }`}
+                >
+                  {getRegisteredStandards().map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Grid: OD & Rating */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                    Outer Diameter (OD mm)
+                  </label>
+                  <select
+                    value={mintSelectedOd}
+                    onChange={(e) => setMintSelectedOd(e.target.value)}
+                    className={`w-full h-9 px-3 text-xs rounded-xl border font-mono ${
+                      isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-100'
+                    }`}
+                  >
+                    <option value="all">All Diameters (OD 63 to 200mm)</option>
+                    {[63, 75, 90, 110, 125, 140, 160, 180, 200].map(od => (
+                      <option key={od} value={od}>{od} mm</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                    Pressure Rating / Class
+                  </label>
+                  <select
+                    value={mintSelectedRating}
+                    onChange={(e) => setMintSelectedRating(e.target.value)}
+                    className={`w-full h-9 px-3 text-xs rounded-xl border font-mono ${
+                      isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-100'
+                    }`}
+                  >
+                    <option value="all">All Pressure Ratings (PN6 to PN20)</option>
+                    {['PN6', 'PN8', 'PN10', 'PN12.5', 'PN16', 'PN20'].map(pn => (
+                      <option key={pn} value={pn}>{pn}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Grid: Joint & Length */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                    Joint Type
+                  </label>
+                  <select
+                    value={mintSelectedJoint}
+                    onChange={(e) => setMintSelectedJoint(e.target.value)}
+                    className={`w-full h-9 px-3 text-xs rounded-xl border font-semibold ${
+                      isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-100'
+                    }`}
+                  >
+                    <option value="R/R">R/R (Rubber Ring / Push-Fit)</option>
+                    <option value="S/C">S/C (Solvent Cement Socket)</option>
+                    <option value="Plain End">Plain End</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                    Pipe Standard Length
+                  </label>
+                  <select
+                    value={mintSelectedLength}
+                    onChange={(e) => setMintSelectedLength(parseFloat(e.target.value))}
+                    className={`w-full h-9 px-3 text-xs rounded-xl border font-mono ${
+                      isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-slate-100'
+                    }`}
+                  >
+                    <option value="6.0">6.0 Meters (Standard)</option>
+                    <option value="5.8">5.8 Meters (Export Container)</option>
+                    <option value="3.0">3.0 Meters</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="p-3.5 rounded-xl bg-violet-500/10 border border-violet-500/30">
+                <div className="text-[10px] uppercase font-bold text-violet-400 mb-1">
+                  Mint Output Preview
+                </div>
+                {mintSelectedOd !== 'all' && mintSelectedRating !== 'all' ? (
+                  <div>
+                    <div className="font-mono font-bold text-sm text-violet-300">
+                      PVC PIPE {mintSelectedOd} x {lookupCanonicalSpec(mintSelectedOd, mintSelectedRating, mintSelectedStandardId).nominalWtMm || '5.3'}mm {mintSelectedRating} SASO-ISO 1452-2 {mintSelectedJoint} {Number(mintSelectedLength).toFixed(1)}M
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1 font-mono">
+                      Theoretical Linear Weight: <strong className="text-emerald-400">{lookupCanonicalSpec(mintSelectedOd, mintSelectedRating, mintSelectedStandardId).theoreticalLinearWeightKgM || '2.493'} kg/m</strong> • 6M Piece: <strong className="text-emerald-400">{lookupCanonicalSpec(mintSelectedOd, mintSelectedRating, mintSelectedStandardId).unitWeight6mKg || '14.958'} kg</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-violet-300 font-semibold">
+                    {mintSelectedOd === 'all' && mintSelectedRating === 'all'
+                      ? 'Will mint complete standard matrix: 54 pristine products across OD 63 to 200mm (PN6 to PN20).'
+                      : mintSelectedOd === 'all'
+                      ? `Will mint all 9 metric diameters for ${mintSelectedRating} (OD 63 to 200mm).`
+                      : `Will mint all available pressure ratings for OD ${mintSelectedOd}mm.`}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setIsMintModalOpen(false)}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                  isLight ? 'border-slate-300 hover:bg-slate-100 text-slate-700' : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleMintCanonical}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white transition cursor-pointer shadow-md shadow-violet-600/30 flex items-center gap-2"
+              >
+                <Database className="w-4 h-4" />
+                <span>{isAr ? '\u062A\u0648\u0644\u064A\u062F \u0648\u0625\u0636\u0627\u0641\u0629 \u0644\u0644\u0645\u062E\u062A\u0628\u0631' : 'Mint & Add to Sandbox'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostic Advice & Canonical Audit Modal */}
+      {activeDiagnosticItem && (() => {
+        const diag = diagnoseCatalogItem(activeDiagnosticItem);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+              onClick={() => setActiveDiagnosticItem(null)}
+            />
+            <div className={`relative w-full max-w-xl rounded-2xl shadow-2xl p-6 border z-10 ${
+              isLight ? 'bg-white border-slate-200 text-slate-900' : 'bg-[#0f172a] border-slate-800 text-slate-100'
+            }`}>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+                    <Search className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black">
+                      {isAr ? '\u062A\u0634\u062E\u064A\u0635 \u0648\u062A\u0648\u0635\u064A\u0627\u062A \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062A \u0627\u0644\u0642\u064A\u0627\u0633\u064A\u0629' : 'Canonical Specification Diagnostic'}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {activeDiagnosticItem.itemCode} • {activeDiagnosticItem.canonicalDescription}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveDiagnosticItem(null)}
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                {/* Benchmark Metrics Grid */}
+                <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center font-mono">
+                  <div>
+                    <div className="text-[10px] text-slate-400">Standard Spec WT</div>
+                    <div className="text-sm font-bold text-emerald-400">
+                      {activeDiagnosticItem.officialStandardWtMm ? `${activeDiagnosticItem.officialStandardWtMm}mm` : 'Unlisted'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Factory / Log WT</div>
+                    <div className="text-sm font-bold text-amber-400">
+                      {activeDiagnosticItem.wallThicknessMm ? `${activeDiagnosticItem.wallThicknessMm}mm` : '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400">Theoretical Wt (kg/m)</div>
+                    <div className="text-sm font-bold text-cyan-400">
+                      {activeDiagnosticItem.theoreticalWeightKgM ? `${activeDiagnosticItem.theoreticalWeightKgM} kg/m` : '-'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Advice Points */}
+                <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
+                  <div className="text-xs font-bold text-purple-400 uppercase tracking-wide flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <span>Engineering Advisory & Findings</span>
+                  </div>
+                  <ul className="space-y-1.5 text-[11px] text-slate-300">
+                    {diag.advicePoints.map((pt, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-purple-400 font-bold">•</span>
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Action Buttons in Diagnostic Popover */}
+              <div className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-slate-700/60 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {activeDiagnosticItem.hasVariance && activeDiagnosticItem.officialStandardWtMm && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAction(activeDiagnosticItem, 'snap_standard');
+                        setActiveDiagnosticItem(null);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white cursor-pointer shadow-xs"
+                    >
+                      Snap to {activeDiagnosticItem.officialStandardWtMm}mm Standard
+                    </button>
+                  )}
+                  {activeDiagnosticItem.hasVariance && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAction(activeDiagnosticItem, 'keep_factory');
+                        setActiveDiagnosticItem(null);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-xs"
+                    >
+                      Keep {activeDiagnosticItem.wallThicknessMm}mm Override
+                    </button>
+                  )}
+                  {activeDiagnosticItem.unparsedTokens?.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        handlePurgeGarbage(activeDiagnosticItem, e);
+                        setActiveDiagnosticItem(null);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Purge Tokens</span>
+                    </button>
+                  )}
+                  {!activeDiagnosticItem.isApproved && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        handleApproveSingleItem(activeDiagnosticItem, e);
+                        setActiveDiagnosticItem(null);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs flex items-center gap-1"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Approve Item</span>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDiagnosticItem(null)}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -25,8 +25,19 @@ import {
   approveBatchItems,
   formatItemAnalysisMarkdown,
   formatBatchSummaryMarkdown,
-  copyToClipboard
+  copyToClipboard,
+  calculateTheoreticalLinearWeight,
+  calculateWeightVariance,
+  lookupCanonicalSpec,
+  diagnoseCatalogItem
 } from '../../src/logic/catalogHarmonizer.js';
+
+import {
+  mintCanonicalRecord,
+  mintAllStandardRecords,
+  getRegisteredStandards,
+  getStandardById
+} from '../../src/logic/canonicalStandardsEngine.js';
 
 import { getAllProducts, getProductByCode } from '../../src/logic/productCatalogHelper.js';
 
@@ -152,6 +163,8 @@ console.log('Test 7 Passed: Staging sandbox isolated and promotion verified.');
 // Test 8: Zero Literal Arabic Characters Check
 console.log('Test 8: Zero literal Arabic characters check');
 const filesToCheck = [
+  'src/data/canonicalStandards.json',
+  'src/logic/canonicalStandardsEngine.js',
   'src/data/harmonizerConfig.json',
   'src/logic/catalogHarmonizer.js',
   'src/components/catalog-harmonizer/ArchetypePatternStudioModal.jsx',
@@ -349,16 +362,16 @@ assert.strictEqual(queue[4].status, 'anomaly');
 // Next items in queue must be variances (score 1)
 assert.strictEqual(queue[5].status, 'variance');
 
-// Batch 1 (10 items)
-const batch1 = queue.slice(0, 10);
-assert.strictEqual(batch1.length, 10);
-// Batch 2 (10 items)
-const batch2 = queue.slice(10, 20);
-assert.strictEqual(batch2.length, 10);
-// Batch 3 (5 items)
-const batch3 = queue.slice(20, 30);
-assert.strictEqual(batch3.length, 5);
-console.log('Test 18 Passed: Focus 10 mode prioritizes anomalies and slices batches accurately.');
+// Batch 1 (3 items)
+const batch1 = queue.slice(0, 3);
+assert.strictEqual(batch1.length, 3);
+// Batch 2 (3 items)
+const batch2 = queue.slice(3, 6);
+assert.strictEqual(batch2.length, 3);
+// Batch 9 (1 item)
+const batch9 = queue.slice(24, 27);
+assert.strictEqual(batch9.length, 1);
+console.log('Test 18 Passed: Focus 3 mode prioritizes anomalies and slices batches accurately.');
 
 // Test 19: Single Row Markdown Analysis Formatter
 console.log('Test 19: Single Row Markdown Analysis Formatter');
@@ -385,6 +398,7 @@ assert.ok(rowMarkdown.includes('Rating / SDR: `PN10`'));
 assert.ok(rowMarkdown.includes('Reference Standard: `SASO-ISO 1452-2`'));
 assert.ok(rowMarkdown.includes('Joint Type: `R/R`'));
 assert.ok(rowMarkdown.includes('Length: `6.0M`'));
+assert.ok(rowMarkdown.includes('Linear Weight Benchmark'));
 assert.ok(rowMarkdown.includes('Specification Variance'));
 assert.ok(rowMarkdown.includes('Delta: `-0.1mm`'));
 console.log('Test 19 Passed: Single row analysis Markdown formatted completely and accurately.');
@@ -426,4 +440,74 @@ copyToClipboard('').then((res) => {
 });
 console.log('Test 21 Passed: Clipboard helper safe handling verified.');
 
-console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (21/21) ---');
+// Test 22: Linear Weight Calculation Benchmark (uPVC density 1.43 g/cm3)
+console.log('Test 22: Linear Weight Calculation Benchmark (uPVC density 1.43 g/cm3)');
+const wt110 = calculateTheoreticalLinearWeight(110, 5.3, 1.43);
+assert.strictEqual(wt110, 2.493, 'OD 110 PN10 (5.3mm) must equal 2.493 kg/m');
+
+const wt160 = calculateTheoreticalLinearWeight(160, 7.7, 1.43);
+assert.strictEqual(wt160, 5.268, 'OD 160 PN10 (7.7mm) must equal 5.268 kg/m');
+
+const wt63 = calculateTheoreticalLinearWeight(63, 3.0, 1.43);
+assert.strictEqual(wt63, 0.809, 'OD 63 PN10 (3.0mm) must equal 0.809 kg/m');
+
+// Edge cases
+assert.strictEqual(calculateTheoreticalLinearWeight(0, 5), null);
+assert.strictEqual(calculateTheoreticalLinearWeight(110, 120), null);
+console.log('Test 22 Passed: Linear weight calculation benchmark verified against exact uPVC geometry.');
+
+// Test 23: Weight Variance Calculation
+console.log('Test 23: Weight Variance Calculation');
+const var1 = calculateWeightVariance(2.450, 2.493);
+assert.strictEqual(var1.diffKgM, -0.043);
+assert.strictEqual(var1.percentDelta, -1.7);
+assert.strictEqual(var1.hasVariance, false); // Within 3% tolerance
+
+const var2 = calculateWeightVariance(2.200, 2.493);
+assert.strictEqual(var2.hasVariance, true); // > 3%
+assert.strictEqual(var2.warningLevel, 'critical'); // > 10%
+console.log('Test 23 Passed: Weight variance evaluation accurately detects discrepancies.');
+
+// Test 24: Canonical Standards Engine Lookup & Pristine Minting
+console.log('Test 24: Canonical Standards Engine Lookup & Pristine Minting');
+const spec110 = lookupCanonicalSpec(110, 'PN10', 'ISO_1452');
+assert.strictEqual(spec110.matched, true);
+assert.strictEqual(spec110.nominalWtMm, 5.3);
+assert.strictEqual(spec110.theoreticalLinearWeightKgM, 2.493);
+
+const mintedItem = mintCanonicalRecord({
+  standardId: 'ISO_1452',
+  odMm: 110,
+  rating: 'PN10',
+  joint: 'R/R',
+  lengthM: 6.0
+});
+assert.strictEqual(mintedItem.status, 'clean');
+assert.strictEqual(mintedItem.isApproved, true);
+assert.strictEqual(mintedItem.ingestionType, 'CANONICAL_MINT');
+assert.strictEqual(mintedItem.wallThicknessMm, 5.3);
+assert.strictEqual(mintedItem.linearWeightKgM, 2.493);
+assert.strictEqual(mintedItem.canonicalDescription, 'PVC PIPE 110 x 5.3mm PN10 SASO-ISO 1452-2 R/R 6.0M');
+console.log('Test 24 Passed: Canonical standard lookup and pristine record minting verified.');
+
+// Test 25: Minting Entire Canonical Standard Matrix
+console.log('Test 25: Minting Entire Canonical Standard Matrix');
+const allMinted = mintAllStandardRecords('ISO_1452');
+assert.ok(allMinted.length >= 50, 'Must mint complete ISO 1452 metric matrix (OD 63 to 200mm)');
+assert.ok(allMinted.every(i => i.status === 'clean' && i.isApproved === true));
+console.log('Test 25 Passed: Full canonical standard matrix generation verified.');
+
+// Test 26: Diagnostic Advice Engine
+console.log('Test 26: Diagnostic Advice Engine');
+const diag = diagnoseCatalogItem({
+  odMm: 110,
+  ratingClass: 'PN10',
+  wallThicknessMm: 5.2,
+  unparsedTokens: ['GARBAGE_TOK']
+});
+assert.strictEqual(diag.isStandardMatched, true);
+assert.ok(diag.advicePoints.length >= 2);
+assert.strictEqual(diag.recommendation, 'Purge Garbage Tokens');
+console.log('Test 26 Passed: Diagnostic advisory recommendations verified.');
+
+console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (26/26) ---');

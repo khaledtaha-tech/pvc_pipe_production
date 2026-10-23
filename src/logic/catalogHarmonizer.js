@@ -13,6 +13,21 @@ import {
   PRODUCT_CATALOG_STORAGE_KEY,
   PRODUCT_CATALOG_UPDATED_EVENT
 } from './productCatalogHelper.js';
+import {
+  calculateTheoreticalLinearWeight,
+  calculateWeightVariance,
+  lookupCanonicalSpec,
+  diagnoseCatalogItem,
+  DEFAULT_PVC_DENSITY_G_CM3
+} from './canonicalStandardsEngine.js';
+
+export {
+  calculateTheoreticalLinearWeight,
+  calculateWeightVariance,
+  lookupCanonicalSpec,
+  diagnoseCatalogItem,
+  DEFAULT_PVC_DENSITY_G_CM3
+};
 
 export const HARMONIZER_STORAGE_KEY = 'pvc_catalog_harmonizer_sandbox';
 export const ARCHETYPES_STORAGE_KEY = 'pvc_catalog_archetypes';
@@ -607,12 +622,18 @@ export function checkSpecificationVariance(odMm, ratingClass, factoryWtMm, stand
   let standardRef = null;
 
   // 1. Check Metric ISO 1452-2 / DIN 8062
-  const odKey = odMm ? String(Math.round(odMm)) : null;
-  const primaryPn = ratingClass ? (ratingClass.match(/PN\s*(\d+(?:\.\d+)?)/i)?.[0]?.toUpperCase() || null) : null;
+  const canonicalLookup = lookupCanonicalSpec(odMm, ratingClass, 'ISO_1452');
+  if (canonicalLookup && canonicalLookup.matched) {
+    officialWt = canonicalLookup.nominalWtMm;
+    standardRef = `${canonicalLookup.standardCode} (${canonicalLookup.rating})`;
+  } else {
+    const odKey = odMm ? String(Math.round(odMm)) : null;
+    const primaryPn = ratingClass ? (ratingClass.match(/PN\s*(\d+(?:\.\d+)?)/i)?.[0]?.toUpperCase() || null) : null;
 
-  if (odKey && primaryPn && isoTable[odKey] && isoTable[odKey][primaryPn] !== undefined) {
-    officialWt = isoTable[odKey][primaryPn];
-    standardRef = `SASO-ISO 1452-2 (${primaryPn})`;
+    if (odKey && primaryPn && isoTable[odKey] && isoTable[odKey][primaryPn] !== undefined) {
+      officialWt = isoTable[odKey][primaryPn];
+      standardRef = `SASO-ISO 1452-2 (${primaryPn})`;
+    }
   }
 
   // 2. Check ASTM Schedule (SCH40 / SCH80)
@@ -784,15 +805,37 @@ export function harmonizeCatalogItem(item = {}) {
     ? synthesizeDescription(decomposed, matchedArchObj.tokenSequence)
     : buildCanonicalProductName(decomposed);
 
-  // Derive pipe linear weight
-  const linearWeightKgM = resolvePipeLinearWeight(
+  // Theoretical Linear Weight (kg/m) based on uPVC density 1.43 g/cm3
+  const theoreticalWeightKgM = calculateTheoreticalLinearWeight(
+    decomposed.odMm,
+    decomposed.wallThicknessMm,
+    DEFAULT_PVC_DENSITY_G_CM3
+  );
+
+  // Extract factory recorded weight if provided in source data
+  const rawFactoryWeight = item.factoryLinearWeightKgM !== undefined && item.factoryLinearWeightKgM !== null
+    ? item.factoryLinearWeightKgM
+    : (item.linearWeightKgM !== undefined && item.linearWeightKgM !== null
+        ? item.linearWeightKgM
+        : (item.linear_weight_kg_m !== undefined && item.linear_weight_kg_m !== null
+            ? item.linear_weight_kg_m
+            : (item.unitWeight6mKg ? Number((item.unitWeight6mKg / 6.0).toFixed(3)) : null)));
+
+  const factoryLinearWeightKgM = (rawFactoryWeight !== null && !isNaN(Number(rawFactoryWeight)))
+    ? Number(Number(rawFactoryWeight).toFixed(3))
+    : null;
+
+  const weightVariance = calculateWeightVariance(factoryLinearWeightKgM, theoreticalWeightKgM);
+
+  // Derive final effective pipe linear weight
+  const linearWeightKgM = theoreticalWeightKgM || factoryLinearWeightKgM || resolvePipeLinearWeight(
     item.linearWeightKgM || item.linear_weight_kg_m || null,
     decomposed.odMm,
     decomposed.wallThicknessMm,
     decomposed.lengthM
   );
 
-  const unitWeight6mKg = linearWeightKgM ? Number((linearWeightKgM * 6.0).toFixed(3)) : null;
+  const unitWeight6mKg = linearWeightKgM ? Number((linearWeightKgM * (decomposed.lengthM || 6.0)).toFixed(3)) : null;
 
   // Determine 3-tier status:
   // 1. Red (anomaly) if unparsed tokens or missing critical size
@@ -828,6 +871,10 @@ export function harmonizeCatalogItem(item = {}) {
     joint: decomposed.joint,
     lengthM: decomposed.lengthM,
     linearWeightKgM,
+    theoreticalWeightKgM,
+    factoryLinearWeightKgM,
+    weightVariancePercent: weightVariance.percentDelta,
+    hasWeightVariance: weightVariance.hasVariance,
     unitWeight6mKg,
     canonicalDescription,
     matchedArchetypeId: matchedArch.archetypeId,
@@ -881,13 +928,16 @@ export function applyResolutionAction(item, action, customData = {}) {
         joint: updated.joint,
         lengthM: updated.lengthM
       });
-      updated.linearWeightKgM = resolvePipeLinearWeight(
+      updated.theoreticalWeightKgM = calculateTheoreticalLinearWeight(updated.odMm, updated.wallThicknessMm);
+      updated.linearWeightKgM = updated.theoreticalWeightKgM || resolvePipeLinearWeight(
         null,
         updated.odMm,
         updated.wallThicknessMm,
         updated.lengthM
       );
-      updated.unitWeight6mKg = updated.linearWeightKgM ? Number((updated.linearWeightKgM * 6.0).toFixed(3)) : null;
+      updated.unitWeight6mKg = updated.linearWeightKgM ? Number((updated.linearWeightKgM * (updated.lengthM || 6.0)).toFixed(3)) : null;
+      updated.hasVariance = false;
+      updated.varianceDiffMm = 0;
       updated.status = 'snapped';
       updated.actionTaken = 'snapped_standard';
       updated.conflictNotes = `Snapped to Official Standard (${item.officialStandardWtMm}mm)`;
@@ -1118,6 +1168,18 @@ export function formatItemAnalysisMarkdown(item = {}) {
   const score = item.matchScore ? ` (${item.matchScore}% Match)` : '';
   lines.push(`- **Matched Archetype**: ${archName}${score}`);
 
+  // Linear Weight & Benchmark
+  const theoWtStr = item.theoreticalWeightKgM ? `${item.theoreticalWeightKgM} kg/m` : '-';
+  const factWtStr = item.factoryLinearWeightKgM ? `${item.factoryLinearWeightKgM} kg/m` : '-';
+  lines.push(`- **Linear Weight Benchmark (uPVC 1.43 g/cm³)**:`);
+  lines.push(`  - Theoretical Nominal Weight: \`${theoWtStr}\``);
+  lines.push(`  - Factory / Log Recorded Weight: \`${factWtStr}\``);
+  if (item.hasWeightVariance) {
+    lines.push(`  - ⚠️ Weight Variance (Δ Weight %): \`${item.weightVariancePercent > 0 ? '+' : ''}${item.weightVariancePercent}%\``);
+  } else if (item.theoreticalWeightKgM && item.factoryLinearWeightKgM) {
+    lines.push(`  - Weight Variance (Δ Weight %): \`0.0% (Within Tolerance)\``);
+  }
+
   // Governance Status & Diagnostic Flags
   let statusBadge = item.status || 'clean';
   if (item.status === 'anomaly' || item.hasAnomaly) {
@@ -1197,6 +1259,12 @@ export function formatBatchSummaryMarkdown(batchItems = [], meta = {}) {
     } else if (item.hasVariance && item.varianceDiffMm) {
       notes = `Delta: ${item.varianceDiffMm > 0 ? '+' : ''}${item.varianceDiffMm}mm (Std: ${item.officialStandardWtMm}mm)`;
     }
+    if (item.theoreticalWeightKgM) {
+      notes += ` | Theo Wt: ${item.theoreticalWeightKgM} kg/m`;
+    }
+    if (item.hasWeightVariance) {
+      notes += ` (Δ Wt: ${item.weightVariancePercent}%)`;
+    }
     notes = notes.replace(/\|/g, '\\|');
 
     lines.push(`| ${num} | \`${code}\` | ${origin} | ${raw} | **${canon}** | ${status} | ${notes} |`);
@@ -1209,6 +1277,7 @@ export function formatBatchSummaryMarkdown(batchItems = [], meta = {}) {
     lines.push(`   - Raw: \`${item.rawDescription || '-'}\``);
     lines.push(`   - Clean: \`${item.canonicalDescription || '-'}\``);
     lines.push(`   - Specs: OD \`${item.sizeDisplay || (item.odMm ? `${item.odMm}mm` : '-')}\` | WT \`${item.wallThicknessMm || '-'}mm\` | Rating \`${item.ratingClass || '-'}\` | Std \`${item.standard || '-'}\` | Joint \`${item.joint || '-'}\` | Length \`${item.lengthM ? `${item.lengthM}M` : '6.0M'}\``);
+    lines.push(`   - Benchmark: Theo Linear Wt \`${item.theoreticalWeightKgM ? `${item.theoreticalWeightKgM} kg/m` : '-'}\` | Factory \`${item.factoryLinearWeightKgM ? `${item.factoryLinearWeightKgM} kg/m` : '-'}\`${item.hasWeightVariance ? ` | ⚠️ Δ Weight: \`${item.weightVariancePercent}%\`` : ''}`);
     lines.push(`   - Origin: \`${item.sourceFile || 'AlManar_9.xlsb'}\` • \`${item.sourceSheet || 'Unique Planning'}\` • \`${item.sourceRow || 'Row #1'}\``);
     if (item.unparsedTokens && item.unparsedTokens.length > 0) {
       lines.push(`   - ⚠️ **Unparsed Tokens**: \`[${item.unparsedTokens.join(', ')}]\``);

@@ -1077,3 +1077,181 @@ export function promoteToMasterCatalog(stagedItems = []) {
     message: `Successfully promoted ${productsToUpsert.length} harmonized products to Master Catalog`
   };
 }
+
+/**
+ * Formats a single catalog item analysis into structured Markdown text
+ * @param {Object} item Staged catalog item
+ * @returns {string} Clean Markdown formatted string
+ */
+export function formatItemAnalysisMarkdown(item = {}) {
+  if (!item) return '';
+  const lines = [];
+
+  const code = item.itemCode || 'UNKNOWN';
+  lines.push(`### 🔍 Product Analysis: \`${code}\``);
+  lines.push(`- **Item Code**: \`${code}\``);
+
+  // Provenance
+  const file = item.sourceFile || 'AlManar_9.xlsb';
+  const sheet = item.sourceSheet || 'Unique Planning';
+  const row = item.sourceRow || 'Row #1';
+  const type = item.ingestionType || 'PLANNING_CATALOG';
+  lines.push(`- **Source Origin**: \`${file}\` • Sheet: \`${sheet}\` • \`${row}\` (\`${type}\`)`);
+
+  // Descriptions
+  lines.push(`- **Original Raw Description**: \`${item.rawDescription || '-'}\``);
+  lines.push(`- **Standardized Clean Description**: \`${item.canonicalDescription || '-'}\``);
+
+  // Extracted Tokens
+  lines.push(`- **Extracted Engineering Tokens**:`);
+  lines.push(`  - Product Type: \`${item.productType || 'PVC PIPE'}\``);
+  lines.push(`  - Outer Diameter (OD): \`${item.sizeDisplay || (item.odMm ? `${item.odMm}mm` : '-')}\``);
+  lines.push(`  - Wall Thickness (WT): \`${item.wallThicknessMm ? `${item.wallThicknessMm}mm` : '-'}\``);
+  lines.push(`  - Rating / SDR: \`${item.ratingClass || '-'}\``);
+  lines.push(`  - Reference Standard: \`${item.standard || '-'}\``);
+  lines.push(`  - Joint Type: \`${item.joint || '-'}\``);
+  const lenStr = item.lengthM !== undefined && item.lengthM !== null ? `${Number(item.lengthM).toFixed(1)}M` : '6.0M';
+  lines.push(`  - Length: \`${lenStr}\``);
+
+  // Archetype
+  const archName = item.matchedArchetypeName || item.matchedArchetypeBadge || 'Pattern #1: Metric Pressure';
+  const score = item.matchScore ? ` (${item.matchScore}% Match)` : '';
+  lines.push(`- **Matched Archetype**: ${archName}${score}`);
+
+  // Governance Status & Diagnostic Flags
+  let statusBadge = item.status || 'clean';
+  if (item.status === 'anomaly' || item.hasAnomaly) {
+    statusBadge = `🔴 Syntax Anomaly / Garbage Tokens`;
+  } else if (item.status === 'variance') {
+    statusBadge = `🟡 Specification Variance`;
+  } else if (item.status === 'clean') {
+    statusBadge = `🟢 Standard Matched`;
+  } else if (item.status === 'overridden') {
+    statusBadge = `🔵 Commercial Override`;
+  } else if (item.status === 'snapped') {
+    statusBadge = `🟢 Snapped to Official Standard`;
+  } else if (item.status === 'approved') {
+    statusBadge = `✅ Batch Approved`;
+  }
+  lines.push(`- **Governance Status**: ${statusBadge}`);
+
+  if (item.hasVariance || item.varianceDiffMm) {
+    lines.push(`  - Variance Delta: \`${item.varianceDiffMm > 0 ? '+' : ''}${item.varianceDiffMm}mm\` (Factory: \`${item.wallThicknessMm}mm\` vs Official Standard: \`${item.officialStandardWtMm || 'N/A'}mm\`)`);
+  }
+
+  if (item.unparsedTokens && item.unparsedTokens.length > 0) {
+    lines.push(`  - Unparsed Tokens: \`[${item.unparsedTokens.map(t => `"${t}"`).join(', ')}]\``);
+  }
+
+  if (item.conflictNotes) {
+    lines.push(`- **Diagnostic Notes**: ${item.conflictNotes}`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Formats a batch of staged items into a structured Markdown summary report
+ * @param {Array<Object>} batchItems List of items in current batch (up to 10)
+ * @param {Object} [meta={}] Metadata (batchIndex, totalBatches, totalQueueCount)
+ * @returns {string} Clean Markdown batch summary
+ */
+export function formatBatchSummaryMarkdown(batchItems = [], meta = {}) {
+  if (!Array.isArray(batchItems) || batchItems.length === 0) return 'No items in active batch.';
+  const lines = [];
+
+  const batchNum = (meta.batchIndex !== undefined ? meta.batchIndex : 0) + 1;
+  const totalBatches = meta.totalBatches || 1;
+  const remaining = meta.totalQueueCount !== undefined ? meta.totalQueueCount : batchItems.length;
+  const timestamp = meta.timestamp || new Date().toISOString().replace('T', ' ').split('.')[0];
+
+  lines.push(`## 📋 Catalog Harmonizer Lab - Batch #${batchNum} of ${totalBatches} Analysis Summary`);
+  lines.push(`- **Batch Index**: Batch ${batchNum} of ${totalBatches}`);
+  lines.push(`- **Items in Active Batch**: ${batchItems.length}`);
+  lines.push(`- **Items Remaining in Review Queue**: ${remaining}`);
+  lines.push(`- **Generated Timestamp**: ${timestamp}`);
+  lines.push('');
+
+  // Markdown Summary Table
+  lines.push(`| # | Item Code | Source Origin | Raw Description | Standardized Canonical Description | Status | Flags & Diagnostic Notes |`);
+  lines.push(`|---|---|---|---|---|---|---|`);
+
+  batchItems.forEach((item, idx) => {
+    const num = idx + 1;
+    const code = item.itemCode || '-';
+    const origin = `${item.sourceFile || 'AlManar_9.xlsb'} (${item.sourceRow || 'Row #1'})`;
+    const raw = (item.rawDescription || '-').replace(/\|/g, '\\|');
+    const canon = (item.canonicalDescription || '-').replace(/\|/g, '\\|');
+
+    let status = item.status;
+    if (item.status === 'anomaly' || item.hasAnomaly) status = '🔴 Anomaly';
+    else if (item.status === 'variance') status = '🟡 Variance';
+    else if (item.status === 'clean') status = '🟢 Clean';
+    else if (item.status === 'overridden') status = '🔵 Override';
+    else if (item.status === 'snapped') status = '🟢 Snapped';
+    else if (item.status === 'approved') status = '✅ Approved';
+
+    let notes = item.conflictNotes || '-';
+    if (item.unparsedTokens && item.unparsedTokens.length > 0) {
+      notes = `Unparsed: [${item.unparsedTokens.join(', ')}]`;
+    } else if (item.hasVariance && item.varianceDiffMm) {
+      notes = `Delta: ${item.varianceDiffMm > 0 ? '+' : ''}${item.varianceDiffMm}mm (Std: ${item.officialStandardWtMm}mm)`;
+    }
+    notes = notes.replace(/\|/g, '\\|');
+
+    lines.push(`| ${num} | \`${code}\` | ${origin} | ${raw} | **${canon}** | ${status} | ${notes} |`);
+  });
+
+  lines.push('');
+  lines.push(`### 📝 Itemized Technical Specifications:`);
+  batchItems.forEach((item, idx) => {
+    lines.push(`${idx + 1}. **${item.itemCode || 'UNKNOWN'}**`);
+    lines.push(`   - Raw: \`${item.rawDescription || '-'}\``);
+    lines.push(`   - Clean: \`${item.canonicalDescription || '-'}\``);
+    lines.push(`   - Specs: OD \`${item.sizeDisplay || (item.odMm ? `${item.odMm}mm` : '-')}\` | WT \`${item.wallThicknessMm || '-'}mm\` | Rating \`${item.ratingClass || '-'}\` | Std \`${item.standard || '-'}\` | Joint \`${item.joint || '-'}\` | Length \`${item.lengthM ? `${item.lengthM}M` : '6.0M'}\``);
+    lines.push(`   - Origin: \`${item.sourceFile || 'AlManar_9.xlsb'}\` • \`${item.sourceSheet || 'Unique Planning'}\` • \`${item.sourceRow || 'Row #1'}\``);
+    if (item.unparsedTokens && item.unparsedTokens.length > 0) {
+      lines.push(`   - ⚠️ **Unparsed Tokens**: \`[${item.unparsedTokens.join(', ')}]\``);
+    }
+    if (item.hasVariance) {
+      lines.push(`   - ⚠️ **Specification Variance**: Factory \`${item.wallThicknessMm}mm\` vs Standard \`${item.officialStandardWtMm}mm\` (Delta: \`${item.varianceDiffMm}mm\`)`);
+    }
+  });
+
+  return lines.join('\n');
+}
+
+/**
+ * Copies text to system clipboard with fallback support
+ * @param {string} text Text to copy
+ * @returns {Promise<boolean>} True if succeeded
+ */
+export async function copyToClipboard(text) {
+  if (!text) return false;
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      // Fall through to fallback
+    }
+  }
+  try {
+    if (typeof document !== 'undefined') {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return success;
+    }
+  } catch (err) {
+    console.error('Clipboard copy failed:', err);
+  }
+  return false;
+}

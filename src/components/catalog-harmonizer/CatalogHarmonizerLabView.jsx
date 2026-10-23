@@ -26,7 +26,10 @@ import {
   ChevronLeft,
   Trash2,
   FileText,
-  CheckCheck
+  CheckCheck,
+  Copy,
+  ClipboardCopy,
+  ClipboardCheck
 } from 'lucide-react';
 
 import harmonizerConfig from '../../data/harmonizerConfig.json' with { type: 'json' };
@@ -44,7 +47,10 @@ import {
   synthesizeDescription,
   detectUnparsedTokens,
   purgeGarbageTokens,
-  approveBatchItems
+  approveBatchItems,
+  formatItemAnalysisMarkdown,
+  formatBatchSummaryMarkdown,
+  copyToClipboard
 } from '../../logic/catalogHarmonizer.js';
 
 import ArchetypePatternStudioModal from './ArchetypePatternStudioModal.jsx';
@@ -73,6 +79,11 @@ export default function CatalogHarmonizerLabView({
   // Focus 10 Review Queue Mode state
   const [isFocus10Mode, setIsFocus10Mode] = useState(false);
   const [focusBatchIndex, setFocusBatchIndex] = useState(0);
+
+  // Clipboard copy state for visual feedback
+  const [copiedItemId, setCopiedItemId] = useState(null);
+  const [isBatchCopied, setIsBatchCopied] = useState(false);
+  const [isRawCopied, setIsRawCopied] = useState(false);
 
   // Raw Context modal/popover state
   const [activeContextItem, setActiveContextItem] = useState(null);
@@ -383,6 +394,53 @@ export default function CatalogHarmonizerLabView({
         : `Updated & re-harmonized description for ${item.itemCode}`,
       'success'
     );
+  };
+
+  // Copy single row analysis to clipboard (Markdown)
+  const handleCopyRowAnalysis = async (item, e) => {
+    if (e) e.stopPropagation();
+    if (!item) return;
+    const md = formatItemAnalysisMarkdown(item);
+    const ok = await copyToClipboard(md);
+    if (ok) {
+      setCopiedItemId(item.id);
+      setTimeout(() => setCopiedItemId(null), 2000);
+      onNotify(
+        isAr
+          ? `\u062A\u0645 \u0646\u0633\u062E \u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0635\u0646\u0641 ${item.itemCode} \u0625\u0644\u0649 \u0627\u0644\u062D\u0627\u0641\u0638\u0629`
+          : `Copied analysis for ${item.itemCode} to clipboard`,
+        'success'
+      );
+    } else {
+      onNotify('Failed to copy to clipboard', 'error');
+    }
+  };
+
+  // Copy active batch analysis summary to clipboard (Markdown)
+  const handleCopyBatchSummary = async (e) => {
+    if (e) e.stopPropagation();
+    if (currentBatchItems.length === 0) {
+      onNotify('No items in active batch to copy', 'info');
+      return;
+    }
+    const md = formatBatchSummaryMarkdown(currentBatchItems, {
+      batchIndex: focusBatchIndex,
+      totalBatches,
+      totalQueueCount: focusQueue.length
+    });
+    const ok = await copyToClipboard(md);
+    if (ok) {
+      setIsBatchCopied(true);
+      setTimeout(() => setIsBatchCopied(false), 2000);
+      onNotify(
+        isAr
+          ? `\u062A\u0645 \u0646\u0633\u062E \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062F\u0641\u0639\u0629 (${currentBatchItems.length} \u0635\u0646\u0641) \u0625\u0644\u0649 \u0627\u0644\u062D\u0627\u0641\u0638\u0629`
+          : `Copied Batch #${focusBatchIndex + 1} summary (${currentBatchItems.length} items) to clipboard`,
+        'success'
+      );
+    } else {
+      onNotify('Failed to copy to clipboard', 'error');
+    }
   };
 
   // Export: Clean Spring Excel Workbook
@@ -860,6 +918,33 @@ export default function CatalogHarmonizerLabView({
                 {currentBatchItems.length > 0 && (
                   <button
                     type="button"
+                    onClick={handleCopyBatchSummary}
+                    className={`h-8 px-3 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                      isBatchCopied
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/25'
+                        : isLight
+                        ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600'
+                    }`}
+                    title="Copy active 10-item batch analysis summary to clipboard as Markdown"
+                  >
+                    {isBatchCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-white" />
+                        <span>{isAr ? '\u062A\u0645 \u0646\u0633\u062E \u0627\u0644\u062F\u0641\u0639\u0629!' : 'Copied Batch!'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardCopy className="w-3.5 h-3.5 text-cyan-500" />
+                        <span>{isAr ? '\u0646\u0633\u062E \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062F\u0641\u0639\u0629' : 'Copy Batch Summary'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {currentBatchItems.length > 0 && (
+                  <button
+                    type="button"
                     onClick={handleApproveCurrentBatch}
                     className="h-8 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/30"
                     title="Approve all items in this 10-item batch and fetch the next batch"
@@ -1200,6 +1285,24 @@ export default function CatalogHarmonizerLabView({
                             >
                               Fix / Edit
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyRowAnalysis(item, e)}
+                              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center shrink-0 ${
+                                copiedItemId === item.id
+                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                                  : isLight
+                                  ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
+                              }`}
+                              title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
+                            >
+                              {copiedItemId === item.id ? (
+                                <Check className="w-3.5 h-3.5 text-white" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
                           </div>
                         ) : isVariance ? (
                           <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1219,21 +1322,59 @@ export default function CatalogHarmonizerLabView({
                             >
                               Keep {item.wallThicknessMm}mm
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyRowAnalysis(item, e)}
+                              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center shrink-0 ${
+                                copiedItemId === item.id
+                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                                  : isLight
+                                  ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
+                              }`}
+                              title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
+                            >
+                              {copiedItemId === item.id ? (
+                                <Check className="w-3.5 h-3.5 text-white" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedItem(item);
-                              setIsDrawerOpen(true);
-                            }}
-                            className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
-                              isLight ? 'hover:bg-slate-200 border-slate-300' : 'hover:bg-slate-700 border-slate-700'
-                            }`}
-                          >
-                            Details / Edit
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedItem(item);
+                                setIsDrawerOpen(true);
+                              }}
+                              className={`px-2.5 py-1 rounded text-[11px] font-medium border transition cursor-pointer ${
+                                isLight ? 'hover:bg-slate-200 border-slate-300' : 'hover:bg-slate-700 border-slate-700'
+                              }`}
+                            >
+                              Details / Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyRowAnalysis(item, e)}
+                              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center shrink-0 ${
+                                copiedItemId === item.id
+                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                                  : isLight
+                                  ? 'bg-white hover:bg-slate-100 text-slate-500 hover:text-cyan-600 border-slate-300'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border-slate-700'
+                              }`}
+                              title={copiedItemId === item.id ? 'Copied to clipboard!' : 'Copy item analysis to clipboard as Markdown'}
+                            >
+                              {copiedItemId === item.id ? (
+                                <Check className="w-3.5 h-3.5 text-white" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -1266,13 +1407,39 @@ export default function CatalogHarmonizerLabView({
                   Specification Reconciliation & Governance
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => handleCopyRowAnalysis(selectedItem, e)}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                    copiedItemId === selectedItem.id
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/20'
+                      : isLight
+                      ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                  }`}
+                  title="Copy Markdown analysis to clipboard"
+                >
+                  {copiedItemId === selectedItem.id ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>{isAr ? '\u062A\u0645 \u0627\u0644\u0646\u0633\u062E!' : 'Copied!'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-cyan-500" />
+                      <span>{isAr ? '\u0646\u0633\u062E \u0627\u0644\u062A\u062D\u0644\u064A\u0644' : 'Copy Analysis'}</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDrawerOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Drawer Content */}
@@ -1793,7 +1960,35 @@ export default function CatalogHarmonizerLabView({
               </div>
             </div>
 
-            <div className="flex justify-end mt-4 pt-3 border-t border-slate-700/60">
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-700/60">
+              <button
+                type="button"
+                onClick={async () => {
+                  const jsonStr = JSON.stringify(activeContextItem.rawImportData || activeContextItem, null, 2);
+                  const ok = await copyToClipboard(jsonStr);
+                  if (ok) {
+                    setIsRawCopied(true);
+                    setTimeout(() => setIsRawCopied(false), 2000);
+                    onNotify(
+                      isAr
+                        ? '\u062A\u0645 \u0646\u0633\u062E \u0627\u0644\u0633\u062C\u0644 \u0627\u0644\u062E\u0627\u0645 (JSON) \u0625\u0644\u0649 \u0627\u0644\u062D\u0627\u0641\u0638\u0629'
+                        : 'Copied raw record JSON to clipboard',
+                      'success'
+                    );
+                  } else {
+                    onNotify('Failed to copy to clipboard', 'error');
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                  isRawCopied
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/25'
+                    : 'bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border-cyan-500/40'
+                }`}
+              >
+                {isRawCopied ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{isRawCopied ? (isAr ? '\u062A\u0645 \u0627\u0644\u0646\u0633\u062E!' : 'Copied!') : (isAr ? '\u0646\u0633\u062E \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A (JSON)' : 'Copy Raw JSON')}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setActiveContextItem(null)}

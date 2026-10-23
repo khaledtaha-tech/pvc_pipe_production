@@ -22,7 +22,10 @@ import {
   applyArchetypeToItem,
   detectUnparsedTokens,
   purgeGarbageTokens,
-  approveBatchItems
+  approveBatchItems,
+  formatItemAnalysisMarkdown,
+  formatBatchSummaryMarkdown,
+  copyToClipboard
 } from '../../src/logic/catalogHarmonizer.js';
 
 import { getAllProducts, getProductByCode } from '../../src/logic/productCatalogHelper.js';
@@ -357,4 +360,70 @@ const batch3 = queue.slice(20, 30);
 assert.strictEqual(batch3.length, 5);
 console.log('Test 18 Passed: Focus 10 mode prioritizes anomalies and slices batches accurately.');
 
-console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (18/18) ---');
+// Test 19: Single Row Markdown Analysis Formatter
+console.log('Test 19: Single Row Markdown Analysis Formatter');
+const testItemToCopy = harmonizeCatalogItem({
+  itemCode: '110-PN10-COMM',
+  description: 'PVC PIPE 110X5.2MM PN10 SASO-ISO 1452-2 R/R 6.0M',
+  sourceFile: 'AlManar_9.xlsb',
+  sourceSheet: 'Unique Planning',
+  sourceRow: 'Row #142',
+  ingestionType: 'PLANNING_CATALOG'
+});
+const rowMarkdown = formatItemAnalysisMarkdown(testItemToCopy);
+assert.ok(rowMarkdown.includes('### 🔍 Product Analysis: `110-PN10-COMM`'));
+assert.ok(rowMarkdown.includes('- **Item Code**: `110-PN10-COMM`'));
+assert.ok(rowMarkdown.includes('AlManar_9.xlsb'));
+assert.ok(rowMarkdown.includes('Unique Planning'));
+assert.ok(rowMarkdown.includes('Row #142'));
+assert.ok(rowMarkdown.includes('PLANNING_CATALOG'));
+assert.ok(rowMarkdown.includes('PVC PIPE 110X5.2MM PN10 SASO-ISO 1452-2 R/R 6.0M'));
+assert.ok(rowMarkdown.includes('PVC PIPE 110 x 5.2mm PN10 SASO-ISO 1452-2 R/R 6.0M'));
+assert.ok(rowMarkdown.includes('Outer Diameter (OD): `110`') || rowMarkdown.includes('Outer Diameter (OD): `110mm`'));
+assert.ok(rowMarkdown.includes('Wall Thickness (WT): `5.2mm`'));
+assert.ok(rowMarkdown.includes('Rating / SDR: `PN10`'));
+assert.ok(rowMarkdown.includes('Reference Standard: `SASO-ISO 1452-2`'));
+assert.ok(rowMarkdown.includes('Joint Type: `R/R`'));
+assert.ok(rowMarkdown.includes('Length: `6.0M`'));
+assert.ok(rowMarkdown.includes('Specification Variance'));
+assert.ok(rowMarkdown.includes('Delta: `-0.1mm`'));
+console.log('Test 19 Passed: Single row analysis Markdown formatted completely and accurately.');
+
+// Test 20: Full Batch Summary Markdown Report Formatter
+console.log('Test 20: Full Batch Summary Markdown Report Formatter');
+const batchItems = [
+  harmonizeCatalogItem({
+    itemCode: '090-ERR',
+    description: 'PVC PIPE 90X4.3MM PN10 ??? CORRUPT_TOK DIN 8062 S/C 6.0M',
+    sourceFile: 'AlManar_9.xlsb',
+    sourceSheet: 'Unique Planning',
+    sourceRow: 'Row #1',
+    ingestionType: 'PLANNING_CATALOG'
+  }),
+  testItemToCopy
+];
+const batchSummary = formatBatchSummaryMarkdown(batchItems, {
+  batchIndex: 0,
+  totalBatches: 5,
+  totalQueueCount: 42
+});
+assert.ok(batchSummary.includes('## 📋 Catalog Harmonizer Lab - Batch #1 of 5 Analysis Summary'));
+assert.ok(batchSummary.includes('- **Batch Index**: Batch 1 of 5'));
+assert.ok(batchSummary.includes('- **Items in Active Batch**: 2'));
+assert.ok(batchSummary.includes('- **Items Remaining in Review Queue**: 42'));
+assert.ok(batchSummary.includes('| # | Item Code | Source Origin | Raw Description | Standardized Canonical Description | Status | Flags & Diagnostic Notes |'));
+assert.ok(batchSummary.includes('090-ERR'));
+assert.ok(batchSummary.includes('110-PN10-COMM'));
+assert.ok(batchSummary.includes('### 📝 Itemized Technical Specifications:'));
+assert.ok(batchSummary.includes('Unparsed Tokens'));
+console.log('Test 20 Passed: Full batch summary report compiles structured table and itemized list.');
+
+// Test 21: Clipboard Helper Function Safe Execution
+console.log('Test 21: Clipboard Helper Function Safe Execution');
+assert.strictEqual(typeof copyToClipboard, 'function');
+copyToClipboard('').then((res) => {
+  assert.strictEqual(res, false, 'Empty text copy should safely return false');
+});
+console.log('Test 21 Passed: Clipboard helper safe handling verified.');
+
+console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (21/21) ---');

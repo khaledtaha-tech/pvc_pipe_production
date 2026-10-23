@@ -42,7 +42,9 @@ function AppContent() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [currentModule, setCurrentModule] = useState('launchpad'); // 'launchpad' | 'data-analysis' | 'daily-evaluation'
   const [activeTab, setActiveTab] = useState('master'); // 'master' | 'dashboard' | 'audit' | 'planning' | 'verification'
-  const [lang, setLang] = useState('en');
+  const [lang, setLang] = useState(() => {
+    return localStorage.getItem('pipe_data_lang') || 'en';
+  });
   const [rawRows, setRawRows] = useState([]);
   const [historicalRawRows, setHistoricalRawRows] = useState([]);
   const [currentSheetName, setCurrentSheetName] = useState('Daily Production Log');
@@ -204,6 +206,7 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
+    localStorage.setItem('pipe_data_lang', lang);
   }, [lang]);
 
   // Sync Theme with root class
@@ -387,7 +390,9 @@ function AppContent() {
           currentModule={currentModule}
           activeTab={activeTab}
           lang={lang}
+          setLang={setLang}
           theme={theme}
+          toggleTheme={toggleTheme}
           user={user}
           onOpenAdminModal={() => setIsAdminModalOpen(true)}
           onNavigateHome={() => setCurrentModule('launchpad')}
@@ -409,6 +414,7 @@ function AppContent() {
               <HomeLaunchpadView
                 theme={theme}
                 lang={lang}
+                setLang={setLang}
                 masterCount={unifiedMasterRuns.length}
                 planningMatrix={uniquePlanningMatrix}
                 cleanedRows={cleanedRows}

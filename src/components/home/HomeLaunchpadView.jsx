@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Layers,
   Activity,
-  Compass
+  Compass,
+  Languages
 } from 'lucide-react';
 
 import launchpadConfig from '../../data/launchpadConfig.json' with { type: 'json' };
@@ -26,6 +27,7 @@ import { loadHarmonizerSandboxState } from '../../logic/catalogHarmonizer.js';
 export default function HomeLaunchpadView({
   theme = 'dark',
   lang = 'en',
+  setLang = null,
   masterCount = 0,
   planningMatrix = [],
   cleanedRows = [],
@@ -156,6 +158,21 @@ export default function HomeLaunchpadView({
 
           {/* Quick Jump Action Pills */}
           <div className="flex flex-wrap items-center gap-2">
+            {setLang && (
+              <button
+                type="button"
+                onClick={() => setLang(isAr ? 'en' : 'ar')}
+                className={`h-9 inline-flex items-center gap-1.5 text-xs font-bold px-3.5 rounded-xl border transition cursor-pointer shadow-xs ${
+                  isLight
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                }`}
+                title={isAr ? 'Switch Language to English' : '\u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0644\u0644\u0639\u0631\u0628\u064A\u0629'}
+              >
+                <Languages className="w-4 h-4 text-emerald-500" />
+                <span>{isAr ? 'English' : '\u0627\u0644\u0639\u0631\u0628\u064A\u0629 (AR)'}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onNavigate('daily-evaluation')}

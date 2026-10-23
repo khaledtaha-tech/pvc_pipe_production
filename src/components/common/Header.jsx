@@ -12,14 +12,17 @@ import {
   CheckCircle2,
   HardDrive,
   ShieldCheck,
-  Home
+  Home,
+  Languages
 } from 'lucide-react';
 
 export default function Header({
   currentModule,
   activeTab,
   lang,
+  setLang,
   theme,
+  toggleTheme,
   user,
   onOpenAdminModal,
   onNavigateHome,
@@ -196,6 +199,23 @@ export default function Header({
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
               <span className="hidden sm:inline">{isAr ? '\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u064a\u0646' : 'User Management'}</span>
+            </button>
+          )}
+
+          {/* Quick Language Switcher */}
+          {setLang && (
+            <button
+              type="button"
+              onClick={() => setLang(isAr ? 'en' : 'ar')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-2xs ${
+                isLight 
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300' 
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
+              title={isAr ? 'Switch to English' : '\u0627\u0644\u062A\u062D\u0648\u064A\u0644 \u0625\u0644\u0649 \u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629'}
+            >
+              <Languages className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span className="font-semibold">{isAr ? 'English' : '\u0639\u0631\u0628\u064A'}</span>
             </button>
           )}
 

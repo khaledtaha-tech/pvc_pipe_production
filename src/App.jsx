@@ -9,6 +9,7 @@ import DailyEvaluationView from './components/daily-evaluation/DailyEvaluationVi
 import DataExchangeCenter from './components/data-hub/DataExchangeCenter';
 import EngineeringDocView from './components/engineering-docs/EngineeringDocView';
 import CatalogHarmonizerLabView from './components/catalog-harmonizer/CatalogHarmonizerLabView';
+import HomeLaunchpadView from './components/home/HomeLaunchpadView';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 import { cleanPipeProductionData, standardizeMaterial, isValidPipeOrConduitProduct } from './utils/dataCleaner';
@@ -39,7 +40,7 @@ import AdminUserManagementModal from './components/admin/AdminUserManagementModa
 function AppContent() {
   const { isAuthenticated, user, logout, isFirstLogin } = useAuth();
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [currentModule, setCurrentModule] = useState('data-analysis'); // 'data-analysis' | 'daily-evaluation'
+  const [currentModule, setCurrentModule] = useState('launchpad'); // 'launchpad' | 'data-analysis' | 'daily-evaluation'
   const [activeTab, setActiveTab] = useState('master'); // 'master' | 'dashboard' | 'audit' | 'planning' | 'verification'
   const [lang, setLang] = useState('en');
   const [rawRows, setRawRows] = useState([]);
@@ -389,6 +390,7 @@ function AppContent() {
           theme={theme}
           user={user}
           onOpenAdminModal={() => setIsAdminModalOpen(true)}
+          onNavigateHome={() => setCurrentModule('launchpad')}
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={handleToggleSidebarCollapse}
           setIsMobileOpen={setIsMobileSidebarOpen}
@@ -402,6 +404,45 @@ function AppContent() {
 
         {/* Main Content Stage */}
         <main className="flex-1 w-full max-w-[1920px] mx-auto p-3 sm:p-4 lg:p-6 min-w-0">
+          {currentModule === 'launchpad' && (
+            <ErrorBoundary>
+              <HomeLaunchpadView
+                theme={theme}
+                lang={lang}
+                masterCount={unifiedMasterRuns.length}
+                planningMatrix={uniquePlanningMatrix}
+                cleanedRows={cleanedRows}
+                rawRows={rawRows}
+                historicalRawRows={historicalRawRows}
+                onNavigate={(module, tab) => {
+                  setCurrentModule(module);
+                  if (tab) setActiveTab(tab);
+                }}
+                onOpenBlankSopPrint={() => {
+                  if (dailyEvalRef.current?.openBlankSopPrint) {
+                    dailyEvalRef.current.openBlankSopPrint();
+                  } else {
+                    setCurrentModule('daily-evaluation');
+                    setTimeout(() => {
+                      dailyEvalRef.current?.openBlankSopPrint?.();
+                    }, 300);
+                  }
+                }}
+                onOpenMachineSettings={() => {
+                  if (dailyEvalRef.current?.openMachineSettings) {
+                    dailyEvalRef.current.openMachineSettings();
+                  } else {
+                    setCurrentModule('daily-evaluation');
+                    setTimeout(() => {
+                      dailyEvalRef.current?.openMachineSettings?.();
+                    }, 300);
+                  }
+                }}
+                onNotify={showToast}
+              />
+            </ErrorBoundary>
+          )}
+
           {currentModule === 'data-analysis' && (
             <ErrorBoundary>
               <DataAnalysisView

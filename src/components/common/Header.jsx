@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   CheckCircle2,
   HardDrive,
-  ShieldCheck
+  ShieldCheck,
+  Home
 } from 'lucide-react';
 
 export default function Header({
@@ -21,6 +22,7 @@ export default function Header({
   theme,
   user,
   onOpenAdminModal,
+  onNavigateHome,
   isCollapsed,
   setIsCollapsed,
   setIsMobileOpen,
@@ -37,12 +39,14 @@ export default function Header({
   // Compute active module title
   const getModuleTitle = () => {
     switch (currentModule) {
+      case 'launchpad':
+        return isAr ? '\u063a\u0631\u0641\u0629 \u0627\u0644\u0642\u064a\u0627\u062f\u0629 \u0648\u0627\u0644\u062a\u062d\u0643\u0645' : 'Executive Command Center';
       case 'data-analysis':
-        return isAr ? 'تحليل البيانات والتخطيط' : 'Data Intelligence';
+        return isAr ? '\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0648\u0627\u0644\u062a\u062e\u0637\u064a\u0637' : 'Data Intelligence';
       case 'daily-evaluation':
-        return isAr ? 'سجل الوردية والتقييم اليومي' : 'Daily OEE Evaluation';
+        return isAr ? '\u0633\u062c\u0644 \u0627\u0644\u0648\u0631\u062f\u064a\u0629 \u0648\u0627\u0644\u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u064a\u0648\u0645\u064a' : 'Daily OEE Evaluation';
       case 'data-hub':
-        return isAr ? 'مركز تبادل البيانات' : 'Data Exchange Hub';
+        return isAr ? '\u0645\u0631\u0643\u0632 \u062a\u0628\u0627\u062f\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a' : 'Data Exchange Hub';
       case 'catalog-harmonizer':
         return isAr ? '\u0645\u062E\u062A\u0628\u0631 \u062A\u0648\u062D\u064A\u062F \u062F\u0644\u064A\u0644 \u0627\u0644\u0623\u0635\u0646\u0627\u0641' : 'Catalog Harmonizer Lab';
       case 'engineering-docs':
@@ -57,15 +61,15 @@ export default function Header({
     if (currentModule !== 'data-analysis') return null;
     switch (activeTab) {
       case 'master':
-        return isAr ? 'جدول التشغيل الموحد' : 'Master Extrusion Runs';
+        return isAr ? '\u062c\u062f\u0648\u0644 \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u0645\u0648\u062d\u062f' : 'Master Extrusion Runs';
       case 'dashboard':
-        return isAr ? 'لوحة المؤشرات والرسوم' : 'Analytics & Charts';
+        return isAr ? '\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u0624\u0634\u0631\u0627\u062a \u0648\u0627\u0644\u0631\u0633\u0648\u0645' : 'Analytics & Charts';
       case 'audit':
-        return isAr ? 'جدول تدقيق وتنظيف البيانات' : 'Cleaning & Audit Table';
+        return isAr ? '\u062c\u062f\u0648\u0644 \u062a\u062f\u0642\u064a\u0642 \u0648\u062a\u0646\u0638\u064a\u0641 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a' : 'Cleaning & Audit Table';
       case 'planning':
-        return isAr ? 'تخطيط الخطوط والمقاسات' : 'Production Planning';
+        return isAr ? '\u062a\u062e\u0637\u064a\u0637 \u0627\u0644\u062e\u0637\u0648\u0637 \u0648\u0627\u0644\u0645\u0642\u0627\u0633\u0627\u062a' : 'Production Planning';
       case 'verification':
-        return isAr ? 'مركز الفحص والمطابقة' : 'Verification Center';
+        return isAr ? '\u0645\u0631\u0643\u0632 \u0627\u0644\u0641\u062d\u0635 \u0648\u0627\u0644\u0645\u0637\u0627\u0628\u0642\u0629' : 'Verification Center';
       default:
         return null;
     }
@@ -104,7 +108,7 @@ export default function Header({
               className={`hidden lg:flex p-1.5 rounded-lg transition cursor-pointer text-slate-400 hover:text-emerald-500 ${
                 isLight ? 'hover:bg-slate-100' : 'hover:bg-slate-800'
               }`}
-              title={isAr ? 'توسيع القائمة' : 'Expand Sidebar'}
+              title={isAr ? '\u062a\u0648\u0633\u064a\u0639 \u0627\u0644\u0642\u0627\u0626\u0645\u0629' : 'Expand Sidebar'}
             >
               {isAr ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
@@ -112,7 +116,26 @@ export default function Header({
 
           {/* Breadcrumb Hierarchy */}
           <div className="flex items-center gap-2 text-xs font-semibold overflow-hidden">
-            <span className="text-slate-400 dark:text-slate-500 truncate">
+            {currentModule !== 'launchpad' && onNavigateHome && (
+              <>
+                <button
+                  type="button"
+                  onClick={onNavigateHome}
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isLight 
+                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-emerald-600' 
+                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-emerald-400'
+                  }`}
+                  title={isAr ? '\u0627\u0644\u0639\u0648\u062F\u0629 \u0625\u0644\u0649 \u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629' : 'Return to Executive Command Center'}
+                >
+                  <Home className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{isAr ? '\u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629' : 'Home'}</span>
+                </button>
+                <span className="text-slate-300 dark:text-slate-600 select-none">/</span>
+              </>
+            )}
+
+            <span className={`${currentModule === 'launchpad' ? 'brand-gradient-text font-black text-sm' : 'text-slate-400 dark:text-slate-500'} truncate`}>
               {moduleTitle}
             </span>
 
@@ -155,7 +178,7 @@ export default function Header({
               title="Add Manual Record Row"
             >
               <PlusCircle className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="hidden sm:inline">{isAr ? 'إضافة سطر' : 'Add Row'}</span>
+              <span className="hidden sm:inline">{isAr ? '\u0625\u0636\u0627\u0641\u0629 \u0633\u0637\u0631' : 'Add Row'}</span>
             </button>
           )}
 
@@ -169,10 +192,10 @@ export default function Header({
                   ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                   : 'bg-slate-800 text-amber-300 border-amber-500/40 hover:bg-slate-700'
               }`}
-              title={isAr ? 'إدارة المستخدمين والباقات (لوحة المشرف)' : 'User & Tier Management (Admin)'}
+              title={isAr ? '\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u064a\u0646 \u0648\u0627\u0644\u0628\u0627\u0642\u0627\u062a (\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u0634\u0631\u0641)' : 'User & Tier Management (Admin)'}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">{isAr ? 'إدارة المستخدمين' : 'User Management'}</span>
+              <span className="hidden sm:inline">{isAr ? '\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u064a\u0646' : 'User Management'}</span>
             </button>
           )}
 
@@ -193,7 +216,7 @@ export default function Header({
               ) : (
                 <>
                   <Save className="w-3.5 h-3.5 text-white" />
-                  <span>{isAr ? 'حفظ التغييرات' : 'Save'}</span>
+                  <span>{isAr ? '\u062d\u0641\u0638 \u0627\u0644\u062a\u063a\u064a\u064a\u0631\u0627\u062a' : 'Save'}</span>
                 </>
               )}
             </button>

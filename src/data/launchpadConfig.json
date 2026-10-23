@@ -1,0 +1,172 @@
+{
+  "title": {
+    "en": "Executive Command Center",
+    "ar": "\u063a\u0631\u0641\u0629 \u0627\u0644\u0642\u064a\u0627\u062f\u0629 \u0648\u0627\u0644\u062a\u062d\u0643\u0645 \u0627\u0644\u062a\u0646\u0641\u064a\u0630\u064a\u0629"
+  },
+  "subtitle": {
+    "en": "Unified Industrial Gateway: Production OEE, Engineering Governance, and Master Data Exchange",
+    "ar": "\u0627\u0644\u0628\u0648\u0627\u0628\u0629 \u0627\u0644\u0635\u0646\u0627\u0639\u064a\u0629 \u0627\u0644\u0645\u0648\u062d\u062f\u0629: \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0648OEE\u060c \u0627\u0644\u062d\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062f\u0633\u064a\u0629\u060c \u0648\u062a\u0628\u0627\u062f\u0644 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a"
+  },
+  "quickMetrics": {
+    "masterItems": {
+      "labelEn": "Master Catalog Items",
+      "labelAr": "\u0623\u0635\u0646\u0627\u0641 \u0627\u0644\u062f\u0644\u064a\u0644 \u0627\u0644\u0631\u0626\u064a\u0633\u064a",
+      "subtextEn": "Verified active product lines",
+      "subtextAr": "\u0623\u0635\u0646\u0627\u0641 \u0645\u0639\u062a\u0645\u062f\u0629 \u0628\u0627\u0644\u062f\u0644\u064a\u0644"
+    },
+    "databaseStatus": {
+      "labelEn": "Central Database",
+      "labelAr": "\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0645\u0631\u0643\u0632\u064a\u0629",
+      "value": "Central MySQL",
+      "subtextEn": "Live server connection synced",
+      "subtextAr": "\u0627\u062a\u0635\u0627\u0644 \u0645\u062a\u0632\u0627\u0645\u0646 \u0645\u0639 \u0627\u0644\u062e\u0627\u062f\u0645"
+    },
+    "harmonizer": {
+      "labelEn": "Harmonizer Sandbox",
+      "labelAr": "\u0645\u062e\u062a\u0628\u0631 \u0627\u0644\u062a\u0648\u062d\u064a\u062f",
+      "subtextEn": "Staged items & variances",
+      "subtextAr": "\u0623\u0635\u0646\u0627\u0641 \u0642\u064a\u062f \u0627\u0644\u062f\u0631\u0627\u0633\u0629"
+    },
+    "currentDate": {
+      "labelEn": "Operational Shift Date",
+      "labelAr": "\u062a\u0627\u0631\u064a\u062e \u0648\u0631\u062f\u064a\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644",
+      "subtextEn": "Active Line: Extruder L-08",
+      "subtextAr": "\u0627\u0644\u062e\u0637 \u0627\u0644\u0646\u0634\u0637: L-08"
+    }
+  },
+  "pillars": [
+    {
+      "id": "engineering_governance",
+      "titleEn": "Pillar A: Engineering & Governance Hub",
+      "titleAr": "\u0627\u0644\u0631\u0643\u064a\u0632\u0629 \u0623: \u0645\u0639\u0645\u0644 \u0627\u0644\u0646\u0628\u0639 \u0627\u0644\u0635\u0627\u0641\u064a \u0648\u0627\u0644\u062f\u0633\u062a\u0648\u0631",
+      "badge": "SPEC GOVERNANCE",
+      "accentColor": "emerald",
+      "cards": [
+        {
+          "id": "catalog_harmonizer",
+          "titleEn": "Catalog Harmonizer Lab",
+          "titleAr": "\u0645\u062e\u062a\u0628\u0631 \u062a\u0648\u062d\u064a\u062f \u062f\u0644\u064a\u0644 \u0627\u0644\u0623\u0635\u0646\u0627\u0641",
+          "badge": "STAGING SANDBOX",
+          "badgeColor": "amber",
+          "icon": "Sliders",
+          "descEn": "Clean, standardize messy item descriptions, test archetypes, and reconcile variances.",
+          "descAr": "\u062a\u0646\u0638\u064a\u0641 \u0648\u062a\u0648\u062d\u064a\u062f \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0646\u062a\u062c\u0627\u062a \u0648\u0627\u062e\u062a\u0628\u0627\u0631 \u0642\u0648\u0627\u0644\u0628 \u0627\u0644\u062a\u0633\u0645\u064a\u0629 \u0648\u062d\u0644 \u062a\u0639\u0627\u0631\u0636\u0627\u062a \u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062a.",
+          "actionEn": "Launch Harmonizer Lab",
+          "actionAr": "\u062a\u0634\u063a\u064a\u0644 \u0645\u062e\u062a\u0628\u0631 \u0627\u0644\u062a\u0648\u062d\u064a\u062f",
+          "targetModule": "catalog-harmonizer"
+        },
+        {
+          "id": "engineering_docs",
+          "titleEn": "Engineering Governance Hub",
+          "titleAr": "\u062a\u0648\u062b\u064a\u0642 \u0627\u0644\u062d\u0648\u0643\u0645\u0629 \u0627\u0644\u0647\u0646\u062f\u0633\u064a\u0629",
+          "badge": "DOCX / A4",
+          "badgeColor": "cyan",
+          "icon": "BookOpen",
+          "descEn": "Official technical standards, 23-point constitution, and dual-mode weight reference.",
+          "descAr": "\u0627\u0644\u0645\u0648\u0627\u0635\u0641\u0627\u062a \u0627\u0644\u0641\u0646\u064a\u0629 \u0627\u0644\u0631\u0633\u0645\u064a\u0629\u060c \u062f\u0633\u062a\u0648\u0631 \u0627\u0644\u0645\u0635\u0646\u0639 (\u0662\u0663 \u0628\u0646\u062f)\u060c \u0648\u062c\u062f\u0627\u0648\u0644 \u0627\u0644\u0623\u0648\u0632\u0627\u0646 \u0627\u0644\u0645\u0639\u062a\u0645\u062f\u0629.",
+          "actionEn": "Open Engineering Docs",
+          "actionAr": "\u0641\u062a\u062d \u0648\u062b\u0627\u0626\u0642 \u0627\u0644\u062d\u0648\u0643\u0645\u0629",
+          "targetModule": "engineering-docs"
+        },
+        {
+          "id": "master_standards_inspector",
+          "titleEn": "Master Standards Inspector",
+          "titleAr": "\u0641\u0627\u062d\u0635 \u0627\u0644\u0645\u0639\u0627\u064a\u064a\u0631 \u0627\u0644\u0642\u064a\u0627\u0633\u064a\u0629",
+          "badge": "LOOKUP",
+          "badgeColor": "emerald",
+          "icon": "ShieldCheck",
+          "descEn": "Active catalog verification, technical dimensional tolerances, and lookup table.",
+          "descAr": "\u0645\u0631\u0643\u0632 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0645\u0637\u0627\u0628\u0642\u0629 \u0623\u0628\u0639\u0627\u062f \u0627\u0644\u0645\u0646\u062a\u062c\u0627\u062a \u0648\u062c\u062f\u0627\u0648\u0644 \u0627\u0644\u0641\u062d\u0635 \u0627\u0644\u0641\u0646\u064a.",
+          "actionEn": "Inspect Standards",
+          "actionAr": "\u0641\u062d\u0635 \u0627\u0644\u0645\u0639\u0627\u064a\u064a\u0631",
+          "targetModule": "data-analysis",
+          "targetTab": "verification"
+        }
+      ]
+    },
+    {
+      "id": "production_operations",
+      "titleEn": "Pillar B: Production Operations & OEE",
+      "titleAr": "\u0627\u0644\u0631\u0643\u064a\u0632\u0629 \u0628: \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u062e\u0637\u0648\u0637 \u0648\u0627\u0644\u0648\u0631\u062f\u064a\u0627\u062a",
+      "badge": "24H ACTIVE",
+      "accentColor": "blue",
+      "cards": [
+        {
+          "id": "daily_oee_monitoring",
+          "titleEn": "24-Hour Production Monitoring & OEE",
+          "titleAr": "\u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0648OEE (\u0662\u0664 \u0633\u0627\u0639\u0629)",
+          "badge": "LIVE RUN",
+          "badgeColor": "emerald",
+          "icon": "ClipboardList",
+          "descEn": "Daily shift log, hourly production entries, downtime reconciliation, and real-time scrap tracking.",
+          "descAr": "\u0633\u062c\u0644 \u0627\u0644\u0648\u0631\u062f\u064a\u0627\u062a \u0627\u0644\u064a\u0648\u0645\u064a\u060c \u0627\u0644\u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0633\u0627\u0639\u064a\u060c \u062a\u0633\u0648\u064a\u0629 \u0627\u0644\u062a\u0648\u0642\u0641\u0627\u062a\u060c \u0648\u062d\u0633\u0627\u0628 \u0646\u0633\u0628 \u0627\u0644\u0647\u0627\u0644\u0643 \u0648\u0627\u0644\u0643\u0641\u0627\u0621\u0629.",
+          "actionEn": "Open Daily OEE",
+          "actionAr": "\u0641\u062a\u062d \u0633\u062c\u0644 \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u0627\u0644\u064a\u0648\u0645\u064a",
+          "targetModule": "daily-evaluation"
+        },
+        {
+          "id": "morning_sop_handover",
+          "titleEn": "Morning SOP & Shift Handover",
+          "titleAr": "\u0646\u0645\u0648\u0630\u062c \u0627\u0644\u0648\u0631\u062f\u064a\u0629 \u0627\u0644\u0635\u0628\u0627\u062d\u064a (SOP)",
+          "badge": "PRINT / A4",
+          "badgeColor": "blue",
+          "icon": "FileSpreadsheet",
+          "descEn": "Printable shift checklists, baseline pace targets, and operational line standards.",
+          "descAr": "\u0646\u0645\u0627\u0630\u062c \u0627\u0644\u0648\u0631\u062f\u064a\u0627\u062a \u0627\u0644\u062c\u0627\u0647\u0632\u0629 \u0644\u0644\u0637\u0628\u0627\u0639\u0629\u060c \u0645\u0639\u062f\u0644\u0627\u062a \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u0645\u0633\u062a\u0647\u062f\u0641\u0629\u060c \u0648\u0645\u0639\u0627\u064a\u064a\u0631 \u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0648\u0631\u062f\u064a\u0629.",
+          "actionEn": "Print Morning SOP",
+          "actionAr": "\u0637\u0628\u0627\u0639\u0629 \u0646\u0645\u0648\u0630\u062c \u0627\u0644\u0648\u0631\u062f\u064a\u0629",
+          "triggerAction": "open_blank_sop"
+        },
+        {
+          "id": "machine_settings_matrix",
+          "titleEn": "Extruder & Machine Matrix",
+          "titleAr": "\u0645\u0635\u0641\u0648\u0641\u0629 \u0627\u0644\u062e\u0637\u0648\u0637 \u0648\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u062a\u0634\u063a\u064a\u0644",
+          "badge": "CONFIG",
+          "badgeColor": "teal",
+          "icon": "Factory",
+          "descEn": "Machine settings, sizing capacity, line speeds, and tooling assignments.",
+          "descAr": "\u062a\u0647\u064a\u0626\u0629 \u0637\u0627\u0642\u0627\u062a \u0627\u0644\u062e\u0637\u0648\u0637\u060c \u0642\u0648\u0627\u0639\u062f \u062a\u0648\u0632\u064a\u0639 \u0627\u0644\u0645\u0642\u0627\u0633\u0627\u062a\u060c \u0648\u0633\u0631\u0639\u0627\u062a \u0627\u0644\u0633\u062d\u0628 \u0627\u0644\u0645\u0639\u064a\u0627\u0631\u064a\u0629.",
+          "actionEn": "Configure Machines",
+          "actionAr": "\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0645\u0627\u0643\u064a\u0646\u0627\u062a",
+          "triggerAction": "open_machine_settings"
+        }
+      ]
+    },
+    {
+      "id": "data_integration",
+      "titleEn": "Pillar C: Data Integration & Master Ingestion",
+      "titleAr": "\u0627\u0644\u0631\u0643\u064a\u0632\u0629 \u062c: \u062a\u0628\u0627\u062f\u0644 \u0648\u0631\u0641\u0639 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a",
+      "badge": "SYNC HUB",
+      "accentColor": "purple",
+      "cards": [
+        {
+          "id": "excel_data_hub",
+          "titleEn": "Excel Data Exchange Hub",
+          "titleAr": "\u0645\u0631\u0643\u0632 \u062a\u0628\u0627\u062f\u0644 \u0645\u0644\u0641\u0627\u062a \u0627\u0644\u0625\u0643\u0633\u064a\u0644",
+          "badge": "MULTI-SOURCE",
+          "badgeColor": "cyan",
+          "icon": "Database",
+          "descEn": "Dual-mode workbook ingestion (AlManar_2 / AlManar_9), daily uploads, and database persistence.",
+          "descAr": "\u0627\u0633\u062a\u064a\u0631\u0627\u062f \u0645\u0644\u0641\u0627\u062a AlManar_2 \u0648AlManar_9\u060c \u0627\u0644\u0631\u0641\u0639 \u0627\u0644\u064a\u0648\u0645\u064a\u060c \u0648\u0627\u0644\u0645\u0632\u0627\u0645\u0646\u0629 \u0645\u0639 \u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a.",
+          "actionEn": "Open Ingestion Hub",
+          "actionAr": "\u0641\u062a\u062d \u0645\u0631\u0643\u0632 \u0627\u0644\u062a\u0628\u0627\u062f\u0644",
+          "targetModule": "data-hub"
+        },
+        {
+          "id": "plant_analytics_trends",
+          "titleEn": "Plant Analytics & Trends",
+          "titleAr": "\u062a\u062d\u0644\u064a\u0644\u0627\u062a \u0627\u0644\u0645\u0635\u0646\u0639 \u0648\u0627\u0644\u0627\u062a\u062c\u0627\u0647\u0627\u062a",
+          "badge": "CHARTS",
+          "badgeColor": "indigo",
+          "icon": "BarChart3",
+          "descEn": "Historical production trends, line utilization, Pareto downtime causes, and variance analytics.",
+          "descAr": "\u062a\u062d\u0644\u064a\u0644 \u0627\u062a\u062c\u0627\u0647\u0627\u062a \u0627\u0644\u0625\u0646\u062a\u0627\u062c \u0627\u0644\u062a\u0627\u0631\u064a\u062e\u064a\u0629\u060c \u0643\u0641\u0627\u0621\u0629 \u0627\u0633\u062a\u063a\u0644\u0627\u0644 \u0627\u0644\u062e\u0637\u0648\u0637\u060c \u0648\u0645\u062e\u0637\u0637 \u0628\u0627\u0631\u064a\u062a\u0648 \u0644\u0644\u062a\u0648\u0642\u0641\u0627\u062a.",
+          "actionEn": "View Analytics",
+          "actionAr": "\u0639\u0631\u0636 \u0627\u0644\u062a\u062d\u0644\u064a\u0644\u0627\u062a",
+          "targetModule": "data-analysis",
+          "targetTab": "dashboard"
+        }
+      ]
+    }
+  ]
+}

@@ -224,7 +224,7 @@ export default function CatalogHarmonizerLabView({
       }
       return true;
     });
-  }, [isFocus10Mode, currentBatchItems, stagedItems, filterMode, searchQuery]);
+  }, [isFocus3Mode, currentBatchItems, stagedItems, filterMode, searchQuery]);
 
   // Ingestion: Load Active Planning Catalog with provenance
   const handleLoadActivePlanningCatalog = () => {
@@ -1167,7 +1167,7 @@ export default function CatalogHarmonizerLabView({
                         </p>
                         <button
                           type="button"
-                          onClick={() => setIsFocus10Mode(false)}
+                          onClick={() => setIsFocus3Mode(false)}
                           className="mt-2 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
                         >
                           {isAr ? '\u0639\u0631\u0636 \u062C\u0645\u064A\u0639 \u0627\u0644\u0623\u0635\u0646\u0627\u0641' : 'View All Staged Items'}

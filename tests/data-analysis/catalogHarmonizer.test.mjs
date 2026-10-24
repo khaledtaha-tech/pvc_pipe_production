@@ -510,4 +510,22 @@ assert.ok(diag.advicePoints.length >= 2);
 assert.strictEqual(diag.recommendation, 'Purge Garbage Tokens');
 console.log('Test 26 Passed: Diagnostic advisory recommendations verified.');
 
-console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (26/26) ---');
+// Test 27: Static Analysis & Reference Integrity of CatalogHarmonizerLabView.jsx
+console.log('Test 27: Static Analysis & Reference Integrity of CatalogHarmonizerLabView.jsx');
+const labViewPath = path.resolve('src/components/catalog-harmonizer/CatalogHarmonizerLabView.jsx');
+assert.strictEqual(fs.existsSync(labViewPath), true, 'CatalogHarmonizerLabView.jsx must exist');
+const labViewCode = fs.readFileSync(labViewPath, 'utf8');
+
+// Ensure no lingering isFocus10Mode
+assert.strictEqual(labViewCode.includes('isFocus10Mode'), false, 'Must not contain any lingering isFocus10Mode references');
+
+// Ensure isFocus3Mode is present and used
+assert.strictEqual(labViewCode.includes('isFocus3Mode'), true, 'Must use active isFocus3Mode state variable');
+
+// Ensure zero literal Arabic characters
+const arabicMatch = labViewCode.match(arabicRegex);
+assert.strictEqual(arabicMatch, null, 'Must contain zero literal Arabic characters in CatalogHarmonizerLabView.jsx');
+
+console.log('Test 27 Passed: Clean reference integrity and zero literal Arabic characters verified in CatalogHarmonizerLabView.');
+
+console.log('--- ALL CATALOG HARMONIZER LAB UNIT TESTS PASSED (27/27) ---');

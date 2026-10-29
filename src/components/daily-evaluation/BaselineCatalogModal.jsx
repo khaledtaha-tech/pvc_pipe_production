@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { FileSpreadsheet } from 'lucide-react';
 import { MACHINES } from '../../config/machines.js';
 import {
   getAllBaselines,
@@ -8,14 +9,17 @@ import {
   saveBaselineRateToServer,
   removeBaselineRateFromServer,
   getFullMachineName,
+  exportStandardsToExcel,
   BASELINE_CATALOG_UPDATED_EVENT
 } from '../../logic/standardCatalogHelper.js';
 
 export default function BaselineCatalogModal({
   isOpen,
   onClose,
-  machineMaster = []
+  machineMaster = [],
+  lang = 'en'
 }) {
+  const isAr = lang === 'ar';
   const [catalog, setCatalog] = useState({});
   const [editingHourly, setEditingHourly] = useState({});
   const [editingDaily, setEditingDaily] = useState({});
@@ -202,6 +206,56 @@ export default function BaselineCatalogModal({
     }
   };
 
+  const handleExportXlsx = () => {
+    if (catalogEntries.length === 0) {
+      alert(isAr ? '\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u0639\u0627\u064A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629 \u0644\u0644\u062A\u0635\u062F\u064A\u0631' : 'No baseline standards available to export.');
+      return;
+    }
+    try {
+      const entriesToExport = catalogEntries.map((row) => {
+        const currentHourlyVal = editingHourly[row.key] !== undefined
+          ? editingHourly[row.key]
+          : String(row.baselinePcsH || '');
+        const currentDailyVal = editingDaily[row.key] !== undefined
+          ? editingDaily[row.key]
+          : String(
+              row.dailyTargetPcs != null && Number(row.dailyTargetPcs) > 0
+                ? row.dailyTargetPcs
+                : (row.baselinePcsH ? Math.round(Number(row.baselinePcsH) * 24) : '')
+            );
+
+        const rate = Math.round(Number(currentHourlyVal) || Number(row.baselinePcsH) || 0);
+        const daily = Math.round(
+          Number(currentDailyVal) ||
+          (row.dailyTargetPcs ? Number(row.dailyTargetPcs) : (rate > 0 ? rate * 24 : 0))
+        );
+        const printed = rate > 0 ? Math.round(rate / 0.85) : 0;
+        const fullMachineName = getFullMachineName(row.lineId, lineOptions);
+
+        return {
+          machineLine: fullMachineName,
+          lineId: row.lineId,
+          productCode: row.productCode,
+          approvedRealRate: rate,
+          dailyTarget24h: daily,
+          printedSopTarget: printed,
+          timestamp: row.approvedDate || row.updatedAt || row.createdAt || ''
+        };
+      });
+
+      const { filename } = exportStandardsToExcel(entriesToExport, lineOptions);
+      setFeedback(
+        isAr
+          ? `\u062A\u0645 \u062A\u0635\u062F\u064A\u0631 ${entriesToExport.length} \u0645\u0639\u064A\u0627\u0631 \u0625\u0644\u0649 ${filename}`
+          : `Exported ${entriesToExport.length} standards to ${filename}`
+      );
+      setTimeout(() => setFeedback(''), 4000);
+    } catch (err) {
+      console.error('Failed to export standards catalog to Excel:', err);
+      alert('Error exporting standards catalog: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
   const handleAddNew = (e) => {
     e.preventDefault();
     const cleanCode = String(newProductCode).trim().toUpperCase();
@@ -263,14 +317,26 @@ export default function BaselineCatalogModal({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="export-modal-close-btn"
-            onClick={onClose}
-            aria-label="Close standards catalog"
-          >
-            &times;
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              className="standards-catalog-header-export-btn"
+              onClick={handleExportXlsx}
+              disabled={catalogEntries.length === 0}
+              title={isAr ? '\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0645\u0639\u0627\u064A\u064A\u0631 (.xlsx)' : 'Export Standards (.xlsx)'}
+            >
+              <FileSpreadsheet size={15} />
+              <span>{isAr ? '\u062A\u0635\u062F\u064A\u0631 (.xlsx)' : 'Export (.xlsx)'}</span>
+            </button>
+            <button
+              type="button"
+              className="export-modal-close-btn"
+              onClick={onClose}
+              aria-label="Close standards catalog"
+            >
+              &times;
+            </button>
+          </div>
         </div>
 
         {/* Feedback message */}
@@ -491,17 +557,31 @@ export default function BaselineCatalogModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="export-modal-footer">
-          <span className="standards-catalog-count-note">
-            Total Standards: <strong>{catalogEntries.length}</strong>
-          </span>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-          >
-            Close
-          </button>
+        <div className="export-modal-footer standards-catalog-footer">
+          <div className="standards-catalog-footer-left">
+            <span className="standards-catalog-count-note">
+              Total Standards: <strong>{catalogEntries.length}</strong>
+            </span>
+          </div>
+          <div className="standards-catalog-footer-actions">
+            <button
+              type="button"
+              className="standards-catalog-export-btn"
+              onClick={handleExportXlsx}
+              disabled={catalogEntries.length === 0}
+              title={isAr ? '\u062A\u0635\u062F\u064A\u0631 \u062F\u0644\u064A\u0644 \u0627\u0644\u0645\u0639\u0627\u064A\u064A\u0631 \u0625\u0644\u0649 \u0645\u0644\u0641 \u0625\u0643\u0633\u0644 (.xlsx)' : 'Export Standards (.xlsx)'}
+            >
+              <FileSpreadsheet size={16} className="standards-catalog-export-icon" />
+              <span>{isAr ? '\u062A\u0635\u062F\u064A\u0631 \u0627\u0644\u0645\u0639\u0627\u064A\u064A\u0631 (.xlsx)' : 'Export Standards (.xlsx)'}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+            >
+              {isAr ? '\u0625\u063A\u0644\u0627\u0642' : 'Close'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

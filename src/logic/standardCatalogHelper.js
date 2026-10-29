@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { matchMachine, machineLabel, MACHINES } from '../config/machines.js';
 import { getLatestHistoricalRunDetails, getLatestHistoricalRealRate } from './historicalLogHelper.js';
 
@@ -562,3 +563,136 @@ export function hasBaselineRate(lineId, productCode) {
   return Boolean(entry && Number(entry.baselinePcsH) > 0);
 }
 
+/**
+ * Export machine-mold standards baselines to an Excel workbook (.xlsx).
+ * Sheet name: "Machine_Mold_Standards"
+ * Columns:
+ * 1. Machine Line (machineLine or lineId)
+ * 2. Product Code (productCode)
+ * 3. Approved Real Rate (Pcs/h) (approvedRealRate)
+ * 4. Daily Target (24h) (dailyTarget24h)
+ * 5. Printed SOP Target (85%) (printedSopTarget)
+ * 6. Updated / Created Timestamp (if available in schema)
+ *
+ * @param {Array|Object} [entries=null] - Array or map of standard baseline entries. If omitted, loads getAllBaselines().
+ * @param {Array} [lineOptions=MACHINES] - Machine definitions list for full machine name resolution.
+ * @returns {object} XLSX Workbook
+ */
+export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES) {
+  let list = [];
+  if (Array.isArray(entries)) {
+    list = entries;
+  } else if (entries && typeof entries === 'object') {
+    list = Object.entries(entries).map(([key, val]) => ({ key, ...val }));
+  } else {
+    const baselines = getAllBaselines();
+    list = Object.entries(baselines || {}).map(([key, val]) => ({ key, ...val }));
+  }
+
+  // Sort by Line ID then Product Code
+  const sorted = [...list].sort((a, b) => {
+    const lineA = String(a.lineId || a.machineLine || '').trim().toUpperCase();
+    const lineB = String(b.lineId || b.machineLine || '').trim().toUpperCase();
+    const lineCmp = lineA.localeCompare(lineB);
+    if (lineCmp !== 0) return lineCmp;
+    return String(a.productCode || '').localeCompare(String(b.productCode || ''));
+  });
+
+  const rows = sorted.map((item) => {
+    const rawRate = item.approvedRealRate != null
+      ? item.approvedRealRate
+      : (item.baselinePcsH != null ? item.baselinePcsH : (item.rate || 0));
+    const rate = Math.round(Number(rawRate) || 0);
+
+    const rawDaily = item.dailyTarget24h != null
+      ? item.dailyTarget24h
+      : (item.dailyTargetPcs != null && Number(item.dailyTargetPcs) > 0 ? item.dailyTargetPcs : (rate > 0 ? rate * 24 : 0));
+    const daily = Math.round(Number(rawDaily) || 0);
+
+    const rawPrinted = item.printedSopTarget != null
+      ? item.printedSopTarget
+      : (rate > 0 ? Math.round(rate / 0.85) : 0);
+    const printed = Math.round(Number(rawPrinted) || 0);
+
+    const machineName = item.machineLine || getFullMachineName(item.lineId, lineOptions) || item.lineId || '';
+    const timestamp = String(
+      item.timestamp ||
+      item.updatedAt ||
+      item.updated_at ||
+      item.approvedDate ||
+      item.approved_date ||
+      item.createdAt ||
+      item.created_at ||
+      ''
+    ).trim();
+
+    return {
+      'Machine Line': machineName,
+      'Product Code': String(item.productCode || '').trim(),
+      'Approved Real Rate (Pcs/h)': rate,
+      'Daily Target (24h)': daily,
+      'Printed SOP Target (85%)': printed,
+      'Updated / Created Timestamp': timestamp
+    };
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(
+    rows.length > 0
+      ? rows
+      : [
+          {
+            'Machine Line': '',
+            'Product Code': '',
+            'Approved Real Rate (Pcs/h)': '',
+            'Daily Target (24h)': '',
+            'Printed SOP Target (85%)': '',
+            'Updated / Created Timestamp': ''
+          }
+        ]
+  );
+
+  // Auto-adjusted column widths
+  const headers = [
+    'Machine Line',
+    'Product Code',
+    'Approved Real Rate (Pcs/h)',
+    'Daily Target (24h)',
+    'Printed SOP Target (85%)',
+    'Updated / Created Timestamp'
+  ];
+
+  ws['!cols'] = headers.map((colKey) => {
+    let maxLen = colKey.length;
+    for (const r of rows) {
+      const valStr = String(r[colKey] != null ? r[colKey] : '');
+      if (valStr.length > maxLen) {
+        maxLen = valStr.length;
+      }
+    }
+    return { wch: Math.max(maxLen + 4, 16) };
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Machine_Mold_Standards');
+  return wb;
+}
+
+/**
+ * Trigger client-side Excel download of Machine-Mold Standards Catalog (.xlsx).
+ * Default filename: Machine_Mold_Standards_Catalog_YYYY-MM-DD.xlsx
+ *
+ * @param {Array|Object} [entries=null]
+ * @param {Array} [lineOptions=MACHINES]
+ * @param {string} [customFilename=null]
+ * @returns {{ wb: object, filename: string }}
+ */
+export function exportStandardsToExcel(entries = null, lineOptions = MACHINES, customFilename = null) {
+  const wb = exportStandardsToWorkbook(entries, lineOptions);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = customFilename || `Machine_Mold_Standards_Catalog_${dateStr}.xlsx`;
+
+  if (typeof XLSX.writeFile === 'function') {
+    XLSX.writeFile(wb, filename);
+  }
+  return { wb, filename };
+}

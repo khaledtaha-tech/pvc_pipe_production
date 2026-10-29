@@ -8939,6 +8939,83 @@ html:not(.light) .print-sop-switch-banner .btn-link-action:hover {
   color: #64748b;
 }
 
+.standards-catalog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.standards-catalog-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.standards-catalog-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.standards-catalog-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #ffffff;
+  border: 1px solid #047857;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.standards-catalog-export-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+  transform: translateY(-1px);
+}
+
+.standards-catalog-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.standards-catalog-export-icon {
+  flex-shrink: 0;
+}
+
+.standards-catalog-header-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.standards-catalog-header-export-btn:hover:not(:disabled) {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.standards-catalog-header-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Dark Mode Overrides */
 html:not(.light) .standards-catalog-feedback {
   background: rgba(22, 101, 52, 0.2);
@@ -9056,6 +9133,28 @@ html:not(.light) .standards-btn-delete:hover {
 
 html:not(.light) .standards-catalog-count-note {
   color: #94a3b8;
+}
+
+html:not(.light) .standards-catalog-export-btn {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+html:not(.light) .standards-catalog-export-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+html:not(.light) .standards-catalog-header-export-btn {
+  background: rgba(6, 95, 70, 0.35);
+  color: #6ee7b7;
+  border-color: #059669;
+}
+
+html:not(.light) .standards-catalog-header-export-btn:hover:not(:disabled) {
+  background: rgba(6, 95, 70, 0.55);
+  border-color: #10b981;
 }
 
 /* ============ DAILY AUDIT EXECUTIVE PDF REPORT (A4 LANDSCAPE) ============ */

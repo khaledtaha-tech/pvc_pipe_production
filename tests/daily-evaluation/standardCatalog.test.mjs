@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {
   saveBaselineRate,
@@ -14,13 +16,17 @@ import {
   saveBaselineRateToServer,
   removeBaselineRateFromServer,
   syncBaselinesWithServer,
-  getFullMachineName
+  getFullMachineName,
+  exportStandardsToWorkbook,
+  exportStandardsToExcel
 } from '../../src/logic/standardCatalogHelper.js';
 import {
   saveBaselineRate as saveBaselineRateUtil,
   getBaselineRate as getBaselineRateUtil,
   getBaselineEntry as getBaselineEntryUtil,
-  getFullMachineName as getFullMachineNameUtil
+  getFullMachineName as getFullMachineNameUtil,
+  exportStandardsToWorkbook as exportStandardsToWorkbookUtil,
+  exportStandardsToExcel as exportStandardsToExcelUtil
 } from '../../src/utils/standardCatalogHelper.js';
 import {
   buildMorningSopModel,
@@ -364,4 +370,90 @@ assert.equal(getFullMachineName('L-06 - KTS 700'), 'L-06 - KTS 700');
 assert.equal(getFullMachineNameUtil('L-05'), 'L-05 - KTS 200');
 console.log('Test 17 Passed: getFullMachineName canonical registry lookup verified.');
 
-console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (17/17) ---');
+
+// 18. Export Standards to Excel Workbook (.xlsx) structure & fields
+const testEntries = [
+  {
+    lineId: 'L-02',
+    productCode: '255',
+    baselinePcsH: 250,
+    dailyTargetPcs: 6000,
+    approvedDate: '2026-10-25'
+  },
+  {
+    lineId: 'L-06',
+    productCode: '259',
+    baselinePcsH: 170,
+    dailyTargetPcs: 4080,
+    approvedDate: '2026-10-26'
+  }
+];
+
+const wb = exportStandardsToWorkbook(testEntries);
+assert.ok(wb.SheetNames.includes('Machine_Mold_Standards'), 'Sheet name must be Machine_Mold_Standards');
+const ws = wb.Sheets['Machine_Mold_Standards'];
+const sheetRows = XLSX.utils.sheet_to_json(ws);
+assert.equal(sheetRows.length, 2, 'Must contain 2 exported standard rows');
+
+// Verify column headers and field contents
+const firstRow = sheetRows[0];
+assert.ok('Machine Line' in firstRow, 'Column Machine Line must exist');
+assert.ok('Product Code' in firstRow, 'Column Product Code must exist');
+assert.ok('Approved Real Rate (Pcs/h)' in firstRow, 'Column Approved Real Rate (Pcs/h) must exist');
+assert.ok('Daily Target (24h)' in firstRow, 'Column Daily Target (24h) must exist');
+assert.ok('Printed SOP Target (85%)' in firstRow, 'Column Printed SOP Target (85%) must exist');
+assert.ok('Updated / Created Timestamp' in firstRow, 'Column Updated / Created Timestamp must exist');
+
+assert.equal(firstRow['Machine Line'], 'L-02 - KTS 170');
+assert.equal(firstRow['Product Code'], '255');
+assert.equal(firstRow['Approved Real Rate (Pcs/h)'], 250);
+assert.equal(firstRow['Daily Target (24h)'], 6000);
+assert.equal(firstRow['Printed SOP Target (85%)'], 294); // Math.round(250 / 0.85)
+assert.equal(firstRow['Updated / Created Timestamp'], '2026-10-25');
+
+// Verify auto-adjusted column widths (!cols)
+assert.ok(Array.isArray(ws['!cols']), 'Column width settings !cols must be defined');
+assert.equal(ws['!cols'].length, 6, 'Must define width for all 6 columns');
+ws['!cols'].forEach(col => {
+  assert.ok(col.wch >= 14, 'Column width should be at least 14 characters');
+});
+console.log('Test 18 Passed: exportStandardsToWorkbook generates clean Machine_Mold_Standards sheet with 6 columns & auto widths.');
+
+// 19. Export Standards to Excel (.xlsx) filename pattern & fallback
+const exportResult = exportStandardsToExcel(testEntries);
+assert.ok(exportResult.wb, 'Must return workbook object');
+const todayDateStr = new Date().toISOString().slice(0, 10);
+assert.equal(
+  exportResult.filename,
+  `Machine_Mold_Standards_Catalog_${todayDateStr}.xlsx`,
+  'Default filename must match Machine_Mold_Standards_Catalog_YYYY-MM-DD.xlsx'
+);
+if (fs.existsSync(exportResult.filename)) {
+  fs.unlinkSync(exportResult.filename);
+}
+
+// Empty entries handling
+const emptyWb = exportStandardsToWorkbook([]);
+assert.ok(emptyWb.SheetNames.includes('Machine_Mold_Standards'));
+const emptyWs = emptyWb.Sheets['Machine_Mold_Standards'];
+assert.ok(emptyWs, 'Empty sheet must exist');
+console.log('Test 19 Passed: exportStandardsToExcel generates default filename pattern and handles empty lists safely.');
+
+// 20. Zero literal Arabic characters check in updated standards files
+const filesToCheck = [
+  'src/logic/standardCatalogHelper.js',
+  'src/components/daily-evaluation/BaselineCatalogModal.jsx'
+];
+const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+for (const relPath of filesToCheck) {
+  const code = fs.readFileSync(relPath, 'utf8');
+  assert.equal(
+    arabicRegex.test(code),
+    false,
+    `File ${relPath} must contain ZERO literal Arabic characters (use \\u06xx unicode escapes only)`
+  );
+}
+console.log('Test 20 Passed: Zero literal Arabic characters verified in standardCatalogHelper.js & BaselineCatalogModal.jsx.');
+
+console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (20/20) ---');
+

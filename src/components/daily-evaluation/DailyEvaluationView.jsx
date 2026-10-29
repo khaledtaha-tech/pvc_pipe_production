@@ -2425,6 +2425,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         isOpen={isCatalogModalOpen}
         onClose={() => setIsCatalogModalOpen(false)}
         machineMaster={machineMaster}
+        lang={lang}
       />
 
       {/* Executive Single-Page A4 Daily Audit PDF Report Modal */}

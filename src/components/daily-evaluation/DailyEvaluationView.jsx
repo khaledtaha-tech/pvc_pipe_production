@@ -121,7 +121,7 @@ function blankReport() {
 }
 
 const DailyEvaluationView = forwardRef(function DailyEvaluationView(
-  { onNotify, sharedRecords, sharedTheme, lang = 'en', historicalRawRows = [], rawRows = [], onOpenEngineeringDocs },
+  { onNotify, sharedRecords, sharedTheme, lang = 'en', historicalRawRows = [], rawRows = [], onOpenEngineeringDocs, planningMatrix = [] },
   ref
 ) {
   const isAr = lang === 'ar';
@@ -2425,6 +2425,7 @@ const DailyEvaluationView = forwardRef(function DailyEvaluationView(
         isOpen={isCatalogModalOpen}
         onClose={() => setIsCatalogModalOpen(false)}
         machineMaster={machineMaster}
+        planningMatrix={planningMatrix}
         lang={lang}
       />
 

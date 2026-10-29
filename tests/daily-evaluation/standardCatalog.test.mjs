@@ -17,6 +17,7 @@ import {
   removeBaselineRateFromServer,
   syncBaselinesWithServer,
   getFullMachineName,
+  lookupRawDescription,
   exportStandardsToWorkbook,
   exportStandardsToExcel
 } from '../../src/logic/standardCatalogHelper.js';
@@ -25,6 +26,7 @@ import {
   getBaselineRate as getBaselineRateUtil,
   getBaselineEntry as getBaselineEntryUtil,
   getFullMachineName as getFullMachineNameUtil,
+  lookupRawDescription as lookupRawDescriptionUtil,
   exportStandardsToWorkbook as exportStandardsToWorkbookUtil,
   exportStandardsToExcel as exportStandardsToExcelUtil
 } from '../../src/utils/standardCatalogHelper.js';
@@ -371,7 +373,30 @@ assert.equal(getFullMachineNameUtil('L-05'), 'L-05 - KTS 200');
 console.log('Test 17 Passed: getFullMachineName canonical registry lookup verified.');
 
 
-// 18. Export Standards to Excel Workbook (.xlsx) structure & fields
+// 18. lookupRawDescription resolution across catalog, planning matrix, and fallbacks
+const mockMatrix = [
+  { itemCode: 'CUSTOM-99', pipeDescription: 'PVC CONDUIT 20MM CLASS 4 BS 4607' },
+  { itemCode: '0259', pipeDescription: 'PVC PIPE 200MM PN10 SASO-ISO 1452-2' }
+];
+
+// Lookup from preset seed catalog
+const raw255 = lookupRawDescription('255');
+assert.equal(raw255, 'uPVC PIPE 50x2.4 PN-10 SASO-ISO 1452-2');
+
+// Lookup with leading zeros
+const raw0255 = lookupRawDescription('0255');
+assert.equal(raw0255, 'uPVC PIPE 50x2.4 PN-10 SASO-ISO 1452-2');
+
+// Lookup from custom planningMatrix
+const rawCustom = lookupRawDescription('CUSTOM-99', mockMatrix);
+assert.equal(rawCustom, 'PVC CONDUIT 20MM CLASS 4 BS 4607');
+
+// Fallback for non-existent code
+const rawMissing = lookupRawDescription('UNKNOWN-SKU-9999');
+assert.equal(rawMissing, '-');
+console.log('Test 18 Passed: lookupRawDescription cross-references active catalog, planning matrix, and graceful fallback.');
+
+// 19. Export Standards to Excel Workbook (.xlsx) structure, Raw Description column & auto widths
 const testEntries = [
   {
     lineId: 'L-02',
@@ -382,14 +407,15 @@ const testEntries = [
   },
   {
     lineId: 'L-06',
-    productCode: '259',
+    productCode: 'CUSTOM-99',
+    rawDescription: 'PVC CONDUIT 20MM CLASS 4 BS 4607',
     baselinePcsH: 170,
     dailyTargetPcs: 4080,
     approvedDate: '2026-10-26'
   }
 ];
 
-const wb = exportStandardsToWorkbook(testEntries);
+const wb = exportStandardsToWorkbook(testEntries, undefined, mockMatrix);
 assert.ok(wb.SheetNames.includes('Machine_Mold_Standards'), 'Sheet name must be Machine_Mold_Standards');
 const ws = wb.Sheets['Machine_Mold_Standards'];
 const sheetRows = XLSX.utils.sheet_to_json(ws);
@@ -399,6 +425,7 @@ assert.equal(sheetRows.length, 2, 'Must contain 2 exported standard rows');
 const firstRow = sheetRows[0];
 assert.ok('Machine Line' in firstRow, 'Column Machine Line must exist');
 assert.ok('Product Code' in firstRow, 'Column Product Code must exist');
+assert.ok('Raw Description' in firstRow, 'Column Raw Description must exist');
 assert.ok('Approved Real Rate (Pcs/h)' in firstRow, 'Column Approved Real Rate (Pcs/h) must exist');
 assert.ok('Daily Target (24h)' in firstRow, 'Column Daily Target (24h) must exist');
 assert.ok('Printed SOP Target (85%)' in firstRow, 'Column Printed SOP Target (85%) must exist');
@@ -406,21 +433,26 @@ assert.ok('Updated / Created Timestamp' in firstRow, 'Column Updated / Created T
 
 assert.equal(firstRow['Machine Line'], 'L-02 - KTS 170');
 assert.equal(firstRow['Product Code'], '255');
+assert.equal(firstRow['Raw Description'], 'uPVC PIPE 50x2.4 PN-10 SASO-ISO 1452-2');
 assert.equal(firstRow['Approved Real Rate (Pcs/h)'], 250);
 assert.equal(firstRow['Daily Target (24h)'], 6000);
 assert.equal(firstRow['Printed SOP Target (85%)'], 294); // Math.round(250 / 0.85)
 assert.equal(firstRow['Updated / Created Timestamp'], '2026-10-25');
 
+const secondRow = sheetRows[1];
+assert.equal(secondRow['Product Code'], 'CUSTOM-99');
+assert.equal(secondRow['Raw Description'], 'PVC CONDUIT 20MM CLASS 4 BS 4607');
+
 // Verify auto-adjusted column widths (!cols)
 assert.ok(Array.isArray(ws['!cols']), 'Column width settings !cols must be defined');
-assert.equal(ws['!cols'].length, 6, 'Must define width for all 6 columns');
+assert.equal(ws['!cols'].length, 7, 'Must define width for all 7 columns including Raw Description');
 ws['!cols'].forEach(col => {
   assert.ok(col.wch >= 14, 'Column width should be at least 14 characters');
 });
-console.log('Test 18 Passed: exportStandardsToWorkbook generates clean Machine_Mold_Standards sheet with 6 columns & auto widths.');
+console.log('Test 19 Passed: exportStandardsToWorkbook generates clean Machine_Mold_Standards sheet with Raw Description & 7 columns.');
 
-// 19. Export Standards to Excel (.xlsx) filename pattern & fallback
-const exportResult = exportStandardsToExcel(testEntries);
+// 20. Export Standards to Excel (.xlsx) filename pattern & fallback
+const exportResult = exportStandardsToExcel(testEntries, undefined, null, mockMatrix);
 assert.ok(exportResult.wb, 'Must return workbook object');
 const todayDateStr = new Date().toISOString().slice(0, 10);
 assert.equal(
@@ -437,12 +469,15 @@ const emptyWb = exportStandardsToWorkbook([]);
 assert.ok(emptyWb.SheetNames.includes('Machine_Mold_Standards'));
 const emptyWs = emptyWb.Sheets['Machine_Mold_Standards'];
 assert.ok(emptyWs, 'Empty sheet must exist');
-console.log('Test 19 Passed: exportStandardsToExcel generates default filename pattern and handles empty lists safely.');
+console.log('Test 20 Passed: exportStandardsToExcel generates default filename pattern and handles empty lists safely.');
 
-// 20. Zero literal Arabic characters check in updated standards files
+// 21. Zero literal Arabic characters check in updated standards files
 const filesToCheck = [
   'src/logic/standardCatalogHelper.js',
-  'src/components/daily-evaluation/BaselineCatalogModal.jsx'
+  'src/components/daily-evaluation/BaselineCatalogModal.jsx',
+  'src/components/daily-evaluation/DailyEvaluationView.jsx',
+  'src/App.jsx',
+  'src/styles/dailyEvaluation.css'
 ];
 const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
 for (const relPath of filesToCheck) {
@@ -453,7 +488,7 @@ for (const relPath of filesToCheck) {
     `File ${relPath} must contain ZERO literal Arabic characters (use \\u06xx unicode escapes only)`
   );
 }
-console.log('Test 20 Passed: Zero literal Arabic characters verified in standardCatalogHelper.js & BaselineCatalogModal.jsx.');
+console.log('Test 21 Passed: Zero literal Arabic characters verified across all modified standards files.');
 
-console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (20/20) ---');
+console.log('--- ALL STANDARD BASELINE CATALOG & SOP TESTS PASSED (21/21) ---');
 

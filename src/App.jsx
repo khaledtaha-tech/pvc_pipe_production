@@ -544,6 +544,7 @@ function AppContent() {
             <ErrorBoundary>
               <DailyEvaluationView
                 ref={dailyEvalRef}
+                planningMatrix={uniquePlanningMatrix}
                 sharedTheme={theme}
                 lang={lang}
                 historicalRawRows={historicalRawRows}

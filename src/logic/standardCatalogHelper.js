@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx';
 import { matchMachine, machineLabel, MACHINES } from '../config/machines.js';
 import { getLatestHistoricalRunDetails, getLatestHistoricalRealRate } from './historicalLogHelper.js';
+import { getProductByCode, PRODUCT_CATALOG_STORAGE_KEY } from './productCatalogHelper.js';
+import { SOP_FACTORY_PRESETS } from './legacySopHelper.js';
 
 export const BASELINE_CATALOG_STORAGE_KEY = 'pvc_baseline_operating_catalog';
 export const BASELINE_CATALOG_UPDATED_EVENT = 'pvc_baseline_operating_catalog_updated';
@@ -564,21 +566,100 @@ export function hasBaselineRate(lineId, productCode) {
 }
 
 /**
+ * Lookup raw legacy description for a product code by cross-referencing:
+ * 1. Planning matrix (if provided)
+ * 2. Central product catalog registry (getProductByCode / localStorage)
+ * 3. SOP_FACTORY_PRESETS fallback
+ * Returns raw string or '-' if not found.
+ *
+ * @param {string|number} productCode
+ * @param {Array} [planningMatrix=[]]
+ * @returns {string}
+ */
+export function lookupRawDescription(productCode, planningMatrix = []) {
+  if (!productCode) return '-';
+  const cleanCode = String(productCode).trim().toUpperCase();
+  const strippedCode = cleanCode.replace(/^0+/, '');
+
+  // 1. Cross-reference with planningMatrix if available
+  if (Array.isArray(planningMatrix) && planningMatrix.length > 0) {
+    const match = planningMatrix.find((p) => {
+      const pCode = String(p.itemCode || p.productCode || p.code || '').trim().toUpperCase();
+      const pStripped = pCode.replace(/^0+/, '');
+      return pCode === cleanCode || (pStripped && pStripped === strippedCode);
+    });
+    if (match) {
+      const desc = match.rawDescription || match.pipeDescription || match.description || match.productDescription;
+      if (desc && String(desc).trim() && String(desc).trim() !== '-') {
+        return String(desc).trim();
+      }
+    }
+  }
+
+  // 2. Cross-reference with central product catalog registry
+  try {
+    const product = getProductByCode(cleanCode);
+    if (product) {
+      const desc = product.rawDescription || product.description || product.raw_description || product.productDescription;
+      if (desc && String(desc).trim() && String(desc).trim() !== '-') {
+        return String(desc).trim();
+      }
+    }
+  } catch (_) {}
+
+  // 3. Check localStorage cache directly
+  try {
+    const storage = getStorage();
+    if (storage) {
+      const raw = storage.getItem(PRODUCT_CATALOG_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          const item = parsed[cleanCode] || (strippedCode ? parsed[strippedCode] : null);
+          if (item) {
+            const desc = item.rawDescription || item.description || item.raw_description || item.productDescription;
+            if (desc && String(desc).trim() && String(desc).trim() !== '-') {
+              return String(desc).trim();
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 4. Fallback: check SOP_FACTORY_PRESETS from legacySopHelper
+  if (Array.isArray(SOP_FACTORY_PRESETS)) {
+    const preset = SOP_FACTORY_PRESETS.find((p) => {
+      const pCode = String(p.itemCode || '').trim().toUpperCase();
+      const pStripped = pCode.replace(/^0+/, '');
+      return pCode === cleanCode || (pStripped && pStripped === strippedCode);
+    });
+    if (preset && preset.description && String(preset.description).trim()) {
+      return String(preset.description).trim();
+    }
+  }
+
+  return '-';
+}
+
+/**
  * Export machine-mold standards baselines to an Excel workbook (.xlsx).
  * Sheet name: "Machine_Mold_Standards"
  * Columns:
  * 1. Machine Line (machineLine or lineId)
  * 2. Product Code (productCode)
- * 3. Approved Real Rate (Pcs/h) (approvedRealRate)
- * 4. Daily Target (24h) (dailyTarget24h)
- * 5. Printed SOP Target (85%) (printedSopTarget)
- * 6. Updated / Created Timestamp (if available in schema)
+ * 3. Raw Description (rawDescription)
+ * 4. Approved Real Rate (Pcs/h) (approvedRealRate)
+ * 5. Daily Target (24h) (dailyTarget24h)
+ * 6. Printed SOP Target (85%) (printedSopTarget)
+ * 7. Updated / Created Timestamp (if available in schema)
  *
  * @param {Array|Object} [entries=null] - Array or map of standard baseline entries. If omitted, loads getAllBaselines().
  * @param {Array} [lineOptions=MACHINES] - Machine definitions list for full machine name resolution.
+ * @param {Array} [planningMatrix=[]] - Planning matrix or active catalog for raw description lookup.
  * @returns {object} XLSX Workbook
  */
-export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES) {
+export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES, planningMatrix = []) {
   let list = [];
   if (Array.isArray(entries)) {
     list = entries;
@@ -615,6 +696,16 @@ export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES
     const printed = Math.round(Number(rawPrinted) || 0);
 
     const machineName = item.machineLine || getFullMachineName(item.lineId, lineOptions) || item.lineId || '';
+    const rawDesc = String(
+      item.rawDescription != null
+        ? item.rawDescription
+        : (item.raw_description != null
+            ? item.raw_description
+            : (item.description != null && item.description !== '-'
+                ? item.description
+                : lookupRawDescription(item.productCode, planningMatrix)))
+    ).trim() || '-';
+
     const timestamp = String(
       item.timestamp ||
       item.updatedAt ||
@@ -629,6 +720,7 @@ export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES
     return {
       'Machine Line': machineName,
       'Product Code': String(item.productCode || '').trim(),
+      'Raw Description': rawDesc,
       'Approved Real Rate (Pcs/h)': rate,
       'Daily Target (24h)': daily,
       'Printed SOP Target (85%)': printed,
@@ -644,6 +736,7 @@ export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES
           {
             'Machine Line': '',
             'Product Code': '',
+            'Raw Description': '',
             'Approved Real Rate (Pcs/h)': '',
             'Daily Target (24h)': '',
             'Printed SOP Target (85%)': '',
@@ -656,6 +749,7 @@ export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES
   const headers = [
     'Machine Line',
     'Product Code',
+    'Raw Description',
     'Approved Real Rate (Pcs/h)',
     'Daily Target (24h)',
     'Printed SOP Target (85%)',
@@ -684,10 +778,11 @@ export function exportStandardsToWorkbook(entries = null, lineOptions = MACHINES
  * @param {Array|Object} [entries=null]
  * @param {Array} [lineOptions=MACHINES]
  * @param {string} [customFilename=null]
+ * @param {Array} [planningMatrix=[]]
  * @returns {{ wb: object, filename: string }}
  */
-export function exportStandardsToExcel(entries = null, lineOptions = MACHINES, customFilename = null) {
-  const wb = exportStandardsToWorkbook(entries, lineOptions);
+export function exportStandardsToExcel(entries = null, lineOptions = MACHINES, customFilename = null, planningMatrix = []) {
+  const wb = exportStandardsToWorkbook(entries, lineOptions, planningMatrix);
   const dateStr = new Date().toISOString().slice(0, 10);
   const filename = customFilename || `Machine_Mold_Standards_Catalog_${dateStr}.xlsx`;
 

@@ -8844,6 +8844,17 @@ html:not(.light) .print-sop-switch-banner .btn-link-action:hover {
   color: #0f172a;
 }
 
+.standards-catalog-raw-desc {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.775rem;
+  color: #475569;
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .standards-catalog-rate-input {
   width: 90px;
   padding: 0.35rem 0.5rem;
@@ -9132,6 +9143,10 @@ html:not(.light) .standards-btn-delete:hover {
 }
 
 html:not(.light) .standards-catalog-count-note {
+  color: #94a3b8;
+}
+
+html:not(.light) .standards-catalog-raw-desc {
   color: #94a3b8;
 }
 

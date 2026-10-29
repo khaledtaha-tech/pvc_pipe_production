@@ -9,6 +9,7 @@ import {
   saveBaselineRateToServer,
   removeBaselineRateFromServer,
   getFullMachineName,
+  lookupRawDescription,
   exportStandardsToExcel,
   BASELINE_CATALOG_UPDATED_EVENT
 } from '../../logic/standardCatalogHelper.js';
@@ -17,6 +18,7 @@ export default function BaselineCatalogModal({
   isOpen,
   onClose,
   machineMaster = [],
+  planningMatrix = [],
   lang = 'en'
 }) {
   const isAr = lang === 'ar';
@@ -231,11 +233,13 @@ export default function BaselineCatalogModal({
         );
         const printed = rate > 0 ? Math.round(rate / 0.85) : 0;
         const fullMachineName = getFullMachineName(row.lineId, lineOptions);
+        const rawDesc = row.rawDescription || lookupRawDescription(row.productCode, planningMatrix) || '-';
 
         return {
           machineLine: fullMachineName,
           lineId: row.lineId,
           productCode: row.productCode,
+          rawDescription: rawDesc,
           approvedRealRate: rate,
           dailyTarget24h: daily,
           printedSopTarget: printed,
@@ -243,7 +247,7 @@ export default function BaselineCatalogModal({
         };
       });
 
-      const { filename } = exportStandardsToExcel(entriesToExport, lineOptions);
+      const { filename } = exportStandardsToExcel(entriesToExport, lineOptions, null, planningMatrix);
       setFeedback(
         isAr
           ? `\u062A\u0645 \u062A\u0635\u062F\u064A\u0631 ${entriesToExport.length} \u0645\u0639\u064A\u0627\u0631 \u0625\u0644\u0649 ${filename}`
@@ -426,18 +430,19 @@ export default function BaselineCatalogModal({
             <table className="standards-catalog-table">
               <thead>
                 <tr>
-                  <th style={{ width: '22%' }}>Machine Line</th>
-                  <th style={{ width: '13%' }}>Product Code</th>
-                  <th style={{ width: '19%', textAlign: 'center' }}>Approved Real Rate (Pcs/h)</th>
-                  <th style={{ width: '19%', textAlign: 'center' }}>Daily Target (24h)</th>
-                  <th style={{ width: '14%', textAlign: 'center' }}>Printed SOP Target (85%)</th>
-                  <th style={{ width: '13%', textAlign: 'center' }}>Actions</th>
+                  <th style={{ width: '18%' }}>Machine Line</th>
+                  <th style={{ width: '11%' }}>Product Code</th>
+                  <th style={{ width: '21%' }}>{isAr ? '\u0627\u0644\u0648\u0635\u0641 \u0627\u0644\u062E\u0627\u0645' : 'Raw Description'}</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>Approved Real Rate (Pcs/h)</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>Daily Target (24h)</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Printed SOP Target (85%)</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {catalogEntries.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="standards-catalog-empty">
+                    <td colSpan={7} className="standards-catalog-empty">
                       No baseline standards saved yet. Add a standard using the form above or bookmark one from the Morning Blank SOP dialog.
                     </td>
                   </tr>
@@ -478,6 +483,14 @@ export default function BaselineCatalogModal({
                         </td>
                         <td>
                           <strong className="standards-catalog-code">{row.productCode}</strong>
+                        </td>
+                        <td>
+                          <span
+                            className="standards-catalog-raw-desc"
+                            title={row.rawDescription || lookupRawDescription(row.productCode, planningMatrix) || '-'}
+                          >
+                            {row.rawDescription || lookupRawDescription(row.productCode, planningMatrix) || '-'}
+                          </span>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <div className="inline-flex items-center justify-center gap-1">
